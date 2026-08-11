@@ -65,13 +65,37 @@ SELECTORS = {
         "message-content",
         'div[data-response-index]',
     ],
+    # Thứ tự QUAN TRỌNG: ưu tiên ảnh nằm trong lượt trả lời của model.
+    # Selector chung chung (img[src^=lh3...]) để cuối vì nó dính cả avatar.
     "generated_image": [
+        "model-response single-image img",
+        "model-response generated-image img",
         "model-response img",
-        'img[src^="https://lh3.googleusercontent.com"]',
-        'img[src^="blob:"]',
-        'img[src^="data:image"]',
+        "message-content img",
         "single-image img",
         "generated-image img",
+        'img[src^="blob:"]',
+        'img[src^="data:image"]',
+        'img[src^="https://lh3.googleusercontent.com"]',
+    ],
+    # Trình xem ảnh phóng to (mở ra sau khi bấm vào ảnh trong khung chat).
+    # QUAN TRỌNG: ảnh nằm trong khung chat chỉ là bản xem trước độ phân giải
+    # thấp. Phải bấm vào nó để Gemini nạp bản gốc thì mới lấy được ảnh in được.
+    "image_viewer": [
+        "image-viewer img",
+        'div[role="dialog"] img',
+        "lightbox img",
+        ".image-panel img",
+    ],
+    "download_button": [
+        'button[aria-label*="Download" i]',
+        'button[aria-label*="Tải xuống" i]',
+        'button[aria-label*="Tải về" i]',
+        'a[download]',
+    ],
+    "close_viewer": [
+        'button[aria-label*="Close" i]',
+        'button[aria-label*="Đóng" i]',
     ],
     "new_chat": [
         'button[aria-label*="New chat" i]',
@@ -84,6 +108,61 @@ SELECTORS = {
 def flatten(text: str) -> str:
     """Gộp prompt nhiều dòng thành một dòng duy nhất trước khi gửi."""
     return " ".join(line.strip() for line in text.split("\n") if line.strip())
+
+
+# ---------------------------------------------------------------- lọc ảnh
+#
+# Bài học xương máu: bộ lọc cũ chỉ bỏ ảnh nhỏ hơn 120px nên avatar/icon của
+# giao diện Gemini (235x235) lọt qua, và mọi trang đều tải về CÙNG một ảnh.
+# Giờ có ba lớp chặn: bỏ URL của ảnh giao diện, đòi kích thước tối thiểu,
+# và quan trọng nhất là MỞ FILE RA KIỂM TRA sau khi tải.
+
+MIN_ART_PX = 512          # cạnh ngắn nhất của một tranh thật
+MIN_BOX_PX = 260          # cạnh nhỏ nhất của thẻ <img> trên trang
+
+# Ảnh giao diện: avatar tài khoản, logo, icon...
+UI_ASSET_HINTS = (
+    "/a/acg8",            # ảnh đại diện Google
+    "/a-/",
+    "gstatic.com",
+    "ssl.gstatic",
+    "googlelogo",
+    "/favicon",
+)
+
+
+def is_ui_asset(src: str) -> bool:
+    low = src.lower()
+    if any(h in low for h in UI_ASSET_HINTS):
+        return True
+    # đuôi kích thước bé: =s32, =s64-c, =w96-h96...
+    m = re.search(r"=[sw](\d+)", low)
+    return bool(m and int(m.group(1)) < MIN_BOX_PX)
+
+
+def upscale_url(src: str) -> str:
+    """Xin bản gốc lớn nhất: .../abc=s235-c -> .../abc=s0"""
+    tail = src.rsplit("/", 1)[-1]
+    if "=" in tail:
+        return src[: src.rindex("=")] + "=s0"
+    return src
+
+
+def is_real_art(path: Path, min_px: int = MIN_ART_PX) -> bool:
+    """Mở file kiểm tra đây có phải tranh thật không, không phải icon/thumbnail."""
+    try:
+        from PIL import Image
+
+        with Image.open(path) as im:
+            w, h = im.size
+    except Exception as e:  # noqa: BLE001
+        log.debug("Không mở được %s: %s", path, e)
+        return False
+    if min(w, h) < min_px:
+        log.warning("Bỏ %s: chỉ %dx%d, quá nhỏ để là tranh (cần >= %dpx).",
+                    path.name, w, h, min_px)
+        return False
+    return True
 
 
 class GeminiDriver:
@@ -231,66 +310,65 @@ class GeminiDriver:
             log.debug("wake_editor event: %s", e)
 
     def _wait_send_enabled(self, timeout_s: float = 12.0):
+        """Chờ một nút gửi bật sáng. BỎ QUA nút đang ở trạng thái Stop."""
         deadline = time.time() + timeout_s
+        loc = self.page.locator(", ".join(SELECTORS["send_button"]))
         while time.time() < deadline:
-            for sel in SELECTORS["send_button"]:
-                try:
-                    for b in self.page.locator(sel).all():
-                        if b.is_visible() and b.is_enabled():
-                            return b
-                except Exception:
-                    continue
-            self.page.wait_for_timeout(500)
+            try:
+                for b in loc.all():
+                    if not (b.is_visible() and b.is_enabled()):
+                        continue
+                    aria = (b.get_attribute("aria-label") or "").lower()
+                    if "stop" in aria or "dừng" in aria:
+                        continue
+                    return b
+            except Exception:
+                pass
+            self.page.wait_for_timeout(400)
         return None
 
     def _click_send(self, box) -> bool:
-        """Thử nhiều cách gửi; xác nhận thành công bằng việc ô nhập trống đi."""
-        def sent() -> bool:
-            self.page.wait_for_timeout(1_500)
-            try:
-                return len(box.inner_text().strip()) < 10
-            except Exception:
-                return True
+        """Gửi prompt bằng ĐÚNG MỘT cú bấm.
 
-        b = self._wait_send_enabled()  # 0) chờ nút bật rồi bấm
+        CẢNH BÁO: nút Send và nút Stop của Gemini là cùng một nút, chỉ đổi
+        aria-label sau khi gửi. Bản cũ có 4 phương án dự phòng, bấm liên tiếp
+        cho tới khi 'sent()' trả True - cú bấm thứ hai rơi trúng nút Stop và
+        huỷ luôn câu trả lời đang vẽ ("Bạn đã dừng câu trả lời này"), nên
+        không bao giờ có ảnh. Đừng bao giờ bấm lần hai.
+        """
+        stop = self.page.locator(", ".join(SELECTORS["stop_button"])).first
+
+        def started() -> bool:
+            """Gửi thành công = nút Stop hiện ra HOẶC ô nhập trống đi."""
+            for _ in range(16):                       # tối đa ~8 giây
+                try:
+                    if stop.is_visible():
+                        return True
+                except Exception:
+                    pass
+                try:
+                    if len(box.inner_text().strip()) < 10:
+                        return True
+                except Exception:
+                    return True
+                self.page.wait_for_timeout(500)
+            return False
+
+        b = self._wait_send_enabled()
         if b is not None:
             try:
                 b.click(timeout=5_000)
-                if sent():
-                    return True
-            except Exception:
-                pass
+                return started()
+            except Exception as e:  # noqa: BLE001
+                log.debug("Bấm nút gửi lỗi: %s", e)
 
-        try:  # 1) Enter
+        try:                                          # dự phòng: phím Enter
             box.click()
             self.page.keyboard.press("End")
             self.page.keyboard.press("Enter")
-            if sent():
-                return True
+            return started()
         except Exception:
-            pass
-
-        for sel in SELECTORS["send_button"]:  # 2) nút đã biết, phải enabled
-            try:
-                for b in self.page.locator(sel).all():
-                    if b.is_visible() and b.is_enabled():
-                        b.click(timeout=5_000)
-                        if sent():
-                            return True
-            except Exception:
-                continue
-
-        try:  # 3) dò theo aria-label chứa 'send'
-            for b in self.page.locator("button[aria-label]").all():
-                aria = (b.get_attribute("aria-label") or "").lower()
-                if ("send" in aria or "gửi" in aria) and b.is_visible() and b.is_enabled():
-                    b.click(timeout=5_000)
-                    if sent():
-                        return True
-        except Exception:
-            pass
-
-        return False
+            return False
 
     def wait_for_generation(self) -> None:
         """Chờ tới khi nút Stop biến mất (nghĩa là model trả lời xong)."""
@@ -321,24 +399,27 @@ class GeminiDriver:
     # ---------- lấy ảnh ----------
 
     def _collect_image_urls(self) -> list[str]:
-        urls: list[str] = []
+        """Ảnh ứng viên, to nhất đứng trước. Xem ghi chú ở đầu file về bộ lọc."""
+        best: dict[str, float] = {}
         for sel in SELECTORS["generated_image"]:
             for el in self.page.locator(sel).all():
                 try:
                     src = el.get_attribute("src") or ""
                 except Exception:
                     continue
-                if not src or src in urls:
+                if not src or is_ui_asset(src):
                     continue
-                # bỏ avatar / icon nhỏ
+                area = 0.0
                 try:
                     box = el.bounding_box()
-                    if box and (box["width"] < 120 or box["height"] < 120):
-                        continue
+                    if box:
+                        if min(box["width"], box["height"]) < MIN_BOX_PX:
+                            continue
+                        area = box["width"] * box["height"]
                 except Exception:
                     pass
-                urls.append(src)
-        return urls
+                best[src] = max(best.get(src, 0.0), area)
+        return [s for s, _ in sorted(best.items(), key=lambda kv: -kv[1])]
 
     def _download(self, src: str, dest: Path) -> bool:
         """Tải ảnh về. Xử lý được data:, blob: và http(s)."""
@@ -367,13 +448,17 @@ class GeminiDriver:
             return True
 
         # http(s): xin bản gốc độ phân giải cao nhất từ googleusercontent
-        hi = re.sub(r"=[swh]\d+(-[a-z0-9-]+)?$", "=s0", src)
-        for candidate in (hi, src):
+        for candidate in (upscale_url(src), src):
             try:
                 resp = self.page.request.get(candidate, timeout=60_000)
-                if resp.ok and len(resp.body()) > 5_000:
-                    dest.write_bytes(resp.body())
-                    return True
+                if not resp.ok:
+                    continue
+                body = resp.body()
+                if len(body) < 20_000:
+                    log.debug("Bỏ %s: chỉ %d byte.", candidate, len(body))
+                    continue
+                dest.write_bytes(body)
+                return True
             except Exception as e:  # noqa: BLE001
                 log.debug("Tải %s lỗi: %s", candidate, e)
         return False
@@ -389,14 +474,25 @@ class GeminiDriver:
                 self.send_prompt(prompt)
                 self.wait_for_generation()
 
-                new_urls = [u for u in self._collect_image_urls() if u not in before]
+                # Chờ tới khi có ảnh thật, mốc là ẢNH chứ không phải nút Stop.
+                new_urls: list[str] = []
+                deadline = time.time() + self.timeout
+                while time.time() < deadline:
+                    new_urls = [u for u in self._collect_image_urls()
+                                if u not in before]
+                    if new_urls:
+                        break
+                    self.page.wait_for_timeout(2_000)
                 if not new_urls:
-                    raise RuntimeError("Không thấy ảnh mới trong câu trả lời.")
+                    raise RuntimeError(f"Không thấy ảnh sau {self.timeout}s.")
 
-                if self._download(new_urls[-1], dest):
-                    log.info("OK -> %s", dest.name)
-                    return dest
-                raise RuntimeError("Tải ảnh thất bại.")
+                for url in new_urls[:4]:
+                    if self._download(url, dest) and is_real_art(dest):
+                        log.info("OK -> %s", dest.name)
+                        return dest
+                    if dest.exists():
+                        dest.unlink()
+                raise RuntimeError("Không lấy được ảnh thật (chỉ thấy icon/thumbnail).")
 
             except Exception as e:  # noqa: BLE001
                 log.warning("Lần %d/%d thất bại: %s", attempt, self.max_retries, e)

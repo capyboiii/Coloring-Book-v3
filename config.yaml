@@ -28,31 +28,87 @@ print:
   binding: perfect      # perfect | coil | saddle
   cover_wrap: 0.25      # phần gấp bìa mỗi cạnh (paperback = bleed 0.125)
 
+# ---- Xử lý ảnh line-art ----
+process:
+  # false = giữ ảnh xám 8-bit có khử răng cưa (KHUYÊN DÙNG).
+  # true  = ép về 1-bit đen/trắng tuyệt đối. Chỉ nên bật khi ảnh gốc đã đủ lớn
+  #         (>= 2000px); ảnh 1024px ép về 1-bit sau khi phóng 2.5 lần sẽ vỡ nét.
+  pure_bw: false
+  # Ngưỡng đen/trắng khi pure_bw = true. Càng CAO nét càng dày và bệt
+  # (200 là quá mạnh, làm mất khoảng hở giữa các nét mảnh). 150-170 là vừa.
+  threshold: 165
+  # Làm sắc lại sau khi phóng to. Tắt nếu thấy nét bị viền đôi.
+  sharpen: true
+
 # ---- Prompt gửi cho Gemini ----
 prompts:
   # {i} = số thứ tự, {subject} = chủ đề lấy từ danh sách subjects bên dưới
+  # Ảnh trả về phải là NGHỆ THUẬT THUẦN, không khung viền, không chữ, không
+  # trang trí mép. Mọi thứ về lề, bleed, gáy, tỉ lệ trang do pdf_builder lo;
+  # Gemini mà tự vẽ khung thì bước hậu kỳ không cắt bỏ sạch được.
   page: |
-    Create a black and white coloring book page for children ages 4-8.
+    A black and white line-art coloring page illustration for children ages 4-8.
     Subject: {subject}.
-    Style: clean bold black outlines only, pure white background, NO shading,
-    NO grayscale fill, NO color, NO text or words anywhere in the image.
-    Thick uniform line weight (about 4-6px), simple shapes, large open areas
-    that are easy to color. Full-page composition, centered, vertical portrait
-    orientation with aspect ratio 8.5:11. High resolution, crisp vector-like edges.
+    ABSOLUTELY NO BORDER: no frame, no rectangle or box around the drawing,
+    no outline along the edges of the image, no decorative margin, no rounded
+    corners, no torn-paper or sketchbook edge, no drop shadow, no vignette.
+    The white background must extend cleanly all the way to every edge of the
+    image, with nothing drawn at the edges.
+    NO TEXT of any kind: no title, no caption, no letters, numbers, page number,
+    signature, watermark or logo.
+    Line work: pure black outlines on a pure white background, uniform thick
+    strokes, closed shapes with large open areas that are easy to colour in.
+    NO shading, NO hatching, NO stippling, NO gray tones, NO fill, NO colour.
+    Composition: one single centred illustration, drawn as isolated artwork on
+    plain white, with a small even area of empty white space around it. Vertical
+    portrait orientation, aspect ratio 8.5:11. Maximum resolution, crisp
+    vector-like edges.
+
+  # ---- Khối phong cách DÙNG CHUNG cho cả hai bìa ----
+  # Được chèn vào cả front_cover lẫn back_cover qua {style}. Sửa ở đây là cả
+  # hai bìa đổi theo, không sợ lệch tông. Bảng màu ghi rõ tên + mã hex vì nói
+  # chung chung kiểu "màu tươi sáng" thì mỗi lần model chọn một kiểu khác nhau.
+  cover_style: |
+    Art style: cheerful children's picture-book illustration, soft rounded
+    cartoon shapes, bold clean outlines, flat colours with gentle soft shading.
+    NO photorealism, NO 3D render, NO glossy plastic look, NO harsh contrast.
+    Colour palette: use ONLY these colours and their light/dark variations -
+    leaf green #7FB77E, warm cream #F1F0C0, sky blue #A8DADC,
+    soft coral #F4A896, warm brown #8D6E63, off-white #FFFDF5.
+    Lighting: flat, even, warm daylight. Same line weight and same rendering
+    quality across the whole image.
 
   front_cover: |
-    Create a vibrant full-color children's coloring book FRONT COVER illustration.
-    Theme: {title}. Cheerful cartoon style, bright saturated colors,
-    a friendly forest animal as the hero character, whimsical background.
-    Leave clear empty space in the upper third for the title text.
-    Portrait orientation, aspect ratio 8.5:11, high resolution. NO text in the image.
+    A vibrant full-colour FRONT COVER illustration for a children's coloring
+    book. Theme: {title}. One friendly hero character from the theme, placed in
+    the lower two thirds, with a simple whimsical background.
+    Keep the upper third visually calm and mostly empty so a title can be
+    placed there later.
+    {style}
+    NO text, letters, numbers, logo or watermark anywhere in the image.
+    Vertical portrait orientation, aspect ratio 8.5:11, maximum resolution.
+
+  # Vẽ NGAY SAU bìa trước trong cùng một cuộc trò chuyện, nên câu đầu tham
+  # chiếu thẳng tới ảnh vừa vẽ - đây là cách khớp tông màu chắc nhất, hơn hẳn
+  # việc tả lại bằng chữ.
+  # Câu nhắc khi model chỉ trả lời bằng chữ mà quên vẽ.
+  nudge: |
+    Generate the image now. Output only the image itself, with no explanation
+    and no text in your reply.
 
   back_cover: |
-    Create a simple full-color children's coloring book BACK COVER background.
-    Theme: {title}. Soft pastel gradient background with a few small scattered
-    decorative elements (leaves, stars, paw prints) around the EDGES only.
-    The CENTER must stay clean and uncluttered for a text blurb.
-    Portrait orientation, aspect ratio 8.5:11, high resolution. NO text in the image.
+    Generate an image. Do NOT reply with words, do NOT describe what you will
+    draw - output the picture itself.
+    Create the matching BACK COVER for the same book, using EXACTLY the
+    same colour palette, art style, line weight and character design as the
+    front cover you just made. It must look like the same book.
+    Theme: {title}. A simple background: a few small decorative elements from
+    the theme (leaves, stars, paw prints) scattered around the EDGES only.
+    The CENTRE must stay clean, calm and uncluttered so a text blurb can be
+    placed there later.
+    {style}
+    NO text, letters, numbers, logo or watermark anywhere in the image.
+    Vertical portrait orientation, aspect ratio 8.5:11, maximum resolution.
 
 # ---- Danh sách chủ đề từng trang ----
 # Nếu để trống, tool sẽ nhờ Gemini tự nghĩ ra num_images chủ đề.
@@ -107,13 +163,25 @@ browser:
   # KHÔNG nhân được hạn mức - chỉ giúp lấp thời gian chờ render. Gặp lỗi liên
   # tiếp thì tool tự hạ xuống, chạy trơn thì tự nâng lại tới mức này.
   # Ảnh sinh ở các tab khác nhau có thể lệch nét đôi chút vì không chung ngữ cảnh.
-  concurrency: 5
+  concurrency: 2
   # Đóng và mở lại tab sau mỗi N ảnh -> trả RAM về hệ điều hành.
   # Reload trang KHÔNG làm được việc này vì Chrome dùng lại renderer cũ.
   # Chỉ tái tạo sau khi ảnh đã tải xong, nên không mất ảnh. 0 = tắt.
   recycle_tab_every: 5
-  # Nghỉ giữa các prompt (giây) - tránh bị rate limit / nghi ngờ bot
-  delay_between_prompts: [8, 20]   # random trong khoảng này
+  # Một ảnh treo quá bao nhiêu giây thì coi như tab hỏng: bỏ dở, đóng tab, mở
+  # tab mới, và xếp scene đó lại cuối hàng đợi cho tab nào rảnh trước làm.
+  # Khác với generation_timeout (240s) - cái đó là giới hạn chờ Gemini vẽ,
+  # còn cái này là mức kiên nhẫn trước khi kết luận phiên đã hỏng.
+  stall_timeout: 120
+  # Số lần tối đa xếp lại một scene bị treo, trước khi bỏ hẳn.
+  max_requeue: 2
+  # Nghỉ giữa các prompt (giây) - tránh bị rate limit / nghi ngờ bot.
+  # Đây là khoảng chờ CHẾT: mỗi worker nghỉ từng này sau MỖI ảnh. Để [8,20]
+  # thì 32 ảnh tốn thêm ~7 phút thuần ngồi không. Thấy hay lỗi thì tăng lại.
+  delay_between_prompts: [3, 7]
+  # Mili-giây giữa mỗi ký tự khi gõ prompt. Prompt ~430 ký tự nên 8ms = 3.4
+  # giây/ảnh, 1ms = 0.4 giây. Vẫn là phím thật nên nút Send vẫn bật.
+  typing_delay_ms: 1
   max_retries: 3
   # Chọn model trong UI nếu có (để trống = dùng mặc định)
   model_hint: ""

@@ -41,8 +41,56 @@ def load_cfg(path: Path) -> dict:
         return yaml.safe_load(f)
 
 
+BOOKS_DIR = ROOT / "output" / "books"
+POINTER = ROOT / "output" / "current_book.txt"
+
+
+def slugify(text: str) -> str:
+    """'Magical Forest Animals!' -> 'magical-forest-animals'"""
+    import re as _re
+    import unicodedata
+
+    s = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
+    s = _re.sub(r"[^a-zA-Z0-9]+", "-", s).strip("-").lower()
+    return s[:60] or "untitled"
+
+
+def set_current_book(slug: str) -> None:
+    POINTER.parent.mkdir(parents=True, exist_ok=True)
+    POINTER.write_text(slug, encoding="utf-8")
+
+
+def get_current_book() -> str | None:
+    if POINTER.exists():
+        slug = POINTER.read_text(encoding="utf-8").strip()
+        if slug and (BOOKS_DIR / slug).exists():
+            return slug
+    return None
+
+
+def list_books() -> list[str]:
+    if not BOOKS_DIR.exists():
+        return []
+    return sorted(d.name for d in BOOKS_DIR.iterdir() if d.is_dir())
+
+
 def paths_of(cfg: dict) -> dict[str, Path]:
-    return {k: (ROOT / v) for k, v in cfg["paths"].items()}
+    """Mỗi chủ đề một thư mục riêng: output/books/<chủ-đề>/...
+
+    Chủ đề đang chọn lấy từ cfg['_book'] (cờ --book) hoặc file con trỏ
+    output/current_book.txt do lệnh `ask` ghi. Không có thì dùng đường dẫn
+    phẳng cũ trong config.yaml để các dự án đang dở không bị gãy.
+    """
+    slug = cfg.get("_book") or get_current_book()
+    if not slug:
+        return {k: (ROOT / v) for k, v in cfg["paths"].items()}
+    base = BOOKS_DIR / slug
+    return {
+        "raw_dir": base / "01_raw",
+        "processed_dir": base / "02_processed",
+        "pdf_dir": base / "03_pdf",
+        "state_file": base / "state.json",
+    }
 
 
 def load_state(f: Path) -> dict:
@@ -79,12 +127,16 @@ def subjects_prompt(cfg: dict, subjects: list[str], need: int) -> str:
     )
 
 
-def build_jobs(cfg: dict, subjects: list[str], raw: Path,
-               state: dict) -> list[tuple[str, str, Path]]:
-    """Danh sách việc còn thiếu: [(key, prompt, dest)] - đã bỏ ảnh đã có."""
+def build_jobs(cfg: dict, subjects: list[str], raw: Path, state: dict) -> list:
+    """Danh sách việc còn thiếu, đã bỏ ảnh đã có.
+
+    Trang ruột: mỗi trang một việc riêng, chạy song song thoải mái.
+    Hai bìa: gộp thành một CHUỖI để vẽ nối tiếp trong cùng một cuộc trò chuyện
+    -> bìa sau nhìn thấy bìa trước nên khớp tông màu và phong cách.
+    """
     n = cfg["book"]["num_images"]
     tmpl = cfg["prompts"]["page"]
-    jobs: list[tuple[str, str, Path]] = []
+    jobs: list = []
 
     for i, subj in enumerate(subjects[:n], start=1):
         key = f"page_{i:03d}"
@@ -93,12 +145,20 @@ def build_jobs(cfg: dict, subjects: list[str], raw: Path,
             continue
         jobs.append((key, tmpl.format(i=i, subject=subj), dest))
 
+    title = cfg["book"]["title"]
+    style = cfg["prompts"].get("cover_style", "")
+    covers = []
     for key, tpl in [("cover_front", cfg["prompts"]["front_cover"]),
                      ("cover_back", cfg["prompts"]["back_cover"])]:
         dest = raw / f"{key}.png"
         if key in state["done"] and dest.exists():
             continue
-        jobs.append((key, tpl.format(title=cfg["book"]["title"]), dest))
+        covers.append((key, tpl.format(title=title, style=style), dest))
+
+    if len(covers) == 2:
+        jobs.append(covers)          # chuỗi: cùng chat, cùng tab
+    else:
+        jobs.extend(covers)          # chỉ còn thiếu một bìa -> chạy đơn lẻ
 
     return jobs
 
@@ -151,6 +211,11 @@ def cmd_generate_parallel(cfg: dict) -> None:
 
             results = await pool.run_jobs(jobs, on_done)
             failed = [k for k, ok in results.items() if not ok]
+            if pool.quota_hit:
+                log.error("Hết hạn mức tạo ảnh. Vẽ được %d ảnh; đợi reset rồi "
+                          "chạy lại lệnh này để làm tiếp.",
+                          len(results) - len(failed))
+                return
             log.info("Xong: %d/%d ảnh.", len(results) - len(failed), len(results))
             if failed:
                 log.warning("Chạy lại `python main.py generate` để làm nốt: %s",
@@ -242,8 +307,14 @@ def cmd_process(cfg: dict) -> None:
         log.error("Chưa có ảnh gốc. Chạy `python main.py generate` trước.")
         return
 
+    pr = cfg.get("process") or {}
     for f in sorted(raw.glob("page_*.png")):
-        imaging.process_lineart(f, proc / f.name, w_px, h_px)
+        imaging.process_lineart(
+            f, proc / f.name, w_px, h_px,
+            threshold=int(pr.get("threshold", 165)),
+            pure_bw=bool(pr.get("pure_bw", False)),
+            sharpen=bool(pr.get("sharpen", True)),
+        )
 
     for name in ("cover_front", "cover_back"):
         src = raw / f"{name}.png"
@@ -355,20 +426,22 @@ def cmd_demo(cfg: dict) -> None:
 
 # --------------------------------------------------------------- ask
 
-def archive_old_raw(raw: Path, state_file: Path) -> None:
-    """Dời ảnh của cuốn sách cũ sang thư mục backup để đánh số lại từ 1."""
-    import datetime
-    import shutil
-
-    if not any(raw.glob("*.png")):
+def cmd_books(cfg: dict) -> None:
+    """Liệt kê các cuốn sách đã tạo."""
+    books = list_books()
+    if not books:
+        print("Chưa có cuốn nào. Chạy `python main.py ask` để bắt đầu.")
         return
-    stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    dest = raw.parent / f"01_raw_backup_{stamp}"
-    shutil.move(str(raw), str(dest))
-    raw.mkdir(parents=True, exist_ok=True)
-    if state_file.exists():
-        state_file.rename(state_file.with_name(f"state_backup_{stamp}.json"))
-    print(f"  Đã dời ảnh cũ sang: {dest}")
+    cur = get_current_book()
+    print(f"\nCác chủ đề trong {BOOKS_DIR}:\n")
+    for b in books:
+        base = BOOKS_DIR / b
+        raw = len(list((base / "01_raw").glob("page_*.png")))
+        covers = len(list((base / "01_raw").glob("cover_*.png")))
+        pdf = "có PDF" if (base / "03_pdf" / "interior.pdf").exists() else "chưa dựng"
+        mark = " <- đang chọn" if b == cur else ""
+        print(f"  {b:<40} {raw} trang, {covers}/2 bìa, {pdf}{mark}")
+    print(f"\nChọn cuốn khác: python main.py build --book {books[0]}\n")
 
 
 def cmd_ask(cfg: dict) -> None:
@@ -380,9 +453,6 @@ def cmd_ask(cfg: dict) -> None:
 
     from bookgen.gemini_driver import parse_subject_list
     from bookgen.gemini_pool import GeminiPool
-
-    P = paths_of(cfg)
-    raw = P["raw_dir"]
 
     print("\n" + "=" * 62)
     print("  TẠO SÁCH TÔ MÀU")
@@ -399,33 +469,40 @@ def cmd_ask(cfg: dict) -> None:
         except ValueError:
             print("  Nhập một số nguyên.")
 
-    # Chủ đề mới = sách mới -> dọn ảnh cũ để đánh số lại từ page_001
-    if any(raw.glob("*.png")):
-        ans = input(f"\nĐang có ảnh cũ trong {raw.name}. "
-                    "Dời sang backup và làm sách mới? [Y/n]> ").strip().lower()
-        if ans in ("", "y", "yes"):
-            archive_old_raw(raw, P["state_file"])
-        else:
-            print("Huỷ. Chạy `python main.py generate` nếu muốn làm tiếp sách cũ.")
-            return
+    # Mỗi chủ đề một thư mục riêng -> không đụng vào sách đã làm trước đó
+    slug = slugify(theme)
+    cfg["_book"] = slug
+    set_current_book(slug)
+    P = paths_of(cfg)
+    raw = P["raw_dir"]
+    raw.mkdir(parents=True, exist_ok=True)
 
-    # Cho toàn bộ prompt (trang ruột lẫn bìa) dùng chủ đề vừa nhập
     cfg["book"]["title"] = theme
     cfg["book"]["num_images"] = n
-    raw.mkdir(parents=True, exist_ok=True)
-    state = {"done": [], "subjects": []}
 
-    print(f"\n  Chủ đề: {theme}")
+    # Cùng chủ đề chạy lại -> làm tiếp phần còn thiếu, không vẽ lại từ đầu
+    state = load_state(P["state_file"])
+    have = len(list(raw.glob("page_*.png")))
+    if have:
+        print(f"\n  Thư mục này đã có {have} trang, sẽ chỉ vẽ phần còn thiếu.")
+
+    print(f"\n  Thư mục: {raw}")
+    print(f"  Chủ đề: {theme}")
     print(f"  Sẽ vẽ: {n} trang ruột + bìa trước + bìa sau = {n + 2} ảnh")
     print(f"  Ước tính: {(n + 2) * 45 // 60}-{(n + 2) * 90 // 60} phút\n")
 
     async def run() -> None:
         async with GeminiPool(cfg) as pool:
-            # 1) nhờ Gemini nghĩ n cảnh từ chủ đề
-            log.info("Nhờ Gemini nghĩ %d cảnh cho chủ đề '%s'...", n, theme)
-            subjects = parse_subject_list(
-                await pool.ask_text(subjects_prompt(cfg, [], n)), n
-            )
+            # 1) nhờ Gemini nghĩ n cảnh từ chủ đề (lần chạy sau dùng lại cảnh cũ)
+            cached = state.get("subjects", [])
+            if len(cached) >= n:
+                subjects = cached[:n]
+                log.info("Dùng lại %d cảnh đã lưu.", n)
+            else:
+                log.info("Nhờ Gemini nghĩ %d cảnh cho chủ đề '%s'...", n, theme)
+                subjects = parse_subject_list(
+                    await pool.ask_text(subjects_prompt(cfg, [], n)), n
+                )
             while len(subjects) < n:
                 subjects.append(f"a simple {theme} scene number {len(subjects)+1}")
             state["subjects"] = subjects
@@ -450,7 +527,17 @@ def cmd_ask(cfg: dict) -> None:
 
             results = await pool.run_jobs(jobs, on_done)
             failed = [k for k, ok in results.items() if not ok]
-            print(f"\n  Xong {len(results) - len(failed)}/{len(results)} ảnh.")
+            done_n = len(results) - len(failed)
+
+            if pool.quota_hit:
+                left = len(jobs) - done_n
+                print(f"\n  ĐÃ HẾT HẠN MỨC TẠO ẢNH của tài khoản.")
+                print(f"  Vẽ được {done_n} ảnh, còn khoảng {left} ảnh chưa làm.")
+                print("  Ảnh đã xong được giữ nguyên. Đợi hạn mức reset rồi chạy")
+                print(f"  `python main.py generate` để làm tiếp cuốn này.")
+                return
+
+            print(f"\n  Xong {done_n}/{len(results)} ảnh.")
             if failed:
                 print(f"  Thiếu: {', '.join(failed)}")
                 print("  Chạy `python main.py generate` để vẽ nốt phần thiếu.")
@@ -458,7 +545,6 @@ def cmd_ask(cfg: dict) -> None:
     asyncio.run(run())
     print(f"\n  Ảnh ở: {raw}")
     print("  Bước tiếp: python main.py process && python main.py build\n")
-    log.info("Ảnh nằm ở: %s", raw)
 
 
 # --------------------------------------------------------------- CLI
@@ -466,12 +552,21 @@ def cmd_ask(cfg: dict) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser(description="Coloring Book Generator (Gemini -> Lulu)")
     ap.add_argument("command",
-                    choices=["ask", "generate", "process", "build", "all",
-                             "check", "demo"])
+                    choices=["ask", "books", "generate", "process", "build",
+                             "all", "check", "demo"])
     ap.add_argument("-c", "--config", default="config.yaml")
+    ap.add_argument("-b", "--book", default=None,
+                    help="Chọn chủ đề (tên thư mục trong output/books). "
+                         "Bỏ trống = cuốn vừa làm gần nhất.")
     args = ap.parse_args()
 
     cfg = load_cfg(ROOT / args.config)
+    if args.book:
+        if not (BOOKS_DIR / args.book).exists():
+            print(f"Không có cuốn '{args.book}'. Các cuốn hiện có: "
+                  f"{', '.join(list_books()) or '(chưa có)'}")
+            return
+        cfg["_book"] = args.book
 
     if args.command == "all":
         cmd_generate(cfg)
@@ -479,8 +574,8 @@ def main() -> None:
         cmd_build(cfg)
         cmd_check(cfg)
     else:
-        {"ask": cmd_ask, "generate": cmd_generate, "process": cmd_process,
-         "build": cmd_build, "check": cmd_check,
+        {"ask": cmd_ask, "books": cmd_books, "generate": cmd_generate,
+         "process": cmd_process, "build": cmd_build, "check": cmd_check,
          "demo": cmd_demo}[args.command](cfg)
 
 
