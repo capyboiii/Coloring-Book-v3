@@ -1,0 +1,125 @@
+# ============================================================
+#  Coloring Book Generator - cấu hình
+#  Trim size: 8.5 x 11 in (US Letter) - chuẩn Lulu
+# ============================================================
+
+book:
+  title: "Magical Forest Animals"
+  subtitle: "A Coloring Book for Kids Ages 4-8"
+  author: "Bao Vo"
+  # Số hình line-art muốn tạo (mỗi hình = 1 trang, kèm 1 trang trắng phía sau)
+  num_images: 30
+  # Trang trắng ở mặt sau mỗi hình (chống lộ màu)
+  blank_verso: true
+  # Số trang front matter (title page, copyright...) - phải là số chẵn
+  front_matter_pages: 2
+
+# ---- Thông số in Lulu (đơn vị: inch) ----
+print:
+  trim_width: 8.5
+  trim_height: 11.0
+  bleed: 0.125          # Lulu yêu cầu 0.125" mỗi cạnh
+  safety_margin: 0.5    # vùng an toàn tính từ mép trim
+  gutter: 0.375         # lề gáy thêm vào (perfect bound)
+  dpi: 300
+  # paper_thickness (inch/trang) để tính spine width.
+  # Lulu: 60# cream = 0.0025", 60# white = 0.002252", coated = 0.0023"
+  paper_thickness: 0.002252
+  binding: perfect      # perfect | coil | saddle
+  cover_wrap: 0.25      # phần gấp bìa mỗi cạnh (paperback = bleed 0.125)
+
+# ---- Prompt gửi cho Gemini ----
+prompts:
+  # {i} = số thứ tự, {subject} = chủ đề lấy từ danh sách subjects bên dưới
+  page: |
+    Create a black and white coloring book page for children ages 4-8.
+    Subject: {subject}.
+    Style: clean bold black outlines only, pure white background, NO shading,
+    NO grayscale fill, NO color, NO text or words anywhere in the image.
+    Thick uniform line weight (about 4-6px), simple shapes, large open areas
+    that are easy to color. Full-page composition, centered, vertical portrait
+    orientation with aspect ratio 8.5:11. High resolution, crisp vector-like edges.
+
+  front_cover: |
+    Create a vibrant full-color children's coloring book FRONT COVER illustration.
+    Theme: {title}. Cheerful cartoon style, bright saturated colors,
+    a friendly forest animal as the hero character, whimsical background.
+    Leave clear empty space in the upper third for the title text.
+    Portrait orientation, aspect ratio 8.5:11, high resolution. NO text in the image.
+
+  back_cover: |
+    Create a simple full-color children's coloring book BACK COVER background.
+    Theme: {title}. Soft pastel gradient background with a few small scattered
+    decorative elements (leaves, stars, paw prints) around the EDGES only.
+    The CENTER must stay clean and uncluttered for a text blurb.
+    Portrait orientation, aspect ratio 8.5:11, high resolution. NO text in the image.
+
+# ---- Danh sách chủ đề từng trang ----
+# Nếu để trống, tool sẽ nhờ Gemini tự nghĩ ra num_images chủ đề.
+subjects:
+  - "a happy fox sitting under a big mushroom"
+  - "an owl wearing glasses reading a book on a branch"
+  - "a family of hedgehogs picking berries"
+  - "a deer with flowers in its antlers"
+  - "a rabbit riding a snail"
+  # ... để trống phần còn lại, tool sẽ tự sinh thêm cho đủ num_images
+
+# ---- Text in lên bìa (vẽ bằng reportlab, không nhờ Gemini) ----
+cover_text:
+  title_font_size: 62
+  subtitle_font_size: 26
+  author_font_size: 20
+  title_color: "#FFFFFF"
+  stroke_color: "#2B2B2B"
+  back_blurb: |
+    30 delightful hand-drawn scenes to color!
+    Perfect for kids ages 4-8. Single-sided pages
+    so your colors never bleed through.
+  isbn: ""             # để trống nếu Lulu cấp ISBN
+  barcode: true        # vẽ ô trắng chừa chỗ barcode ở bìa sau
+
+# ---- Nguồn sinh ảnh ----
+#   api = gọi thẳng Gemini API (KHUYÊN DÙNG, ổn định, cần API key)
+#   web = tự động hoá gemini.google.com bằng Playwright (dễ gãy, nhiều tài khoản
+#         bị Google chặn sinh ảnh -> trả về "I seem to be encountering an error")
+backend: web
+
+api:
+  # Tên biến môi trường chứa API key. Lấy key: https://aistudio.google.com/apikey
+  key_env: GEMINI_API_KEY
+  image_model: "gemini-2.5-flash-image"
+  text_model: "gemini-2.5-flash"
+  timeout: 180
+  delay_between_prompts: [2, 5]
+
+# ---- Tự động hoá trình duyệt (chỉ dùng khi backend: web) ----
+browser:
+  # Thư mục profile Chrome riêng cho tool (đăng nhập Google 1 lần, dùng mãi)
+  user_data_dir: "./.chrome-profile"
+  # PHẢI để false lần đầu để đăng nhập. Đăng nhập xong đổi thành true:
+  # bỏ được giao diện + GPU, tiết kiệm vài trăm MB RAM mỗi tab.
+  headless: false
+  gemini_url: "https://gemini.google.com/app"
+  # Thời gian chờ Gemini sinh xong 1 ảnh (giây)
+  generation_timeout: 240
+  # Số phiên (tab Gemini) chạy song song. 1 = tuần tự như cũ.
+  # LƯU Ý: quota Gemini tính theo TÀI KHOẢN chứ không theo tab, nên tăng số này
+  # KHÔNG nhân được hạn mức - chỉ giúp lấp thời gian chờ render. Gặp lỗi liên
+  # tiếp thì tool tự hạ xuống, chạy trơn thì tự nâng lại tới mức này.
+  # Ảnh sinh ở các tab khác nhau có thể lệch nét đôi chút vì không chung ngữ cảnh.
+  concurrency: 5
+  # Đóng và mở lại tab sau mỗi N ảnh -> trả RAM về hệ điều hành.
+  # Reload trang KHÔNG làm được việc này vì Chrome dùng lại renderer cũ.
+  # Chỉ tái tạo sau khi ảnh đã tải xong, nên không mất ảnh. 0 = tắt.
+  recycle_tab_every: 5
+  # Nghỉ giữa các prompt (giây) - tránh bị rate limit / nghi ngờ bot
+  delay_between_prompts: [8, 20]   # random trong khoảng này
+  max_retries: 3
+  # Chọn model trong UI nếu có (để trống = dùng mặc định)
+  model_hint: ""
+
+paths:
+  raw_dir: "output/01_raw"
+  processed_dir: "output/02_processed"
+  pdf_dir: "output/03_pdf"
+  state_file: "output/state.json"

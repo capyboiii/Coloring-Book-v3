@@ -1,0 +1,20 @@
+# Profile Chrome - vài nghìn file cache, KHÔNG commit.
+# .chrome-cdp-profile chứa phiên đăng nhập Google của bạn -> đừng đẩy lên git.
+.chrome-cdp-profile/
+.chrome-profile/
+
+# Kết quả sinh ra
+output/
+*.pdf
+inspect.png
+debug_*.png
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
