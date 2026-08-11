@@ -134,14 +134,43 @@ def build_interior(
         if b.get("blank_verso", True):
             blank_page()
 
-    # ---- đệm cho đủ bội số 2 và tối thiểu 32 trang (perfect bound) ----
-    min_pages = 32 if p.get("binding", "perfect") == "perfect" else 2
+    # ---- đệm cho đủ bội số 2 và số trang tối thiểu của nhà in ----
+    # Lulu bìa keo (perfect bound) yêu cầu tối thiểu 32 trang. Sách ít hình sẽ
+    # bị đệm rất nhiều trang trắng ở cuối - đó KHÔNG phải bug, nhưng phải nói
+    # rõ cho người dùng biết thay vì lặng lẽ nhét vào.
+    default_min = 32 if p.get("binding", "perfect") == "perfect" else 2
+    min_pages = int(p.get("min_pages", default_min))
+
+    content_pages = pages
     while pages < min_pages or pages % 2 != 0:
         blank_page()
+    padded = pages - content_pages
 
     c.save()
+
+    fm_blank = max(0, fm - 1)
+    verso = len(images) if b.get("blank_verso", True) else 0
+    total_blank = fm_blank + verso + padded
+
     log.info("Interior: %s (%d trang, %.2f x %.2f in)", out_pdf.name, pages,
              page_w / PT, page_h / PT)
+    log.info("  Chi tiết: %d trang hình + %d trang trắng "
+             "(%d mặt sau hình, %d front matter, %d đệm cho đủ %d trang)",
+             len(images), total_blank, verso, fm_blank, padded, min_pages)
+
+    if padded >= 4:
+        need = (min_pages - content_pages + (2 if b.get("blank_verso", True)
+                                             else 1) - 1) // (
+            2 if b.get("blank_verso", True) else 1)
+        log.warning("  Có %d trang trắng ĐỆM ở cuối vì sách chưa đủ %d trang. "
+                    "Thêm khoảng %d hình nữa là hết. Hoặc đặt "
+                    "print.min_pages thấp hơn / đổi binding nếu nhà in cho phép.",
+                    padded, min_pages, max(1, need))
+    if verso and len(images) >= 4:
+        log.info("  %d trang trắng mặt sau là CỐ Ý (chống lộ màu). "
+                 "Tắt bằng book.blank_verso: false -> sách còn %d trang.",
+                 verso, pages - verso if pages - verso >= min_pages else min_pages)
+
     return out_pdf, pages
 
 

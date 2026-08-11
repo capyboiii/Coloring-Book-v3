@@ -1,193 +1,173 @@
-# ============================================================
-#  Coloring Book Generator - cấu hình
-#  Trim size: 8.5 x 11 in (US Letter) - chuẩn Lulu
-# ============================================================
-
 book:
-  title: "Magical Forest Animals"
-  subtitle: "A Coloring Book for Kids Ages 4-8"
-  author: "Bao Vo"
-  # Số hình line-art muốn tạo (mỗi hình = 1 trang, kèm 1 trang trắng phía sau)
-  num_images: 30
-  # Trang trắng ở mặt sau mỗi hình (chống lộ màu)
+  title: Anime
+  subtitle: ''
+  author: ''
+  num_images: 5
   blank_verso: true
-  # Số trang front matter (title page, copyright...) - phải là số chẵn
   front_matter_pages: 2
-
-# ---- Thông số in Lulu (đơn vị: inch) ----
 print:
   trim_width: 8.5
-  trim_height: 11.0
-  bleed: 0.125          # Lulu yêu cầu 0.125" mỗi cạnh
-  safety_margin: 0.5    # vùng an toàn tính từ mép trim
-  gutter: 0.375         # lề gáy thêm vào (perfect bound)
+  trim_height: 8.5
+  bleed: 0.125
+  safety_margin: 0.5
+  gutter: 0.375
   dpi: 300
-  # paper_thickness (inch/trang) để tính spine width.
-  # Lulu: 60# cream = 0.0025", 60# white = 0.002252", coated = 0.0023"
   paper_thickness: 0.002252
-  binding: perfect      # perfect | coil | saddle
-  cover_wrap: 0.25      # phần gấp bìa mỗi cạnh (paperback = bleed 0.125)
-
-# ---- Xử lý ảnh line-art ----
+  binding: perfect
+  min_pages: 32
+  cover_wrap: 0.25
 process:
-  # false = giữ ảnh xám 8-bit có khử răng cưa (KHUYÊN DÙNG).
-  # true  = ép về 1-bit đen/trắng tuyệt đối. Chỉ nên bật khi ảnh gốc đã đủ lớn
-  #         (>= 2000px); ảnh 1024px ép về 1-bit sau khi phóng 2.5 lần sẽ vỡ nét.
   pure_bw: false
-  # Ngưỡng đen/trắng khi pure_bw = true. Càng CAO nét càng dày và bệt
-  # (200 là quá mạnh, làm mất khoảng hở giữa các nét mảnh). 150-170 là vừa.
   threshold: 165
-  # Làm sắc lại sau khi phóng to. Tắt nếu thấy nét bị viền đôi.
   sharpen: true
-
-# ---- Prompt gửi cho Gemini ----
 prompts:
-  # {i} = số thứ tự, {subject} = chủ đề lấy từ danh sách subjects bên dưới
-  # Ảnh trả về phải là NGHỆ THUẬT THUẦN, không khung viền, không chữ, không
-  # trang trí mép. Mọi thứ về lề, bleed, gáy, tỉ lệ trang do pdf_builder lo;
-  # Gemini mà tự vẽ khung thì bước hậu kỳ không cắt bỏ sạch được.
-  page: |
-    A black and white line-art coloring page illustration for children ages 4-8.
+  page: 'A black and white line-art coloring page illustration for children ages 4-8.
+
     Subject: {subject}.
+
     ABSOLUTELY NO BORDER: no frame, no rectangle or box around the drawing,
+
     no outline along the edges of the image, no decorative margin, no rounded
+
     corners, no torn-paper or sketchbook edge, no drop shadow, no vignette.
+
     The white background must extend cleanly all the way to every edge of the
+
     image, with nothing drawn at the edges.
+
     NO TEXT of any kind: no title, no caption, no letters, numbers, page number,
+
     signature, watermark or logo.
+
     Line work: pure black outlines on a pure white background, uniform thick
+
     strokes, closed shapes with large open areas that are easy to colour in.
+
     NO shading, NO hatching, NO stippling, NO gray tones, NO fill, NO colour.
+
     Composition: one single centred illustration, drawn as isolated artwork on
+
     plain white, with a small even area of empty white space around it. Vertical
+
     portrait orientation, aspect ratio 8.5:11. Maximum resolution, crisp
+
     vector-like edges.
 
-  # ---- Khối phong cách DÙNG CHUNG cho cả hai bìa ----
-  # Được chèn vào cả front_cover lẫn back_cover qua {style}. Sửa ở đây là cả
-  # hai bìa đổi theo, không sợ lệch tông. Bảng màu ghi rõ tên + mã hex vì nói
-  # chung chung kiểu "màu tươi sáng" thì mỗi lần model chọn một kiểu khác nhau.
-  cover_style: |
-    Art style: cheerful children's picture-book illustration, soft rounded
+    '
+  cover_style: 'Art style: cheerful children''s picture-book illustration, soft rounded
+
     cartoon shapes, bold clean outlines, flat colours with gentle soft shading.
+
     NO photorealism, NO 3D render, NO glossy plastic look, NO harsh contrast.
+
     Colour palette: use ONLY these colours and their light/dark variations -
+
     leaf green #7FB77E, warm cream #F1F0C0, sky blue #A8DADC,
+
     soft coral #F4A896, warm brown #8D6E63, off-white #FFFDF5.
+
     Lighting: flat, even, warm daylight. Same line weight and same rendering
+
     quality across the whole image.
 
-  front_cover: |
-    A vibrant full-colour FRONT COVER illustration for a children's coloring
+    '
+  front_cover: 'A vibrant full-colour FRONT COVER illustration for a children''s coloring
+
     book. Theme: {title}. One friendly hero character from the theme, placed in
+
     the lower two thirds, with a simple whimsical background.
+
     Keep the upper third visually calm and mostly empty so a title can be
+
     placed there later.
+
     {style}
+
     NO text, letters, numbers, logo or watermark anywhere in the image.
+
     Vertical portrait orientation, aspect ratio 8.5:11, maximum resolution.
 
-  # Vẽ NGAY SAU bìa trước trong cùng một cuộc trò chuyện, nên câu đầu tham
-  # chiếu thẳng tới ảnh vừa vẽ - đây là cách khớp tông màu chắc nhất, hơn hẳn
-  # việc tả lại bằng chữ.
-  # Câu nhắc khi model chỉ trả lời bằng chữ mà quên vẽ.
-  nudge: |
-    Generate the image now. Output only the image itself, with no explanation
+    '
+  nudge: 'Generate the image now. Output only the image itself, with no explanation
+
     and no text in your reply.
 
-  back_cover: |
-    Generate an image. Do NOT reply with words, do NOT describe what you will
+    '
+  back_cover: 'Generate an image. Do NOT reply with words, do NOT describe what you
+    will
+
     draw - output the picture itself.
+
     Create the matching BACK COVER for the same book, using EXACTLY the
+
     same colour palette, art style, line weight and character design as the
+
     front cover you just made. It must look like the same book.
+
     Theme: {title}. A simple background: a few small decorative elements from
+
     the theme (leaves, stars, paw prints) scattered around the EDGES only.
+
     The CENTRE must stay clean, calm and uncluttered so a text blurb can be
+
     placed there later.
+
     {style}
+
     NO text, letters, numbers, logo or watermark anywhere in the image.
+
     Vertical portrait orientation, aspect ratio 8.5:11, maximum resolution.
 
-# ---- Danh sách chủ đề từng trang ----
-# Nếu để trống, tool sẽ nhờ Gemini tự nghĩ ra num_images chủ đề.
+    '
 subjects:
-  - "a happy fox sitting under a big mushroom"
-  - "an owl wearing glasses reading a book on a branch"
-  - "a family of hedgehogs picking berries"
-  - "a deer with flowers in its antlers"
-  - "a rabbit riding a snail"
-  # ... để trống phần còn lại, tool sẽ tự sinh thêm cho đủ num_images
-
-# ---- Text in lên bìa (vẽ bằng reportlab, không nhờ Gemini) ----
+- A cute little chibi cat wearing a magical wizard hat.
+- A happy anime boy holding a big smiling star balloon.
+- A cheerful anime girl waving hello with a flower in her hair.
+- A small friendly robot smiling with big round eyes.
+- A cute little puppy wearing a superhero cape flying in the sky.
+- A happy anime girl holding a giant ice cream cone.
+- A playful little dragon breathing a tiny puff of star smoke.
+- A cute anime boy riding a friendly bouncing bunny.
+- A smiling star character wearing sunglasses and waving.
+- A cute little magical girl holding a sparkly star wand.
 cover_text:
   title_font_size: 62
   subtitle_font_size: 26
   author_font_size: 20
-  title_color: "#FFFFFF"
-  stroke_color: "#2B2B2B"
-  back_blurb: |
-    30 delightful hand-drawn scenes to color!
-    Perfect for kids ages 4-8. Single-sided pages
-    so your colors never bleed through.
-  isbn: ""             # để trống nếu Lulu cấp ISBN
-  barcode: true        # vẽ ô trắng chừa chỗ barcode ở bìa sau
+  title_color: '#FFFFFF'
+  stroke_color: '#2B2B2B'
+  back_blurb: '
 
-# ---- Nguồn sinh ảnh ----
-#   api = gọi thẳng Gemini API (KHUYÊN DÙNG, ổn định, cần API key)
-#   web = tự động hoá gemini.google.com bằng Playwright (dễ gãy, nhiều tài khoản
-#         bị Google chặn sinh ảnh -> trả về "I seem to be encountering an error")
+    '
+  isbn: ''
+  barcode: true
 backend: web
-
 api:
-  # Tên biến môi trường chứa API key. Lấy key: https://aistudio.google.com/apikey
   key_env: GEMINI_API_KEY
-  image_model: "gemini-2.5-flash-image"
-  text_model: "gemini-2.5-flash"
+  image_model: gemini-2.5-flash-image
+  text_model: gemini-2.5-flash
   timeout: 180
-  delay_between_prompts: [2, 5]
-
-# ---- Tự động hoá trình duyệt (chỉ dùng khi backend: web) ----
+  delay_between_prompts:
+  - 2
+  - 5
 browser:
-  # Thư mục profile Chrome riêng cho tool (đăng nhập Google 1 lần, dùng mãi)
-  user_data_dir: "./.chrome-profile"
-  # PHẢI để false lần đầu để đăng nhập. Đăng nhập xong đổi thành true:
-  # bỏ được giao diện + GPU, tiết kiệm vài trăm MB RAM mỗi tab.
+  user_data_dir: ./.chrome-profile
   headless: false
-  gemini_url: "https://gemini.google.com/app"
-  # Thời gian chờ Gemini sinh xong 1 ảnh (giây)
+  gemini_url: https://gemini.google.com/app
   generation_timeout: 240
-  # Số phiên (tab Gemini) chạy song song. 1 = tuần tự như cũ.
-  # LƯU Ý: quota Gemini tính theo TÀI KHOẢN chứ không theo tab, nên tăng số này
-  # KHÔNG nhân được hạn mức - chỉ giúp lấp thời gian chờ render. Gặp lỗi liên
-  # tiếp thì tool tự hạ xuống, chạy trơn thì tự nâng lại tới mức này.
-  # Ảnh sinh ở các tab khác nhau có thể lệch nét đôi chút vì không chung ngữ cảnh.
   concurrency: 2
-  # Đóng và mở lại tab sau mỗi N ảnh -> trả RAM về hệ điều hành.
-  # Reload trang KHÔNG làm được việc này vì Chrome dùng lại renderer cũ.
-  # Chỉ tái tạo sau khi ảnh đã tải xong, nên không mất ảnh. 0 = tắt.
   recycle_tab_every: 5
-  # Một ảnh treo quá bao nhiêu giây thì coi như tab hỏng: bỏ dở, đóng tab, mở
-  # tab mới, và xếp scene đó lại cuối hàng đợi cho tab nào rảnh trước làm.
-  # Khác với generation_timeout (240s) - cái đó là giới hạn chờ Gemini vẽ,
-  # còn cái này là mức kiên nhẫn trước khi kết luận phiên đã hỏng.
   stall_timeout: 120
-  # Số lần tối đa xếp lại một scene bị treo, trước khi bỏ hẳn.
   max_requeue: 2
-  # Nghỉ giữa các prompt (giây) - tránh bị rate limit / nghi ngờ bot.
-  # Đây là khoảng chờ CHẾT: mỗi worker nghỉ từng này sau MỖI ảnh. Để [8,20]
-  # thì 32 ảnh tốn thêm ~7 phút thuần ngồi không. Thấy hay lỗi thì tăng lại.
-  delay_between_prompts: [3, 7]
-  # Mili-giây giữa mỗi ký tự khi gõ prompt. Prompt ~430 ký tự nên 8ms = 3.4
-  # giây/ảnh, 1ms = 0.4 giây. Vẫn là phím thật nên nút Send vẫn bật.
+  delay_between_prompts:
+  - 3
+  - 7
   typing_delay_ms: 1
   max_retries: 3
-  # Chọn model trong UI nếu có (để trống = dùng mặc định)
-  model_hint: ""
-
+  model_hint: ''
 paths:
-  raw_dir: "output/01_raw"
-  processed_dir: "output/02_processed"
-  pdf_dir: "output/03_pdf"
-  state_file: "output/state.json"
+  raw_dir: output/01_raw
+  processed_dir: output/02_processed
+  pdf_dir: output/03_pdf
+  state_file: output/state.json
+_book: anime

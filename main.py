@@ -19,6 +19,11 @@ import logging
 import sys
 from pathlib import Path
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="backslashreplace")
+
 import yaml
 
 ROOT = Path(__file__).parent
@@ -296,10 +301,13 @@ def cmd_generate(cfg: dict) -> None:
 
 def cmd_process(cfg: dict) -> None:
     P = paths_of(cfg)
-    p = cfg["print"]
-    dpi = p["dpi"]
-    w_in = p["trim_width"] + 2 * p["bleed"]
-    h_in = p["trim_height"] + 2 * p["bleed"]
+    p = cfg.get("print", {})
+    dpi = int(p.get("dpi", 300))
+    bleed = float(p.get("bleed", 0.125))
+    trim_w = float(p.get("trim_width", 8.5))
+    trim_h = float(p.get("trim_height", 11.0))
+    w_in = trim_w + 2 * bleed
+    h_in = trim_h + 2 * bleed
     w_px, h_px = int(w_in * dpi), int(h_in * dpi)
 
     raw, proc = P["raw_dir"], P["processed_dir"]

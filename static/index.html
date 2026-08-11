@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coloring Book Generator - Lulu POD Studio</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- TOP HEADER -->
+  <header>
+    <div class="logo-container">
+      <div class="logo-icon">🎨</div>
+      <div class="logo-text">
+        <h1>Coloring Book Generator v3</h1>
+        <p>LULU PRINT-ON-DEMAND AUTOMATION STUDIO</p>
+      </div>
+    </div>
+    
+    <div class="header-status">
+      <div class="book-selector">
+        <label style="font-size: 0.75rem; color: var(--text-muted); margin-right: 6px;">Cuốn sách hiện tại:</label>
+        <select id="active-book-select" onchange="switchBook(this.value)">
+          <option value="">Đang tải...</option>
+        </select>
+      </div>
+      <button class="btn btn-secondary" onclick="openGeminiModal()">⚙️ T.Khoản Gemini</button>
+      <button class="btn btn-secondary" onclick="openNewBookModal()">+ Tạo Sách Mới</button>
+    </div>
+  </header>
+
+  <!-- NAVIGATION TABS -->
+  <nav class="nav-tabs">
+    <button class="tab-btn active" onclick="switchTab('tab-setup')">📚 1. Cấu Hình Sách & Lulu POD</button>
+    <button class="tab-btn" onclick="switchTab('tab-pipeline')">⚡ 2. Sinh Sách & Live Console</button>
+    <button class="tab-btn" onclick="switchTab('tab-gallery')">🖼️ 3. Thư Viện & File PDF Lulu</button>
+  </nav>
+
+  <!-- MAIN CONTAINER -->
+  <main class="container">
+
+    <!-- LULU SPECS SUMMARY BANNER -->
+    <div class="specs-banner">
+      <div class="stat-item">
+        <span class="stat-label">Sách đang chọn</span>
+        <span class="stat-value" id="summary-book-title">...</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Kích thước Trim</span>
+        <span class="stat-value" id="summary-trim-size">8.5 x 11.0 in</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Tổng trang PDF</span>
+        <span class="stat-value" id="summary-total-pages">64 trang</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Độ rộng gáy (Spine)</span>
+        <span class="stat-value" id="summary-spine-width">0.144 in</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Chuẩn In Lulu</span>
+        <span class="stat-value" id="summary-lulu-status" style="color: var(--accent-emerald);">ĐẠT ✓</span>
+      </div>
+    </div>
+
+    <!-- TAB 1: BOOK & LULU SETUP -->
+    <div id="tab-setup" class="tab-content active">
+      <div class="grid-2">
+        <!-- Book Information Card -->
+        <div class="card">
+          <div class="card-title">
+            <span>📖 Thông Tin Sách & Bìa</span>
+            <span class="badge">METADATA</span>
+          </div>
+
+          <div class="form-group">
+            <label>Tiêu đề chính (Book Title)</label>
+            <input type="text" id="book-title" placeholder="VD: Magical Forest Animals" onchange="saveConfigFromUI()">
+          </div>
+
+          <div class="form-group">
+            <label>Phụ đề (Subtitle)</label>
+            <input type="text" id="book-subtitle" placeholder="VD: A Coloring Book for Kids Ages 4-8" onchange="saveConfigFromUI()">
+          </div>
+
+          <div class="form-group">
+            <label>Tác giả (Author Name)</label>
+            <input type="text" id="book-author" placeholder="VD: Bao Vo" onchange="saveConfigFromUI()">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Số hình tô màu trang ruột</label>
+              <input type="number" id="book-num-images" value="30" min="1" max="100" onchange="saveConfigFromUI()">
+            </div>
+            <div class="form-group">
+              <label>Trang đệm chống lem màu</label>
+              <select id="blank-verso" onchange="saveConfigFromUI()">
+                <option value="true">Bật (+1 trang trắng đệm mặt sau)</option>
+                <option value="false">Tắt (In 2 mặt liên tiếp)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Mô tả / Lời giới thiệu bìa sau (Back Cover Blurb)</label>
+            <textarea id="cover-back-blurb" rows="3" onchange="saveConfigFromUI()"></textarea>
+          </div>
+        </div>
+
+        <!-- Lulu POD Specifications Card -->
+        <div class="card">
+          <div class="card-title">
+            <span>📐 Thông Số In Ấn Lulu (POD Presets)</span>
+            <span class="badge">LULU API CALCULATOR</span>
+          </div>
+
+          <div class="form-group">
+            <label>Kích thước khổ sách (Trim Size)</label>
+            <select id="trim-size-select" onchange="onTrimSelectChange()">
+              <option value="us_letter">US Letter (8.5 x 11.0 in) - Chuẩn tô màu thông dụng</option>
+              <option value="square_small">Small Square (8.5 x 8.5 in) - Khổ vuông vừa</option>
+              <option value="trade">Trade Paperback (6.0 x 9.0 in) - Khổ sách chữ / vừa vặn</option>
+              <option value="square_medium">Square (8.25 x 8.25 in) - Khổ vuông chuẩn Lulu</option>
+              <option value="custom">Tùy chỉnh thủ công (Custom)</option>
+            </select>
+          </div>
+
+          <div class="form-row" id="custom-trim-row" style="display: none;">
+            <div class="form-group">
+              <label>Rộng (in)</label>
+              <input type="number" id="trim-width" step="0.01" value="8.5" onchange="saveConfigFromUI()">
+            </div>
+            <div class="form-group">
+              <label>Cao (in)</label>
+              <input type="number" id="trim-height" step="0.01" value="11.0" onchange="saveConfigFromUI()">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Loại Giấy Ruột (Tính độ dày gáy sách)</label>
+            <select id="paper-type-select" onchange="onPaperSelectChange()">
+              <option value="60_white">60# White Standard (0.002252 in/trang) - Chuẩn ruột tô màu</option>
+              <option value="60_cream">60# Cream Classic (0.002500 in/trang) - Giấy ngà</option>
+              <option value="70_white">70# White Premium (0.002300 in/trang) - Giấy bóng dày</option>
+              <option value="80_white">80# White Coated (0.003000 in/trang) - Giấy siêu dày</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Kiểu Đóng Sách (Binding Type)</label>
+            <select id="binding-type-select" onchange="saveConfigFromUI()">
+              <option value="perfect">Perfect Bound (Bìa keo paperback - Tối thiểu 32 trang)</option>
+              <option value="coil">Coil Bound (Gáy xoắn nhựa)</option>
+              <option value="saddle">Saddle Stitch (Ghim giữa - Tối đa 48 trang)</option>
+            </select>
+          </div>
+
+          <!-- Computed Specs Summary Card -->
+          <div class="spec-calculator-box">
+            <div class="box-title">📊 Kích thước File PDF Xuất Cho Lulu (Đã gồm Bleed 0.125"):</div>
+            <div class="box-line">• <b>File Ruột (interior.pdf):</b> <span id="calc-interior-size" class="highlight">8.75 x 11.25 in</span></div>
+            <div class="box-line">• <b>File Bìa (cover.pdf):</b> <span id="calc-cover-size" class="highlight">17.64 x 11.25 in</span></div>
+            <div class="box-line">• <b>Độ rộng gáy (Spine Width):</b> <span id="calc-spine-detail" class="highlight-amber">0.144 in (3.66 mm)</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI Scene Prompt Studio Card -->
+      <div class="card" style="margin-top: 1.5rem;">
+        <div class="card-title">
+          <span>✍️ Danh Sách Cảnh Minh Họa (AI Scene Prompts)</span>
+          <button class="btn btn-secondary" onclick="generateAISubjects()" style="padding: 6px 14px; font-size: 0.825rem;">✨ AI Tự Động Gợi Ý Cảnh</button>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label>Mỗi dòng là 1 mô tả cảnh tiếng Anh sẽ được gửi cho Gemini vẽ nét (line-art):</label>
+          <textarea id="subjects-list-textarea" rows="8" style="font-family: var(--font-mono); font-size: 0.85rem;" onchange="saveSubjectsFromTextarea()"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: PIPELINE & LIVE CONSOLE -->
+    <div id="tab-pipeline" class="tab-content">
+      <div class="grid-2">
+        <!-- Pipeline Control Panel -->
+        <div class="card">
+          <div class="card-title">
+            <span>⚡ Bảng Điều Khiển Sinh Sách</span>
+            <span class="badge">PIPELINE RUNNER</span>
+          </div>
+
+          <div class="form-group">
+            <label>Nguồn Sinh Ảnh (Backend Generator)</label>
+            <select id="backend-type" onchange="saveConfigFromUI()">
+              <option value="api">Gemini REST API (Khuyên dùng, dùng GEMINI_API_KEY)</option>
+              <option value="web">Playwright Chrome Automation (Tự động hóa trình duyệt web)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Chế độ lọc đường nét (Image Filter)</label>
+            <select id="process-pure-bw" onchange="saveConfigFromUI()">
+              <option value="false">Giữ ảnh xám mịn 300 DPI (Antialiased Grayscale - Khuyên dùng)</option>
+              <option value="true">Ép về Đen/Trắng 1-bit tuyệt đối (Pure Black & White)</option>
+            </select>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 1.5rem;">
+            <button class="btn btn-success btn-block" style="font-size: 1rem; padding: 14px; box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);" onclick="runTaskCommand('all')">
+              🚀 CHẠY TOÀN BỘ (GEN -> PROCESS -> BUILD PDF)
+            </button>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <button class="btn" style="background: var(--primary);" onclick="runTaskCommand('generate')">🎨 Bước 1: Gen Ảnh AI</button>
+              <button class="btn btn-secondary" onclick="runTaskCommand('process')">🧹 Bước 2: Xử Lý 300 DPI</button>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <button class="btn btn-secondary" onclick="runTaskCommand('build')">📦 Bước 3: Dựng PDF Lulu</button>
+              <button class="btn btn-secondary" onclick="runTaskCommand('check')">🔍 Kiểm Tra PDF Lulu</button>
+            </div>
+
+            <button class="btn btn-secondary btn-block" style="margin-top: 6px;" onclick="runTaskCommand('demo')">
+              🧪 Chạy Thử Dựng PDF Bằng Ảnh Demo (No-AI Test)
+            </button>
+          </div>
+        </div>
+
+        <!-- Terminal Console -->
+        <div class="card">
+          <div class="card-title">
+            <span>💻 Real-Time Terminal Console</span>
+            <button class="btn btn-secondary" onclick="clearConsole()" style="padding: 2px 8px; font-size: 0.75rem;">Xóa Console</button>
+          </div>
+
+          <div class="terminal" id="log-terminal">
+            <div class="log-line start">[SYSTEM] Sẵn sàng. Nhấn "CHẠY TOÀN BỘ" hoặc chọn bước để tiến hành...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: GALLERY & PDF DOWNLOADS -->
+    <div id="tab-gallery" class="tab-content">
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-title">
+          <span>📦 File PDF Hoàn Chỉnh Chuẩn Lulu</span>
+          <button class="btn btn-secondary" onclick="loadGallery()" style="padding: 4px 12px; font-size: 0.8rem;">🔄 Cập nhật</button>
+        </div>
+        <div id="pdf-list-container" style="display: flex; gap: 1rem; flex-wrap: wrap;">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>🖼️ Danh Sách Ảnh Đã Sinh & Xử Lý</span>
+        </div>
+        <div class="gallery-grid" id="gallery-grid-container">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- GEMINI MODAL -->
+  <div id="gemini-modal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">
+    <div class="modal-content card" style="background-color: var(--bg-card); margin: 10% auto; padding: 20px; border: 1px solid var(--border-color); width: 80%; max-width: 600px; border-radius: 8px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="margin: 0; color: var(--text-primary);">Quản lý Tài khoản Gemini</h2>
+        <span class="close" onclick="closeGeminiModal()" style="color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
+      </div>
+      
+      <div style="margin-bottom: 20px;">
+        <h3>Trạng thái hiện tại</h3>
+        <p id="gemini-status-text">Đang kiểm tra...</p>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 20px;">
+        <label>Cập nhật API Key (Dùng cho chế độ API)</label>
+        <div style="display: flex; gap: 10px;">
+          <input type="password" id="gemini-api-key-input" placeholder="Nhập API Key mới..." style="flex: 1;">
+          <button class="btn" style="background: var(--primary);" onclick="saveGeminiApiKey()">Lưu Key</button>
+        </div>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 5px;">Key sẽ được lưu vào file .env và config.yaml</p>
+      </div>
+
+      <div class="form-group" style="margin-top: 30px; border-top: 1px solid var(--border-color); padding-top: 20px;">
+        <label>Đăng nhập Web (Dùng cho chế độ Playwright Automation)</label>
+        <p style="font-size: 0.9rem; margin-bottom: 15px; color: var(--text-secondary);">Mở trình duyệt Chrome riêng biệt để đăng nhập thủ công vào Google/Gemini. Điều này giúp bypass các lỗi captcha hoặc block tài khoản.</p>
+        <button class="btn btn-secondary btn-block" onclick="launchGeminiChrome()" style="background-color: #4285F4; color: white;">
+          🌐 Mở Chrome Đăng Nhập
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
