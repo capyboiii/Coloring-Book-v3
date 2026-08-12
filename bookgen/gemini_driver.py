@@ -117,8 +117,8 @@ def flatten(text: str) -> str:
 # Giờ có ba lớp chặn: bỏ URL của ảnh giao diện, đòi kích thước tối thiểu,
 # và quan trọng nhất là MỞ FILE RA KIỂM TRA sau khi tải.
 
-MIN_ART_PX = 512          # cạnh ngắn nhất của một tranh thật
-MIN_BOX_PX = 260          # cạnh nhỏ nhất của thẻ <img> trên trang
+MIN_ART_PX = 300          # cạnh ngắn nhất của một tranh thật (chấp nhận từ 300px trở lên)
+MIN_BOX_PX = 80           # cạnh nhỏ nhất của thẻ <img> trên trang
 
 # Ảnh giao diện: avatar tài khoản, logo, icon...
 UI_ASSET_HINTS = (
@@ -165,13 +165,71 @@ def is_real_art(path: Path, min_px: int = MIN_ART_PX) -> bool:
     return True
 
 
+class ImageCatcher:
+    """Bắt ảnh ngay ở tầng mạng thay vì đoán qua DOM (dùng lại cơ chế của lệnh gen hàng loạt)."""
+
+    def __init__(self, min_bytes: int = 10_000):
+        self.min_bytes = min_bytes
+        self.images: list[bytes] = []
+        self.armed = False
+
+    def arm(self) -> None:
+        """Bật bắt ảnh. Gọi ngay trước khi gửi prompt."""
+        self.images.clear()
+        self.armed = True
+
+    def disarm(self) -> None:
+        self.armed = False
+
+    def on_response(self, resp) -> None:
+        if not self.armed:
+            return
+        try:
+            ct = (resp.headers or {}).get("content-type", "").lower()
+            if not ct.startswith("image/") or "svg" in ct or "gif" in ct:
+                return
+            if is_ui_asset(resp.url):
+                return
+            body = resp.body()
+            if len(body) >= self.min_bytes:
+                self.images.append(body)
+                log.debug("Bắt được ảnh từ mạng: %d KB (%s)", len(body) // 1024, ct)
+        except Exception:
+            pass
+
+    def best(self) -> bytes | None:
+        """Ảnh lớn nhất đạt chuẩn kích thước, hoặc None."""
+        from io import BytesIO
+        from PIL import Image
+
+        best_bytes, best_area = None, 0
+        for b in self.images:
+            try:
+                with Image.open(BytesIO(b)) as im:
+                    w, h = im.size
+            except Exception:
+                continue
+            if min(w, h) < MIN_ART_PX:
+                continue
+            if w * h > best_area:
+                best_bytes, best_area = b, w * h
+        return best_bytes
+
+
 class GeminiDriver:
     """Context manager mở Chrome có profile lưu sẵn và nói chuyện với Gemini."""
 
     def __init__(self, cfg: dict):
         b = cfg["browser"]
         self.url = b["gemini_url"]
-        self.user_data_dir = Path(b["user_data_dir"]).resolve()
+        
+        profiles = b.get("profiles", [])
+        if not profiles and "user_data_dir" in b:
+            profiles = [b["user_data_dir"]]
+        if not profiles:
+            profiles = ["./.chrome-profile"]
+            
+        self.user_data_dir = Path(profiles[0]).resolve()
         self.headless = b.get("headless", False)
         self.timeout = b.get("generation_timeout", 240)
         self.delay_range = b.get("delay_between_prompts", [8, 20])
@@ -197,6 +255,10 @@ class GeminiDriver:
             ],
         )
         self.page = self._ctx.pages[0] if self._ctx.pages else self._ctx.new_page()
+        # Bắt ảnh trực tiếp ở tầng mạng (network response sniffing)
+        self.catcher = ImageCatcher()
+        self.page.on("response", self.catcher.on_response)
+        
         # Ẩn navigator.webdriver
         self.page.add_init_script(
             "Object.defineProperty(navigator,'webdriver',{get:()=>undefined});"
@@ -274,17 +336,22 @@ class GeminiDriver:
         box.click()
         self.page.keyboard.press("Control+A")
         self.page.keyboard.press("Delete")
-        # QUAN TRỌNG - hai điều rút ra sau khi gỡ lỗi:
-        #  1. KHÔNG dùng Shift+Enter. Prompt nhiều dòng khiến Gemini trả lời
-        #     "I'm having a hard time fulfilling your request".
-        #  2. PHẢI gõ bằng phím thật (keyboard.type). insert_text/Ctrl+V qua CDP
-        #     không kích hoạt change-detection của Angular -> nút Send kẹt disabled.
-        self.page.keyboard.type(flatten(text), delay=random.randint(3, 10))
+        
+        # Dán trực tiếp toàn bộ prompt siêu tốc thay vì gõ từng phím
+        clean_text = flatten(text)
+        try:
+            box.evaluate("(el, txt) => { el.innerText = txt; el.dispatchEvent(new Event('input', {bubbles: true, composed: true})); }", clean_text)
+        except Exception:
+            try:
+                box.fill(clean_text)
+            except Exception:
+                self.page.keyboard.type(clean_text, delay=1)
+                
         self._wake_editor(box)
-        self.page.wait_for_timeout(1_200)
+        self.page.wait_for_timeout(400)
         if not self._click_send(box):
             raise RuntimeError("Không bấm được nút Send.")
-        log.info("Đã gửi prompt (%d ký tự).", len(text))
+        log.info("Đã dán siêu tốc & gửi prompt (%d ký tự).", len(text))
 
     def _wake_editor(self, box) -> None:
         """Kích hoạt change-detection của Gemini để nút Send bật sáng.
@@ -401,24 +468,27 @@ class GeminiDriver:
     def _collect_image_urls(self) -> list[str]:
         """Ảnh ứng viên, to nhất đứng trước. Xem ghi chú ở đầu file về bộ lọc."""
         best: dict[str, float] = {}
-        for sel in SELECTORS["generated_image"]:
-            for el in self.page.locator(sel).all():
-                try:
-                    src = el.get_attribute("src") or ""
-                except Exception:
-                    continue
-                if not src or is_ui_asset(src):
-                    continue
-                area = 0.0
-                try:
-                    box = el.bounding_box()
-                    if box:
-                        if min(box["width"], box["height"]) < MIN_BOX_PX:
-                            continue
-                        area = box["width"] * box["height"]
-                except Exception:
-                    pass
-                best[src] = max(best.get(src, 0.0), area)
+        for sel in SELECTORS["generated_image"] + ["img"]:
+            try:
+                for el in self.page.locator(sel).all():
+                    try:
+                        src = el.get_attribute("src") or ""
+                    except Exception:
+                        continue
+                    if not src or is_ui_asset(src):
+                        continue
+                    area = 100.0
+                    try:
+                        box = el.bounding_box()
+                        if box:
+                            if min(box["width"], box["height"]) < MIN_BOX_PX:
+                                continue
+                            area = box["width"] * box["height"]
+                    except Exception:
+                        pass
+                    best[src] = max(best.get(src, 0.0), area)
+            except Exception:
+                continue
         return [s for s, _ in sorted(best.items(), key=lambda kv: -kv[1])]
 
     def _download(self, src: str, dest: Path) -> bool:
@@ -454,7 +524,7 @@ class GeminiDriver:
                 if not resp.ok:
                     continue
                 body = resp.body()
-                if len(body) < 20_000:
+                if len(body) < 10_000:
                     log.debug("Bỏ %s: chỉ %d byte.", candidate, len(body))
                     continue
                 dest.write_bytes(body)
@@ -470,29 +540,46 @@ class GeminiDriver:
         for attempt in range(1, self.max_retries + 1):
             try:
                 self.new_chat()
+                if hasattr(self, 'catcher') and self.catcher:
+                    self.catcher.arm()
                 before = set(self._collect_image_urls())
                 self.send_prompt(prompt)
                 self.wait_for_generation()
 
-                # Chờ tới khi có ảnh thật, mốc là ẢNH chứ không phải nút Stop.
+                # 1. Cơ chế BẮT ẢNH TỪ TẦNG MẠNG (dùng lại của gen hàng loạt):
+                if hasattr(self, 'catcher') and self.catcher:
+                    deadline_net = time.time() + 8.0
+                    while time.time() < deadline_net:
+                        best_b = self.catcher.best()
+                        if best_b:
+                            dest.parent.mkdir(parents=True, exist_ok=True)
+                            dest.write_bytes(best_b)
+                            if is_real_art(dest):
+                                log.info("OK (bắt trực tiếp từ mạng) -> %s", dest.name)
+                                return dest
+                        time.sleep(0.5)
+
+                # 2. Dự phòng: Quét qua DOM nếu chưa bắt được từ mạng
                 new_urls: list[str] = []
                 deadline = time.time() + self.timeout
                 while time.time() < deadline:
-                    new_urls = [u for u in self._collect_image_urls()
-                                if u not in before]
+                    candidates = self._collect_image_urls()
+                    new_urls = [u for u in candidates if u not in before]
+                    if not new_urls and candidates:
+                        new_urls = candidates
                     if new_urls:
                         break
-                    self.page.wait_for_timeout(2_000)
+                    self.page.wait_for_timeout(1_500)
                 if not new_urls:
                     raise RuntimeError(f"Không thấy ảnh sau {self.timeout}s.")
 
                 for url in new_urls[:4]:
                     if self._download(url, dest) and is_real_art(dest):
-                        log.info("OK -> %s", dest.name)
+                        log.info("OK (tải từ DOM) -> %s", dest.name)
                         return dest
                     if dest.exists():
                         dest.unlink()
-                raise RuntimeError("Không lấy được ảnh thật (chỉ thấy icon/thumbnail).")
+                raise RuntimeError("Không lấy được ảnh thật.")
 
             except Exception as e:  # noqa: BLE001
                 log.warning("Lần %d/%d thất bại: %s", attempt, self.max_retries, e)
@@ -505,7 +592,8 @@ class GeminiDriver:
                 if attempt < self.max_retries:
                     time.sleep(random.uniform(15, 35))
             finally:
-                pass
+                if hasattr(self, 'catcher') and self.catcher:
+                    self.catcher.disarm()
         return None
 
     def ask_text(self, prompt: str) -> str:

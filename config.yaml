@@ -1,5 +1,5 @@
 book:
-  title: Anime
+  title: halloween
   subtitle: ''
   author: ''
   num_images: 5
@@ -7,7 +7,7 @@ book:
   front_matter_pages: 2
 print:
   trim_width: 8.5
-  trim_height: 8.5
+  trim_height: 11
   bleed: 0.125
   safety_margin: 0.5
   gutter: 0.375
@@ -18,8 +18,6 @@ print:
   cover_wrap: 0.25
 process:
   pure_bw: false
-  threshold: 165
-  sharpen: true
 prompts:
   page: 'A black and white line-art coloring page illustration for children ages 4-8.
 
@@ -120,27 +118,20 @@ prompts:
 
     '
 subjects:
-- A cute little chibi cat wearing a magical wizard hat.
-- A happy anime boy holding a big smiling star balloon.
-- A cheerful anime girl waving hello with a flower in her hair.
-- A small friendly robot smiling with big round eyes.
-- A cute little puppy wearing a superhero cape flying in the sky.
-- A happy anime girl holding a giant ice cream cone.
-- A playful little dragon breathing a tiny puff of star smoke.
-- A cute anime boy riding a friendly bouncing bunny.
-- A smiling star character wearing sunglasses and waving.
-- A cute little magical girl holding a sparkly star wand.
+- A happy vampire sipping juice from a juice box.
+- A small Frankenstein monster building a wooden block tower.
+- A friendly mummy wrapping up a teddy bear in bandages.
+- A cute werewolf chasing a falling autumn leaf.
+- A smiling broomstick resting against a giant carved pumpkin.
+- A little dragon wearing a witch hat and roasting a marshmallow.
+- A baby owl sitting inside a hollow jack-o'-lantern.
+- A ghost pushing a small pumpkin on a swing.
+- A playful black cat peeking out of a trick-or-treat bucket.
+- A candy corn character riding a small tricycle.
 cover_text:
-  title_font_size: 62
-  subtitle_font_size: 26
-  author_font_size: 20
-  title_color: '#FFFFFF'
-  stroke_color: '#2B2B2B'
   back_blurb: '
 
     '
-  isbn: ''
-  barcode: true
 backend: web
 api:
   key_env: GEMINI_API_KEY
@@ -151,11 +142,9 @@ api:
   - 2
   - 5
 browser:
-  user_data_dir: ./.chrome-profile
   headless: false
   gemini_url: https://gemini.google.com/app
   generation_timeout: 240
-  concurrency: 2
   recycle_tab_every: 5
   stall_timeout: 120
   max_requeue: 2
@@ -165,9 +154,12 @@ browser:
   typing_delay_ms: 1
   max_retries: 3
   model_hint: ''
+  profiles:
+  - ./.chrome-account2
+  concurrency_per_profile: 2
 paths:
   raw_dir: output/01_raw
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: anime
+_book: halloween

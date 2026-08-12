@@ -234,7 +234,14 @@ def cmd_generate(cfg: dict) -> None:
     from bookgen.gemini_driver import parse_subject_list
 
     backend = (cfg.get("backend") or "api").lower()
-    if backend == "web" and int(cfg["browser"].get("concurrency", 1)) > 1:
+    
+    b = cfg.get("browser", {})
+    profiles = b.get("profiles", [])
+    if not profiles and "user_data_dir" in b:
+        profiles = [b["user_data_dir"]]
+    workers = int(b.get("concurrency_per_profile", b.get("concurrency", 1))) * max(1, len(profiles))
+    
+    if backend == "web" and workers > 1:
         return cmd_generate_parallel(cfg)
 
     P = paths_of(cfg)

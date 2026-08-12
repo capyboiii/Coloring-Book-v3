@@ -1,5 +1,6 @@
 # Profile Chrome - vài nghìn file cache, KHÔNG commit.
 # .chrome-cdp-profile chứa phiên đăng nhập Google của bạn -> đừng đẩy lên git.
+.chrome-*/
 .chrome-cdp-profile/
 .chrome-profile/
 

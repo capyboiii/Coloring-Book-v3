@@ -181,67 +181,78 @@ class GeminiPool:
     def __init__(self, cfg: dict):
         b = cfg["browser"]
         self.url = b["gemini_url"]
-        self.user_data_dir = Path(b["user_data_dir"]).resolve()
+        
+        profiles = b.get("profiles", [])
+        if not profiles and "user_data_dir" in b:
+            profiles = [b["user_data_dir"]]
+        if not profiles:
+            profiles = ["./.chrome-profile"]
+            
+        self.profile_dirs = [Path(p).resolve() for p in profiles]
         self.headless = b.get("headless", False)
         self.timeout = b.get("generation_timeout", 240)
         self.delay_range = b.get("delay_between_prompts", [8, 20])
         self.typing_delay = int(b.get("typing_delay_ms", 1))
         self.max_retries = b.get("max_retries", 3)
-        self.workers = max(1, int(b.get("concurrency", 1)))
-        # Đóng và mở lại tab sau mỗi N ảnh để trả RAM về hệ điều hành.
-        # 0 = không tái tạo.
+        self.workers_per_profile = max(1, int(b.get("concurrency_per_profile", b.get("concurrency", 2))))
+        self.workers = self.workers_per_profile * len(self.profile_dirs)
+        
         self.recycle_every = max(0, int(b.get("recycle_tab_every", 5)))
-        # Một ảnh treo quá lâu -> bỏ, mở tab mới, xếp lại việc vào hàng đợi.
         self.stall_timeout = float(b.get("stall_timeout", 120))
         self.max_requeue = int(b.get("max_requeue", 2))
-        # Khi model chỉ trả lời bằng chữ mà không vẽ, nhắc lại mấy lần.
         self.max_nudges = int(b.get("max_nudges", 2))
         self.nudge_prompt = (cfg.get("prompts", {}).get("nudge")
                              or "Generate the image now. Output only the image, "
                                 "with no explanation and no text in your reply.")
         self._pw = None
-        self._ctx = None
+        self.contexts = []
         self.pages: list[Page] = []
         self.catchers: dict[Page, ImageCatcher] = {}
         self.throttle = Throttle(self.workers)
-        self.quota_hit = False       # True khi tài khoản hết hạn mức tạo ảnh
+        self.exhausted_contexts = set()
+        self.quota_hit = False
 
     # ---------- lifecycle ----------
 
     async def __aenter__(self) -> "GeminiPool":
-        self.user_data_dir.mkdir(parents=True, exist_ok=True)
         self._pw = await async_playwright().start()
-        self._ctx = await self._pw.chromium.launch_persistent_context(
-            user_data_dir=str(self.user_data_dir),
-            headless=self.headless,
-            channel="chrome",
-            viewport={"width": 1440, "height": 960},
-            args=[
-                "--disable-blink-features=AutomationControlled",
-                "--no-default-browser-check",
-                "--no-first-run",
-                # ---- tiết kiệm RAM ----
-                "--disable-extensions",
-                "--disable-dev-shm-usage",
-                "--js-flags=--max-old-space-size=512",  # chặn trần heap mỗi renderer
-            ],
-        )
-        first = self._ctx.pages[0] if self._ctx.pages else await self._ctx.new_page()
-        self.pages = [first]
-        for _ in range(self.workers - 1):
-            self.pages.append(await self._ctx.new_page())
+        
+        for p_dir in self.profile_dirs:
+            p_dir.mkdir(parents=True, exist_ok=True)
+            ctx = await self._pw.chromium.launch_persistent_context(
+                user_data_dir=str(p_dir),
+                headless=self.headless,
+                channel="chrome",
+                viewport={"width": 1440, "height": 960},
+                args=[
+                    "--disable-blink-features=AutomationControlled",
+                    "--no-default-browser-check",
+                    "--no-first-run",
+                    "--disable-extensions",
+                    "--disable-dev-shm-usage",
+                    "--js-flags=--max-old-space-size=512",
+                ],
+            )
+            self.contexts.append(ctx)
+            first = ctx.pages[0] if ctx.pages else await ctx.new_page()
+            self.pages.append(first)
+            for _ in range(self.workers_per_profile - 1):
+                self.pages.append(await ctx.new_page())
 
         for p in self.pages:
             await self._prepare(p)
 
-        await self._ensure_logged_in(self.pages[0])
-        log.info("Đã mở %d phiên Gemini.", len(self.pages))
+        for ctx in self.contexts:
+            if ctx.pages:
+                await self._ensure_logged_in(ctx.pages[0])
+                
+        log.info("Đã mở %d phiên Gemini từ %d tài khoản.", len(self.pages), len(self.contexts))
         return self
 
     async def __aexit__(self, *exc):
         try:
-            if self._ctx:
-                await self._ctx.close()
+            for ctx in self.contexts:
+                await ctx.close()
         finally:
             if self._pw:
                 await self._pw.stop()
@@ -298,7 +309,7 @@ class GeminiPool:
         ở profile nên tab mới vẫn đăng nhập sẵn.
         """
         old = self.pages[idx - 1]
-        new = await self._ctx.new_page()      # mở trước, đóng sau -> context luôn còn tab
+        new = await old.context.new_page()
         self.catchers.pop(old, None)
         try:
             await old.close()
@@ -949,14 +960,18 @@ class GeminiPool:
                     on_done(key, ok)
 
         busy = 0        # số worker đang làm; cần để biết khi nào thật sự hết việc
-        self.quota_hit = False
 
         async def worker(idx: int):
             nonlocal busy
             since_recycle = 0
             while True:
-                if self.quota_hit:
-                    return          # hết hạn mức: mọi tab dừng ngay
+                page_context = self.pages[idx - 1].context
+                if page_context in self.exhausted_contexts:
+                    return
+                if len(self.exhausted_contexts) == len(self.contexts):
+                    self.quota_hit = True
+                    return
+
                 try:
                     item, tries = queue.get_nowait()
                 except asyncio.QueueEmpty:
@@ -984,14 +999,19 @@ class GeminiPool:
                             "[tab %d] %s treo quá %.0fs -> bỏ, mở phiên mới.",
                             idx, names, self.stall_timeout)
                     except QuotaExhausted as e:
-                        self.quota_hit = True
-                        log.error("%s", e)
-                        log.error("DỪNG TOÀN BỘ. Ảnh đã xong vẫn được giữ; "
-                                  "chạy lại sau khi hạn mức reset để làm tiếp.")
+                        log.error("[tab %d] %s", idx, e)
+                        self.exhausted_contexts.add(page_context)
+                        
+                        queue.put_nowait((item, tries))
                         queue.task_done()
+                        if len(self.exhausted_contexts) == len(self.contexts):
+                            self.quota_hit = True
+                            log.error("Tất cả tài khoản đều hết hạn mức. Dừng hệ thống.")
+                        else:
+                            log.info("Chuyển việc %s cho tài khoản khác.", names)
                         return
                     finally:
-                        if not self.quota_hit:
+                        if page_context not in self.exhausted_contexts:
                             queue.task_done()
 
                     if stalled:

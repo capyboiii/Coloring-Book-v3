@@ -1,5 +1,7 @@
-python main.py askplaywright>=1.45   # chỉ cần khi backend: web
 Pillow>=10.3
 reportlab>=4.2
 PyYAML>=6.0
 pypdf>=4.2
+fastapi
+uvicorn
+python-multipart

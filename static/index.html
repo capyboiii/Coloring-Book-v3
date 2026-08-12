@@ -23,10 +23,15 @@
     
     <div class="header-status">
       <div class="book-selector">
-        <label style="font-size: 0.75rem; color: var(--text-muted); margin-right: 6px;">Cuốn sách hiện tại:</label>
-        <select id="active-book-select" onchange="switchBook(this.value)">
-          <option value="">Đang tải...</option>
-        </select>
+        <div class="book-selector-label">
+          <span class="book-icon">📚</span>
+          <span>Sách đang làm:</span>
+        </div>
+        <div class="select-wrapper">
+          <select id="active-book-select" onchange="switchBook(this.value)">
+            <option value="">Đang tải...</option>
+          </select>
+        </div>
       </div>
       <button class="btn btn-secondary" onclick="openGeminiModal()">⚙️ T.Khoản Gemini</button>
       <button class="btn btn-secondary" onclick="openNewBookModal()">+ Tạo Sách Mới</button>
@@ -36,8 +41,9 @@
   <!-- NAVIGATION TABS -->
   <nav class="nav-tabs">
     <button class="tab-btn active" onclick="switchTab('tab-setup')">📚 1. Cấu Hình Sách & Lulu POD</button>
-    <button class="tab-btn" onclick="switchTab('tab-pipeline')">⚡ 2. Sinh Sách & Live Console</button>
-    <button class="tab-btn" onclick="switchTab('tab-gallery')">🖼️ 3. Thư Viện & File PDF Lulu</button>
+    <button class="tab-btn" onclick="switchTab('tab-inspector')">🔍 2. Lọc & Duyệt Ảnh Raw</button>
+    <button class="tab-btn" onclick="switchTab('tab-pipeline')">⚡ 3. Sinh Sách & Live Console</button>
+    <button class="tab-btn" onclick="switchTab('tab-gallery')">🖼️ 4. Thư Viện & File PDF Lulu</button>
   </nav>
 
   <!-- MAIN CONTAINER -->
@@ -183,7 +189,114 @@
       </div>
     </div>
 
-    <!-- TAB 2: PIPELINE & LIVE CONSOLE -->
+    <!-- TAB 2: RAW IMAGE INSPECTOR & FILTER -->
+    <div id="tab-inspector" class="tab-content">
+      <div class="card inspector-header-card">
+        <div class="inspector-toolbar">
+          <div class="inspector-title">
+            <h2 style="font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+              <span>🔍 Lọc & Duyệt Từng Ảnh Raw</span>
+            </h2>
+            <span class="inspector-counter-badge" id="insp-counter">Đang tải...</span>
+          </div>
+          <div class="inspector-filter-tabs">
+            <button class="filter-tab-btn active" data-filter="all" onclick="filterInspector('all')">Tất cả (<span id="count-all">0</span>)</button>
+            <button class="filter-tab-btn" data-filter="pending" onclick="filterInspector('pending')">⏳ Chờ duyệt (<span id="count-pending">0</span>)</button>
+            <button class="filter-tab-btn" data-filter="approved" onclick="filterInspector('approved')">💚 Đã duyệt (<span id="count-approved">0</span>)</button>
+            <button class="filter-tab-btn" data-filter="needs_review" onclick="filterInspector('needs_review')">⚠️ Cần sửa (<span id="count-needs_review">0</span>)</button>
+            <button class="filter-tab-btn" data-filter="rejected" onclick="filterInspector('rejected')">❌ Bỏ qua (<span id="count-rejected">0</span>)</button>
+          </div>
+          <div class="inspector-nav-group">
+            <button class="btn btn-secondary btn-sm" onclick="prevInspectorImage()">← Trước (←)</button>
+            <button class="btn btn-secondary btn-sm" onclick="nextInspectorImage()">Sau (→) →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- INSPECTOR SPLIT CONTAINER -->
+      <div class="inspector-main-grid">
+        <!-- LEFT PANEL: IMAGE PREVIEW & STAGE -->
+        <div class="card inspector-stage-card">
+          <div class="stage-top-bar">
+            <div class="stage-filename-tag">
+              <span class="badge" id="insp-current-filename">page_001.png</span>
+              <span id="insp-page-type-tag" style="font-size: 0.75rem; color: var(--text-muted);">Trang ruột</span>
+            </div>
+            <div class="view-mode-buttons">
+              <button class="btn btn-sm view-mode-btn active" id="btn-view-raw" onclick="setInspectorViewMode('raw')">🖼️ Ảnh Raw Gốc</button>
+              <button class="btn btn-sm view-mode-btn" id="btn-view-proc" onclick="setInspectorViewMode('proc')">⚡ Ảnh Nét Đen Trắng</button>
+              <button class="btn btn-sm view-mode-btn" id="btn-view-split" onclick="setInspectorViewMode('split')">🌓 So Sánh Đôi</button>
+            </div>
+          </div>
+
+          <div class="inspector-viewport" id="insp-viewport">
+            <div class="viewport-placeholder">
+              <div class="spinner"></div>
+              <p>Đang tải ảnh...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT PANEL: ACTION CONTROLS & METADATA -->
+        <div class="card inspector-controls-card">
+          <div class="card-title">
+            <span>⚙️ Quản Lý Trang <span id="insp-page-tag">#1</span></span>
+            <span class="badge" id="insp-status-badge" style="background: var(--bg-card);">CHỜ DUYỆT</span>
+          </div>
+
+          <div class="control-section">
+            <label class="control-label">Đánh giá trạng thái (Phím tắt: A=Duyệt):</label>
+            <div class="status-action-group">
+              <button class="btn btn-status-act btn-status-approve" onclick="updateInspectorStatus('approved')">💚 Đã Duyệt (A)</button>
+              <button class="btn btn-status-act btn-status-needs" onclick="updateInspectorStatus('needs_review')">⚠️ Cần Sửa</button>
+              <button class="btn btn-status-act btn-status-reject" onclick="updateInspectorStatus('rejected')">❌ Bỏ Qua</button>
+            </div>
+          </div>
+
+          <div class="control-section">
+            <label class="control-label">Prompt / Mô tả cảnh của ảnh này:</label>
+            <textarea id="insp-prompt-text" rows="3" class="form-input-prompt" placeholder="Nhập mô tả cảnh tiếng Anh..."></textarea>
+            <button class="btn btn-secondary btn-sm mt-1" style="width:100%;" onclick="saveInspectorSubject()">💾 Lưu Prompt Mới</button>
+          </div>
+
+          <div class="control-section action-buttons-grid">
+            <button class="btn btn-primary" id="btn-insp-regen" onclick="regenerateInspectorImage()">🔄 Sinh Lại Ảnh Này (Gemini)</button>
+            <button class="btn btn-accent" id="btn-insp-process" onclick="processInspectorImageSingle()">⚡ Xử Lý Nét Đen Trắng</button>
+          </div>
+
+          <div class="control-section">
+            <label class="control-label">Tải ảnh thay thế (Over-write file):</label>
+            <div class="file-drop-zone" onclick="document.getElementById('file-replace-input').click()">
+              <input type="file" id="file-replace-input" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="uploadReplacementImage(this)">
+              <div class="drop-hint">📤 Bấm để chọn file PNG/JPG thay cho trang này</div>
+            </div>
+          </div>
+
+          <div class="control-section info-summary-box">
+            <div class="info-item"><span>Dung lượng:</span> <strong id="insp-info-size">-</strong></div>
+            <div class="info-item"><span>Trạng thái raw:</span> <strong id="insp-info-raw-status">-</strong></div>
+            <div class="info-item"><span>Trạng thái nét:</span> <strong id="insp-info-proc-status">-</strong></div>
+          </div>
+
+          <div class="danger-zone-box">
+            <button class="btn btn-danger btn-sm" style="width:100%;" onclick="deleteInspectorImage()">🗑️ Xóa Ảnh Raw Này</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- CAROUSEL / THUMBNAIL STRIP -->
+      <div class="card inspector-carousel-card">
+        <div class="carousel-header">
+          <span>DANH SÁCH TRANG IN (Bấm để nhảy nhanh hoặc dùng phím mũi tên)</span>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Màu xanh = Đã duyệt | Vàng = Cần sửa | Đỏ = Bỏ qua</span>
+        </div>
+        <div class="thumbnail-strip" id="insp-thumbnail-strip">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: PIPELINE & LIVE CONSOLE -->
     <div id="tab-pipeline" class="tab-content">
       <div class="grid-2">
         <!-- Pipeline Control Panel -->
@@ -292,10 +405,16 @@
 
       <div class="form-group" style="margin-top: 30px; border-top: 1px solid var(--border-color); padding-top: 20px;">
         <label>Đăng nhập Web (Dùng cho chế độ Playwright Automation)</label>
-        <p style="font-size: 0.9rem; margin-bottom: 15px; color: var(--text-secondary);">Mở trình duyệt Chrome riêng biệt để đăng nhập thủ công vào Google/Gemini. Điều này giúp bypass các lỗi captcha hoặc block tài khoản.</p>
-        <button class="btn btn-secondary btn-block" onclick="launchGeminiChrome()" style="background-color: #4285F4; color: white;">
-          🌐 Mở Chrome Đăng Nhập
-        </button>
+        <p style="font-size: 0.9rem; margin-bottom: 15px; color: var(--text-secondary);">Quản lý nhiều tài khoản để chạy song song 2 tab/tài khoản. Mở trình duyệt Chrome để đăng nhập thủ công từng tài khoản.</p>
+        
+        <div id="gemini-profiles-list" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+          <!-- Dynamically populated profiles -->
+        </div>
+
+        <div style="display: flex; gap: 10px; border-top: 1px dashed var(--border-color); padding-top: 15px;">
+          <input type="text" id="new-profile-name" placeholder="Tên profile mới (vd: account2, account3...)" style="flex: 1; padding: 8px;">
+          <button class="btn btn-secondary" onclick="addGeminiProfile()">+ Thêm Tài Khoản</button>
+        </div>
       </div>
     </div>
   </div>

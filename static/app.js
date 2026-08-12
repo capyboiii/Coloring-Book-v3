@@ -21,6 +21,26 @@ const PAPER_THICKNESS = {
 
 document.addEventListener("DOMContentLoaded", () => {
   initApp();
+  
+  // Keyboard Navigation for Raw Inspector
+  document.addEventListener("keydown", (e) => {
+    const activeTab = document.querySelector('.tab-content.active');
+    if (!activeTab || activeTab.id !== 'tab-inspector') return;
+    
+    if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)) return;
+    
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      prevInspectorImage();
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault();
+      nextInspectorImage();
+    } else if (e.key === "a" || e.key === "A") {
+      e.preventDefault();
+      updateInspectorStatus("approved");
+      nextInspectorImage();
+    }
+  });
 });
 
 async function initApp() {
@@ -42,6 +62,8 @@ function switchTab(tabId) {
 
   if (tabId === 'tab-gallery') {
     loadGallery();
+  } else if (tabId === 'tab-inspector') {
+    loadInspector();
   }
 }
 
@@ -242,6 +264,9 @@ async function switchBook(slug) {
     syncConfigToUI();
     await loadBooksList();
     await loadGallery();
+    if (typeof loadInspector === 'function') {
+      await loadInspector();
+    }
 
     logToTerminal(`[BOOK] ✅ Đã tự động cập nhật toàn bộ thông tin cho cuốn "${data.config?.book?.title || slug}"!`);
   } catch (err) {
@@ -405,29 +430,93 @@ async function updateGeminiStatusUI() {
   statusEl.innerText = "Đang kiểm tra...";
   statusEl.style.color = "var(--text-primary)";
   
+  const profilesListEl = document.getElementById('gemini-profiles-list');
+  if (profilesListEl) {
+    profilesListEl.innerHTML = "<div style='color: var(--text-muted);'>Đang tải...</div>";
+  }
+  
   try {
-    const res = await fetch('/api/gemini/status');
+    const res = await fetch('/api/gemini/profiles');
     const data = await res.json();
     
     let statusHtml = "";
     
     // API Status
-    if (data.api_key_set) {
-      statusHtml += `<div style="color: var(--accent-emerald);">✅ API Key: Đã được cấu hình (Sẵn sàng cho chế độ API)</div>`;
+    if (data.api && data.api.has_key) {
+      statusHtml += `<div style="color: var(--accent-emerald);">✅ API Key: Đã được cấu hình (Sẵn sàng)</div>`;
     } else {
-      statusHtml += `<div style="color: var(--accent-rose);">❌ API Key: Chưa cấu hình (Chế độ API sẽ lỗi)</div>`;
+      statusHtml += `<div style="color: var(--accent-rose);">❌ API Key: Chưa cấu hình</div>`;
     }
-    
-    // Chrome Status
-    if (data.chrome_running) {
-      statusHtml += `<div style="color: var(--accent-emerald); margin-top: 5px;">✅ Chrome Automation: Đang chạy ở port 9222 (Sẵn sàng cho chế độ Web)</div>`;
-    } else {
-      statusHtml += `<div style="color: var(--text-muted); margin-top: 5px;">⚪ Chrome Automation: Chưa chạy</div>`;
-    }
-    
     statusEl.innerHTML = statusHtml;
+    
+    // Render profiles
+    if (profilesListEl) {
+      if (data.profiles && data.profiles.length > 0) {
+        profilesListEl.innerHTML = data.profiles.map((p, idx) => `
+          <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div style="font-weight: 600;">${p.name}</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">${p.exists ? 'Đã khởi tạo' : 'Mới (Chưa đăng nhập)'}</div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-secondary" style="font-size: 0.8rem; padding: 6px 10px; background-color: #4285F4; color: white; border: none;" onclick="launchGeminiChrome('${p.path.replace(/\\/g, '\\\\')}')">🌐 Đăng Nhập</button>
+              <button class="btn btn-danger" style="font-size: 0.8rem; padding: 6px 10px;" onclick="deleteGeminiProfile('${p.path.replace(/\\/g, '\\\\')}')">🗑️ Xóa</button>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        profilesListEl.innerHTML = `<div style="color: var(--text-muted);">Chưa có tài khoản nào. Hãy thêm một tài khoản mới.</div>`;
+      }
+    }
   } catch (err) {
     statusEl.innerHTML = `<span style="color: var(--accent-rose);">Lỗi khi lấy trạng thái: ${err.message}</span>`;
+    if (profilesListEl) profilesListEl.innerHTML = "";
+  }
+}
+
+async function deleteGeminiProfile(profilePath) {
+  if (!confirm("Bạn có chắc chắn muốn xóa tài khoản / Profile Chrome này khỏi hệ thống?")) return;
+  
+  try {
+    const res = await fetch('/api/gemini/delete-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: profilePath, delete_files: true })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      updateGeminiStatusUI();
+    } else {
+      alert("Lỗi khi xóa profile: " + data.detail);
+    }
+  } catch (err) {
+    alert("Lỗi kết nối: " + err.message);
+  }
+}
+
+async function addGeminiProfile() {
+  const nameInput = document.getElementById('new-profile-name');
+  const name = nameInput.value.trim();
+  if (!name) {
+    alert("Vui lòng nhập tên tài khoản (vd: account1)");
+    return;
+  }
+  
+  try {
+    const res = await fetch('/api/gemini/add-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      nameInput.value = "";
+      updateGeminiStatusUI();
+    } else {
+      alert("Lỗi: " + data.detail);
+    }
+  } catch (err) {
+    alert("Lỗi kết nối: " + err.message);
   }
 }
 
@@ -458,14 +547,19 @@ async function saveGeminiApiKey() {
   }
 }
 
-async function launchGeminiChrome() {
-  if (!confirm("Hệ thống sẽ mở một cửa sổ Chrome mới (có thể mất vài giây). Vui lòng đăng nhập vào tài khoản Google, sau đó vào gemini.google.com và ĐỂ MỞ CỬA SỔ ĐÓ. Bạn có muốn tiếp tục?")) return;
+async function launchGeminiChrome(profilePath) {
+  if (!confirm("Hệ thống sẽ mở một cửa sổ Chrome. Vui lòng đăng nhập Google, vào gemini.google.com, sau đó ĐÓNG CỬA SỔ TRÌNH DUYỆT ĐÓ lại (để hệ thống có quyền truy cập profile). Bạn có muốn tiếp tục?")) return;
   
   try {
-    const res = await fetch('/api/gemini/launch-chrome', { method: 'POST' });
+    const payload = profilePath ? { profile_path: profilePath } : {};
+    const res = await fetch('/api/gemini/launch-chrome', { 
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
     const data = await res.json();
     if (res.ok) {
-      alert("Đang mở Chrome... Hãy đăng nhập và giữ cửa sổ Chrome luôn mở.");
+      alert("Đang mở Chrome... Hãy đăng nhập xong và ĐÓNG cửa sổ Chrome lại nhé.");
       setTimeout(updateGeminiStatusUI, 3000); // refresh status after 3s
     } else {
       alert("Lỗi: " + data.detail);
@@ -486,5 +580,397 @@ window.onclick = function(event) {
   const newBookModal = document.getElementById('new-book-modal');
   if (newBookModal && event.target == newBookModal) {
     if (typeof closeNewBookModal === 'function') closeNewBookModal();
+  }
+}
+
+// ====================================================
+// RAW IMAGE INSPECTOR & FILTER LOGIC
+// ====================================================
+
+let inspectorState = {
+  items: [],
+  filteredItems: [],
+  currentIndex: 0,
+  currentFilter: "all",
+  viewMode: "raw", // "raw", "proc", "split"
+};
+
+async function loadInspector() {
+  try {
+    const res = await fetch('/api/raw-inspector/details');
+    const data = await res.json();
+    inspectorState.items = data.items || [];
+    
+    const summary = data.summary || {};
+    document.getElementById('count-all').textContent = summary.total || 0;
+    document.getElementById('count-pending').textContent = summary.pending || 0;
+    document.getElementById('count-approved').textContent = summary.approved || 0;
+    document.getElementById('count-needs_review').textContent = summary.needs_review || 0;
+    document.getElementById('count-rejected').textContent = summary.rejected || 0;
+    
+    filterInspector(inspectorState.currentFilter);
+  } catch (err) {
+    console.error("Error loading inspector details:", err);
+  }
+}
+
+function filterInspector(filterName) {
+  const previousKey = inspectorState.filteredItems[inspectorState.currentIndex]?.key;
+  inspectorState.currentFilter = filterName;
+  document.querySelectorAll('.filter-tab-btn').forEach(btn => {
+    if (btn.dataset.filter === filterName) btn.classList.add('active');
+    else btn.classList.remove('active');
+  });
+
+  if (filterName === 'all') {
+    inspectorState.filteredItems = [...inspectorState.items];
+  } else {
+    inspectorState.filteredItems = inspectorState.items.filter(item => item.status === filterName);
+  }
+
+  if (previousKey) {
+    const foundIdx = inspectorState.filteredItems.findIndex(x => x.key === previousKey);
+    if (foundIdx !== -1) {
+      inspectorState.currentIndex = foundIdx;
+    } else if (inspectorState.currentIndex >= inspectorState.filteredItems.length) {
+      inspectorState.currentIndex = Math.max(0, inspectorState.filteredItems.length - 1);
+    }
+  } else if (inspectorState.currentIndex >= inspectorState.filteredItems.length) {
+    inspectorState.currentIndex = Math.max(0, inspectorState.filteredItems.length - 1);
+  }
+
+  renderInspectorCarousel();
+  renderInspectorCurrent();
+}
+
+function renderInspectorCarousel() {
+  const strip = document.getElementById('insp-thumbnail-strip');
+  strip.innerHTML = '';
+  
+  if (inspectorState.filteredItems.length === 0) {
+    strip.innerHTML = `<div style="color:var(--text-muted); padding: 10px; font-size: 0.8rem;">Không có trang nào trong bộ lọc này.</div>`;
+    return;
+  }
+
+  inspectorState.filteredItems.forEach((item, idx) => {
+    const card = document.createElement('div');
+    card.className = `thumb-card status-${item.status}`;
+    if (idx === inspectorState.currentIndex) card.classList.add('active');
+    
+    let imgHtml = '';
+    if (item.has_raw) {
+      imgHtml = `<img src="${item.raw_url}?t=${Date.now()}" class="thumb-img" alt="${item.key}" loading="lazy">`;
+    } else {
+      imgHtml = `<div class="thumb-placeholder">Chưa sinh</div>`;
+    }
+    
+    const label = item.type === 'cover' ? (item.key === 'cover_front' ? 'Bìa Trước' : 'Bìa Sau') : `Trang ${item.index}`;
+    card.innerHTML = `${imgHtml}<div class="thumb-label">${label}</div>`;
+    
+    card.onclick = () => {
+      inspectorState.currentIndex = idx;
+      renderInspectorCarousel();
+      renderInspectorCurrent();
+    };
+    
+    strip.appendChild(card);
+  });
+}
+
+function renderInspectorCurrent() {
+  const item = inspectorState.filteredItems[inspectorState.currentIndex];
+  const counterEl = document.getElementById('insp-counter');
+  
+  if (!item) {
+    counterEl.textContent = "Không có ảnh nào";
+    document.getElementById('insp-viewport').innerHTML = `<div class="viewport-placeholder"><p style="color:var(--text-muted);">Không tìm thấy ảnh phù hợp với bộ lọc.</p></div>`;
+    return;
+  }
+
+  counterEl.textContent = `Đang xem ${inspectorState.currentIndex + 1} / ${inspectorState.filteredItems.length} (${item.key})`;
+  document.getElementById('insp-current-filename').textContent = item.name;
+  document.getElementById('insp-page-tag').textContent = item.type === 'cover' ? (item.key === 'cover_front' ? 'Bìa trước' : 'Bìa sau') : `#${item.index}`;
+  document.getElementById('insp-page-type-tag').textContent = item.type === 'cover' ? 'Bìa Sách' : `Trang Ruột số ${item.index}`;
+  document.getElementById('insp-prompt-text').value = item.subject || "";
+
+  // Update Status Badge
+  const badge = document.getElementById('insp-status-badge');
+  badge.textContent = item.status.toUpperCase().replace('_', ' ');
+  if (item.status === 'approved') badge.style.background = 'var(--accent-emerald)';
+  else if (item.status === 'needs_review') badge.style.background = 'var(--accent-amber)';
+  else if (item.status === 'rejected') badge.style.background = 'var(--accent-rose)';
+  else badge.style.background = 'var(--bg-card)';
+
+  // Update Status Action Buttons Active State
+  document.querySelectorAll('.btn-status-act').forEach(b => b.classList.remove('active'));
+  if (item.status === 'approved') document.querySelector('.btn-status-approve').classList.add('active');
+  if (item.status === 'needs_review') document.querySelector('.btn-status-needs').classList.add('active');
+  if (item.status === 'rejected') document.querySelector('.btn-status-reject').classList.add('active');
+
+  // Update Info Summary Box
+  document.getElementById('insp-info-size').textContent = item.size_kb > 0 ? `${item.size_kb} KB` : "Chưa có file";
+  document.getElementById('insp-info-raw-status').textContent = item.has_raw ? "Đã sinh ảnh raw ✓" : "Chưa sinh ❌";
+  document.getElementById('insp-info-proc-status').textContent = item.has_proc ? "Đã xử lý nét 300DPI ✓" : "Chưa xử lý ❌";
+
+  // Render Viewport
+  renderInspectorViewport(item);
+}
+
+function setInspectorViewMode(mode) {
+  inspectorState.viewMode = mode;
+  document.querySelectorAll('.view-mode-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById(`btn-view-${mode}`);
+  if (btn) btn.classList.add('active');
+  
+  const item = inspectorState.filteredItems[inspectorState.currentIndex];
+  if (item) renderInspectorViewport(item);
+}
+
+function renderInspectorViewport(item) {
+  const viewport = document.getElementById('insp-viewport');
+  const t = Date.now();
+
+  if (inspectorState.viewMode === 'raw') {
+    if (item.has_raw) {
+      viewport.innerHTML = `<img src="${item.raw_url}?t=${t}" class="inspector-stage-img" alt="${item.key}">`;
+    } else {
+      viewport.innerHTML = `<div class="viewport-placeholder"><p style="color:var(--accent-amber);">❌ Chưa sinh ảnh raw cho trang này</p></div>`;
+    }
+  } else if (inspectorState.viewMode === 'proc') {
+    if (item.has_proc) {
+      viewport.innerHTML = `<img src="${item.proc_url}?t=${t}" class="inspector-stage-img" alt="${item.key}">`;
+    } else {
+      viewport.innerHTML = `<div class="viewport-placeholder"><p style="color:var(--accent-cyan);">⚡ Chưa có ảnh nét đen trắng (Bấm 'Xử Lý Nét' để tạo)</p></div>`;
+    }
+  } else if (inspectorState.viewMode === 'split') {
+    const rawContent = item.has_raw ? `<img src="${item.raw_url}?t=${t}" class="inspector-stage-img" style="max-height:400px;" alt="${item.key}">` : `<p style="color:var(--text-muted);">Chưa có Raw</p>`;
+    const procContent = item.has_proc ? `<img src="${item.proc_url}?t=${t}" class="inspector-stage-img" style="max-height:400px;" alt="${item.key}">` : `<p style="color:var(--text-muted);">Chưa có Nét</p>`;
+    
+    viewport.innerHTML = `
+      <div class="split-viewport-wrapper">
+        <div class="split-pane">
+          <span class="split-pane-label">📷 Ảnh Raw Gốc</span>
+          ${rawContent}
+        </div>
+        <div class="split-pane">
+          <span class="split-pane-label">⚡ Ảnh Nét Đen Trắng</span>
+          ${procContent}
+        </div>
+      </div>
+    `;
+  }
+}
+
+function prevInspectorImage() {
+  if (inspectorState.filteredItems.length === 0) return;
+  if (inspectorState.currentIndex > 0) {
+    inspectorState.currentIndex--;
+  } else {
+    inspectorState.currentIndex = inspectorState.filteredItems.length - 1;
+  }
+  renderInspectorCarousel();
+  renderInspectorCurrent();
+}
+
+function nextInspectorImage() {
+  if (inspectorState.filteredItems.length === 0) return;
+  if (inspectorState.currentIndex < inspectorState.filteredItems.length - 1) {
+    inspectorState.currentIndex++;
+  } else {
+    inspectorState.currentIndex = 0;
+  }
+  renderInspectorCarousel();
+  renderInspectorCurrent();
+}
+
+async function updateInspectorStatus(status) {
+  const item = inspectorState.filteredItems[inspectorState.currentIndex];
+  if (!item) return;
+  
+  try {
+    const res = await fetch('/api/raw-inspector/update-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: item.key, status: status })
+    });
+    if (res.ok) {
+      item.status = status;
+      const mainItem = inspectorState.items.find(x => x.key === item.key);
+      if (mainItem) mainItem.status = status;
+      
+      const counts = { pending:0, approved:0, needs_review:0, rejected:0 };
+      inspectorState.items.forEach(x => { counts[x.status] = (counts[x.status] || 0) + 1; });
+      document.getElementById('count-pending').textContent = counts.pending || 0;
+      document.getElementById('count-approved').textContent = counts.approved || 0;
+      document.getElementById('count-needs_review').textContent = counts.needs_review || 0;
+      document.getElementById('count-rejected').textContent = counts.rejected || 0;
+
+      renderInspectorCarousel();
+      renderInspectorCurrent();
+    }
+  } catch (err) {
+    console.error("Error updating status:", err);
+  }
+}
+
+async function saveInspectorSubject() {
+  const item = inspectorState.filteredItems[inspectorState.currentIndex];
+  if (!item) return;
+  const newSubj = document.getElementById('insp-prompt-text').value.trim();
+  
+  try {
+    const res = await fetch('/api/raw-inspector/update-subject', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: item.key, subject: newSubj })
+    });
+    if (res.ok) {
+      item.subject = newSubj;
+      alert(`Đã lưu prompt mới cho ${item.key}!`);
+    }
+  } catch (err) {
+    console.error("Error updating subject:", err);
+  }
+}
+
+async function regenerateInspectorImage() {
+  const item = inspectorState.filteredItems[inspectorState.currentIndex];
+  if (!item) return;
+  const prompt = document.getElementById('insp-prompt-text').value.trim();
+  
+  const btn = document.getElementById('btn-insp-regen');
+  const oldText = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = "⏳ Đang gọi Gemini sinh lại...";
+  
+  try {
+    const res = await fetch('/api/raw-inspector/regenerate-single', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: item.key, prompt: prompt })
+    });
+    const data = await res.json();
+    if (res.ok && data.status === 'success') {
+      // Auto process single image to update 300DPI lineart if raw regenerated
+      try {
+        await fetch('/api/raw-inspector/process-single', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: item.key })
+        });
+      } catch (procErr) {
+        console.warn("Auto process after regen warning:", procErr);
+      }
+
+      await loadInspector();
+      alert(`🎉 Đã sinh lại & tự động thay thế ảnh ${item.key}.png thành công!`);
+    } else {
+      alert(`⚠️ Lỗi: ${data.detail || "Không thể sinh lại ảnh"}`);
+    }
+  } catch (err) {
+    alert(`Lỗi mạng/hệ thống: ${err.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = oldText;
+  }
+}
+
+async function processInspectorImageSingle() {
+  const item = inspectorState.filteredItems[inspectorState.currentIndex];
+  if (!item) return;
+  
+  const btn = document.getElementById('btn-insp-process');
+  const oldText = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = "⏳ Đang xử lý nét...";
+  
+  try {
+    const res = await fetch('/api/raw-inspector/process-single', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: item.key })
+    });
+    const data = await res.json();
+    if (res.ok && data.status === 'success') {
+      item.has_proc = true;
+      item.proc_url = data.proc_url;
+      renderInspectorCurrent();
+    } else {
+      alert(`⚠️ Lỗi: ${data.detail || "Không thể xử lý nét ảnh"}`);
+    }
+  } catch (err) {
+    alert(`Lỗi: ${err.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = oldText;
+  }
+}
+
+async function uploadReplacementImage(fileInput) {
+  const file = fileInput.files[0];
+  if (!file) return;
+  const item = inspectorState.filteredItems[inspectorState.currentIndex];
+  if (!item) return;
+  
+  const dropHint = document.querySelector('.drop-hint');
+  const oldHintText = dropHint ? dropHint.innerHTML : "";
+  if (dropHint) dropHint.innerHTML = "⏳ Đang tải ảnh mới lên...";
+  
+  const formData = new FormData();
+  formData.append('key', item.key);
+  formData.append('file', file);
+  
+  try {
+    const res = await fetch('/api/raw-inspector/replace', {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+    if (res.ok) {
+      // Auto process single image to update 300DPI lineart if raw changed
+      try {
+        await fetch('/api/raw-inspector/process-single', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: item.key })
+        });
+      } catch (procErr) {
+        console.warn("Auto process warning:", procErr);
+      }
+      
+      await loadInspector();
+      if (dropHint) dropHint.innerHTML = "✅ Tải ảnh & Làm sạch thành công!";
+      setTimeout(() => {
+        if (dropHint) dropHint.innerHTML = oldHintText || "📤 Bấm để chọn file PNG/JPG thay cho trang này";
+      }, 2500);
+    } else {
+      alert(`Lỗi: ${data.detail || "Không thể upload ảnh"}`);
+      if (dropHint) dropHint.innerHTML = oldHintText;
+    }
+  } catch (err) {
+    alert(`Lỗi upload: ${err.message}`);
+    if (dropHint) dropHint.innerHTML = oldHintText;
+  } finally {
+    fileInput.value = "";
+  }
+}
+
+async function deleteInspectorImage() {
+  const item = inspectorState.filteredItems[inspectorState.currentIndex];
+  if (!item) return;
+  
+  if (!confirm(`Bạn có chắc chắn muốn xóa ảnh ${item.name}?`)) return;
+  
+  try {
+    const res = await fetch('/api/raw-inspector/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: item.key })
+    });
+    if (res.ok) {
+      await loadInspector();
+    }
+  } catch (err) {
+    alert(`Lỗi xóa ảnh: ${err.message}`);
   }
 }
