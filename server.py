@@ -876,7 +876,17 @@ def regenerate_preview_single(payload: dict):
         
     # Lấy các ảnh thực tế cần đính kèm (ưu tiên ảnh đã qua xử lý trong 02_processed)
     proc_dir = P["processed_dir"]
-    cover_front = (proc_dir / "cover_front.png") if (proc_dir / "cover_front.png").exists() else (raw_dir / "cover_front.png")
+    cover_front_raw = (proc_dir / "cover_front.png") if (proc_dir / "cover_front.png").exists() else (raw_dir / "cover_front.png")
+    cover_front = cover_front_raw
+    if cover_front_raw.exists():
+        try:
+            cover_front = book_main.imaging.render_titled_cover(
+                cover_front_raw, proc_dir / "cover_front_titled.png",
+                title, cfg.get("book", {}).get("subtitle", ""), cfg.get("book", {}).get("author", "")
+            )
+        except Exception:
+            cover_front = cover_front_raw
+
     interior_pages = sorted(list(proc_dir.glob("page_*.png")))
     if not interior_pages:
         interior_pages = sorted(list(raw_dir.glob("page_*.png")))
@@ -886,11 +896,11 @@ def regenerate_preview_single(payload: dict):
     p4 = interior_pages[3] if len(interior_pages) > 3 else p2
     
     attachments_map = {
-        "preview_1": [f for f in [cover_front] if f and f.exists()],
-        "preview_2": [f for f in [p1, p2] if f and f.exists()],
-        "preview_3": [f for f in [p1] if f and f.exists()],
-        "preview_4": [f for f in [p1, p2, p3, p4] if f and f.exists()],
-        "preview_5": [f for f in [cover_front] if f and f.exists()],
+        "preview_1": [f for f in dict.fromkeys([cover_front]) if f and f.exists()],
+        "preview_2": [f for f in dict.fromkeys([p1, p2]) if f and f.exists()],
+        "preview_3": [f for f in dict.fromkeys([p1]) if f and f.exists()],
+        "preview_4": [f for f in dict.fromkeys([p1, p2, p3, p4]) if f and f.exists()],
+        "preview_5": [f for f in dict.fromkeys([cover_front]) if f and f.exists()],
     }
     attach = attachments_map.get(key, [])
     dest = preview_dir / f"{key}.png"

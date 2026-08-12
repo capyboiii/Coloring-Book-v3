@@ -689,6 +689,20 @@ def is_user_signed_in(page: Page) -> bool:
         if not valid_paths:
             return False
         try:
+            wait_ms = max(4_000, len(valid_paths) * 2_500)
+
+            # 1. Thử set_input_files trực tiếp lên input[type="file"] (nhanh & chính xác nhất)
+            try:
+                inp = self.page.locator('input[type="file"]').first
+                if inp.count() > 0:
+                    inp.set_input_files(valid_paths, timeout=4_000)
+                    self.page.wait_for_timeout(wait_ms)
+                    log.info("Đã đính kèm %d ảnh thực tế trực tiếp (chờ %dms).", len(valid_paths), wait_ms)
+                    return True
+            except Exception as e1:
+                log.debug("Trực tiếp set_input_files thất bại: %s, chuyển sang nút Upload", e1)
+
+            # 2. Dự phòng: Mở menu Upload và chọn Tải tệp lên
             plus_btn = self.page.locator(
                 'button[aria-label*="tải" i], button[aria-label*="upload" i], '
                 'button[aria-label*="thêm" i], button[aria-label*="đính kèm" i], '
@@ -696,22 +710,25 @@ def is_user_signed_in(page: Page) -> bool:
             ).first
             
             if plus_btn.is_visible():
-                try:
+                plus_btn.click()
+                self.page.wait_for_timeout(500)
+                
+                upload_item = self.page.locator(
+                    'div[role="menuitem"]:has-text("tải"), div[role="menuitem"]:has-text("upload"), '
+                    'button:has-text("Tải tệp"), button:has-text("Upload"), [aria-label*="tải tệp" i]'
+                ).first
+                
+                if upload_item.is_visible():
                     with self.page.expect_file_chooser(timeout=4_000) as fc_info:
-                        plus_btn.click()
+                        upload_item.click()
                     file_chooser = fc_info.value
                     file_chooser.set_files(valid_paths)
-                    self.page.wait_for_timeout(2_000)
-                    log.info("Đã đính kèm %d ảnh thực tế qua nút Upload.", len(valid_paths))
+                    self.page.wait_for_timeout(wait_ms)
+                    log.info("Đã đính kèm %d ảnh qua menu Upload (chờ %dms).", len(valid_paths), wait_ms)
                     return True
-                except Exception:
-                    pass
 
-            inp = self.page.locator('input[type="file"]').first
-            inp.set_input_files(valid_paths, timeout=3_000)
-            self.page.wait_for_timeout(2_000)
-            log.info("Đã đính kèm %d ảnh thực tế vào ô chat.", len(valid_paths))
-            return True
+            log.warning("Không tìm thấy nút hoặc ô đính kèm ảnh.")
+            return False
         except Exception as e:  # noqa: BLE001
             log.warning("Không đính kèm được ảnh mẫu: %s", e)
             return False

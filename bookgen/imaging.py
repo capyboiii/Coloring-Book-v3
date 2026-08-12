@@ -117,3 +117,85 @@ def prepare_cover_art(src: Path, dest: Path, w_px: int, h_px: int) -> Path:
     dest.parent.mkdir(parents=True, exist_ok=True)
     img.save(dest, "PNG", dpi=(300, 300))
     return dest
+
+
+def render_titled_cover(src_cover: Path, dest_cover: Path, title: str, subtitle: str = "", author: str = "") -> Path:
+    """Vẽ chữ tiêu đề sách, phụ đề và tác giả lên ảnh bìa trước để dùng làm ảnh mẫu mockup đầy đủ."""
+    if not src_cover.exists():
+        return src_cover
+    try:
+        from PIL import ImageDraw, ImageFont
+        img = Image.open(src_cover).convert("RGBA")
+        w, h = img.size
+
+        txt_layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(txt_layer)
+
+        try:
+            title_font = ImageFont.truetype("arialbd.ttf", int(h * 0.045))
+            sub_font = ImageFont.truetype("arial.ttf", int(h * 0.022))
+            author_font = ImageFont.truetype("arialbd.ttf", int(h * 0.022))
+        except Exception:
+            try:
+                title_font = ImageFont.truetype("arial.ttf", int(h * 0.045))
+                sub_font = ImageFont.truetype("arial.ttf", int(h * 0.022))
+                author_font = ImageFont.truetype("arial.ttf", int(h * 0.022))
+            except Exception:
+                title_font = sub_font = author_font = ImageFont.load_default()
+
+        words = title.split()
+        lines = []
+        cur = ""
+        for word in words:
+            test = f"{cur} {word}".strip()
+            if len(test) <= 22:
+                cur = test
+            else:
+                if cur:
+                    lines.append(cur)
+                cur = word
+        if cur:
+            lines.append(cur)
+
+        y = int(h * 0.08)
+        for line in lines:
+            bbox = draw.textbbox((0, 0), line, font=title_font)
+            tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+            tx = (w - tw) // 2
+            stroke_w = int(h * 0.003)
+            for dx in range(-stroke_w, stroke_w + 1):
+                for dy in range(-stroke_w, stroke_w + 1):
+                    if dx * dx + dy * dy <= stroke_w * stroke_w:
+                        draw.text((tx + dx, y + dy), line, font=title_font, fill=(30, 30, 30, 230))
+            draw.text((tx, y), line, font=title_font, fill=(255, 255, 255, 255))
+            y += int(th * 1.35)
+
+        if subtitle:
+            y += int(h * 0.01)
+            bbox = draw.textbbox((0, 0), subtitle, font=sub_font)
+            tw = bbox[2] - bbox[0]
+            tx = (w - tw) // 2
+            stroke_w = int(h * 0.002)
+            for dx in range(-stroke_w, stroke_w + 1):
+                for dy in range(-stroke_w, stroke_w + 1):
+                    draw.text((tx + dx, y + dy), subtitle, font=sub_font, fill=(30, 30, 30, 220))
+            draw.text((tx, y), subtitle, font=sub_font, fill=(255, 255, 255, 255))
+
+        if author:
+            ay = int(h * 0.90)
+            bbox = draw.textbbox((0, 0), author, font=author_font)
+            tw = bbox[2] - bbox[0]
+            tx = (w - tw) // 2
+            stroke_w = int(h * 0.002)
+            for dx in range(-stroke_w, stroke_w + 1):
+                for dy in range(-stroke_w, stroke_w + 1):
+                    draw.text((tx + dx, ay + dy), author, font=author_font, fill=(30, 30, 30, 220))
+            draw.text((tx, ay), author, font=author_font, fill=(255, 255, 255, 255))
+
+        out = Image.alpha_composite(img, txt_layer)
+        dest_cover.parent.mkdir(parents=True, exist_ok=True)
+        out.convert("RGB").save(dest_cover, "PNG", dpi=(300, 300))
+        return dest_cover
+    except Exception as e:
+        log.warning("Không thể render chữ lên bìa: %s", e)
+        return src_cover
