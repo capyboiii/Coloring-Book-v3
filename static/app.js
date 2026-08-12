@@ -64,6 +64,8 @@ function switchTab(tabId) {
     loadGallery();
   } else if (tabId === 'tab-inspector') {
     loadInspector();
+  } else if (tabId === 'tab-previews') {
+    loadPreviewInspector();
   }
 }
 
@@ -93,6 +95,10 @@ function syncConfigToUI() {
   document.getElementById('book-author').value = book.author || "";
   document.getElementById('book-num-images').value = book.num_images || 30;
   document.getElementById('blank-verso').value = book.blank_verso !== false ? "true" : "false";
+  const fmEl = document.getElementById('front-matter-select');
+  if (fmEl) {
+    fmEl.value = (book.front_matter_pages !== undefined) ? book.front_matter_pages.toString() : "0";
+  }
   document.getElementById('cover-back-blurb').value = cover_text.back_blurb || "";
 
   // Sync Trim Preset Dropdown
@@ -121,8 +127,24 @@ function syncConfigToUI() {
   // Sync Binding Dropdown
   document.getElementById('binding-type-select').value = print.binding || "perfect";
 
+  // Sync Safety Margin Dropdown
+  const marginEl = document.getElementById('safety-margin-select');
+  if (marginEl) {
+    marginEl.value = (print.safety_margin !== undefined) ? print.safety_margin.toString() : "0.5";
+  }
+
+  // Sync Interior Border Dropdown
+  const borderEl = document.getElementById('interior-border-select');
+  if (borderEl) {
+    borderEl.value = (print.interior_border !== false) ? "true" : "false";
+  }
+
   // Sync Backend & Filters
   document.getElementById('backend-type').value = cfg.backend || "api";
+  const headEl = document.getElementById('browser-headless-select');
+  if (headEl) {
+    headEl.value = cfg.browser?.headless !== false ? "true" : "false";
+  }
   document.getElementById('process-pure-bw').value = cfg.process?.pure_bw ? "true" : "false";
 
   // Sync Subjects List (Textarea)
@@ -161,7 +183,14 @@ function updateSpecsSummary() {
   document.getElementById('summary-book-title').textContent = book.title || "Untitled";
   document.getElementById('summary-trim-size').textContent = `${print.trim_width || 8.5} x ${print.trim_height || 11.0} in`;
   document.getElementById('summary-total-pages').textContent = `${specs.calculated_pages || 32} trang`;
-  document.getElementById('summary-spine-width').textContent = `${specs.spine_width_in || 0} in (${specs.spine_width_mm || 0} mm)`;
+
+  if (specs.spine_width_in === 0) {
+    document.getElementById('summary-spine-width').textContent = "0 in (Coil / No Spine)";
+    document.getElementById('calc-spine-detail').textContent = "0 in (0 mm) - Không có gáy (Coil / No Spine)";
+  } else {
+    document.getElementById('summary-spine-width').textContent = `${specs.spine_width_in || 0} in (${specs.spine_width_mm || 0} mm)`;
+    document.getElementById('calc-spine-detail').textContent = `${specs.spine_width_in || 0} in (${specs.spine_width_mm || 0} mm)`;
+  }
 
   const statusEl = document.getElementById('summary-lulu-status');
   if (specs.lulu_compatible) {
@@ -174,29 +203,37 @@ function updateSpecsSummary() {
 
   document.getElementById('calc-interior-size').textContent = `${specs.interior_size_in || ''} (${specs.interior_px_300dpi || ''})`;
   document.getElementById('calc-cover-size').textContent = `${specs.cover_size_in || ''} (${specs.cover_px_300dpi || ''})`;
-  document.getElementById('calc-spine-detail').textContent = `${specs.spine_width_in || 0} in (${specs.spine_width_mm || 0} mm)`;
 }
 
 async function saveConfigFromUI() {
   const paperKey = document.getElementById('paper-type-select').value;
   const paper_thick = PAPER_THICKNESS[paperKey] || 0.002252;
+  const marginVal = parseFloat(document.getElementById('safety-margin-select').value);
+  const borderVal = document.getElementById('interior-border-select').value === "true";
 
   const payload = {
     print: {
       trim_width: parseFloat(document.getElementById('trim-width').value),
       trim_height: parseFloat(document.getElementById('trim-height').value),
       paper_thickness: paper_thick,
-      binding: document.getElementById('binding-type-select').value
+      binding: document.getElementById('binding-type-select').value,
+      safety_margin: marginVal,
+      full_bleed_interior: (marginVal <= 0),
+      interior_border: borderVal
     },
     book: {
       title: document.getElementById('book-title').value,
       subtitle: document.getElementById('book-subtitle').value,
       author: document.getElementById('book-author').value,
       num_images: parseInt(document.getElementById('book-num-images').value),
-      blank_verso: document.getElementById('blank-verso').value === "true"
+      blank_verso: document.getElementById('blank-verso').value === "true",
+      front_matter_pages: parseInt(document.getElementById('front-matter-select').value)
     },
     cover_text: {
       back_blurb: document.getElementById('cover-back-blurb').value
+    },
+    browser: {
+      headless: document.getElementById('browser-headless-select').value === "true"
     },
     backend: document.getElementById('backend-type').value,
     process: {
@@ -349,6 +386,17 @@ async function runTaskCommand(command) {
 
   } catch (err) {
     logToTerminal(`[ERROR] Lỗi khởi chạy: ${err}`);
+  }
+}
+
+async function stopCurrentTask() {
+  try {
+    logToTerminal("[STOP] 🛑 Đang gửi yêu cầu dừng chương trình khẩn cấp...");
+    const res = await fetch('/api/tasks/stop', { method: 'POST' });
+    const data = await res.json();
+    logToTerminal(`[STOP] 🛑 ${data.message || 'Đã gửi lệnh dừng!'}`);
+  } catch (err) {
+    alert("Lỗi kết nối khi dừng chương trình: " + err.message);
   }
 }
 
@@ -972,5 +1020,91 @@ async function deleteInspectorImage() {
     }
   } catch (err) {
     alert(`Lỗi xóa ảnh: ${err.message}`);
+  }
+}
+
+// ---------------- PREVIEW MARKETING INSPECTOR ----------------
+async function loadPreviewInspector() {
+  const container = document.getElementById('previews-grid-container');
+  if (!container) return;
+  
+  try {
+    const res = await fetch('/api/previews/details');
+    const data = await res.json();
+    
+    if (!data.items || data.items.length === 0) {
+      container.innerHTML = "<div style='color: var(--text-muted);'>Chưa có thông tin preview.</div>";
+      return;
+    }
+
+    container.innerHTML = data.items.map(item => `
+      <div class="card" style="background: rgba(0,0,0,0.35); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px; position: relative;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h4 style="margin: 0; font-size: 0.95rem; color: var(--primary);">📸 Preview #${item.index}: ${item.key}</h4>
+          <span class="badge" style="font-size: 0.75rem;">${item.has_file ? item.size_kb + ' KB' : 'Chưa sinh'}</span>
+        </div>
+
+        <div style="width: 100%; aspect-ratio: 1/1; background: rgba(0,0,0,0.5); border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--border-color);">
+          ${item.has_file 
+            ? `<img id="img-preview-${item.key}" src="${item.url}" style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;">`
+            : `<div style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 20px;">⏳ Chưa có ảnh preview.<br>Bấm "Sinh ảnh này" bên dưới để tạo.</div>`
+          }
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+          <label style="font-size: 0.8rem; color: var(--text-muted);">Prompt mẫu (có thể chỉnh sửa trước khi sinh lại):</label>
+          <textarea id="prompt-preview-${item.key}" rows="3" style="font-size: 0.8rem; font-family: var(--font-mono); width: 100%;">${item.prompt}</textarea>
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-top: auto;">
+          <button class="btn btn-sm" id="btn-regen-preview-${item.key}" style="flex: 1; background: var(--primary);" onclick="regenerateSinglePreview('${item.key}')">
+            ✨ Sinh Lại Ảnh Khung Này
+          </button>
+          ${item.has_file 
+            ? `<a href="${item.url}" download="${item.key}.png" class="btn btn-sm btn-secondary" target="_blank">💾 Tải Ảnh</a>`
+            : ''
+          }
+        </div>
+      </div>
+    `).join('');
+
+  } catch (err) {
+    console.error("Error loading preview details:", err);
+    container.innerHTML = `<div style="color: var(--error);">Lỗi nạp danh sách preview: ${err.message}</div>`;
+  }
+}
+
+async function regenerateSinglePreview(key) {
+  const promptEl = document.getElementById(`prompt-preview-${key}`);
+  const btnEl = document.getElementById(`btn-regen-preview-${key}`);
+  const prompt = promptEl ? promptEl.value.trim() : "";
+  
+  if (btnEl) {
+    btnEl.disabled = true;
+    btnEl.innerText = "⏳ Đang sinh lại ảnh...";
+  }
+
+  try {
+    logToTerminal(`[PREVIEW] 🎨 Đang sinh lại ảnh ${key}...`);
+    const res = await fetch('/api/previews/regenerate-single', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: key, prompt: prompt })
+    });
+    
+    const data = await res.json();
+    if (res.ok && data.status === 'success') {
+      logToTerminal(`[PREVIEW] ✓ Sinh lại thành công ảnh ${key}!`);
+      await loadPreviewInspector();
+    } else {
+      alert(`Lỗi sinh lại ảnh ${key}: ${data.detail || "Không thành công"}`);
+    }
+  } catch (err) {
+    alert(`Lỗi kết nối khi sinh lại ảnh ${key}: ${err.message}`);
+  } finally {
+    if (btnEl) {
+      btnEl.disabled = false;
+      btnEl.innerText = "✨ Sinh Lại Ảnh Khung Này";
+    }
   }
 }

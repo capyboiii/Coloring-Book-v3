@@ -106,9 +106,21 @@ class GeminiApiDriver:
 
     # ---------- API chính ----------
 
-    def generate_image(self, prompt: str, dest: Path) -> Path | None:
+    def generate_image(self, prompt: str, dest: Path, attach_files: list[Path] | None = None) -> Path | None:
+        parts: list[dict] = []
+        if attach_files:
+            for p in attach_files:
+                if p and Path(p).exists():
+                    try:
+                        data_b64 = base64.b64encode(Path(p).read_bytes()).decode("utf-8")
+                        mime = "image/png" if str(p).endswith(".png") else "image/jpeg"
+                        parts.append({"inlineData": {"mimeType": mime, "data": data_b64}})
+                    except Exception as e:
+                        log.warning("Không đọc được file %s để đính kèm API: %s", p, e)
+
+        parts.append({"text": prompt})
         payload = {
-            "contents": [{"parts": [{"text": prompt}]}],
+            "contents": [{"parts": parts}],
             "generationConfig": {"responseModalities": ["IMAGE"]},
         }
         for attempt in range(1, self.max_retries + 1):

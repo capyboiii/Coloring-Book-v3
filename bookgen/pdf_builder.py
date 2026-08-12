@@ -33,9 +33,27 @@ PT = 72.0  # 1 inch = 72 points
 
 # ------------------------------------------------------------------ helpers
 
-def spine_width(page_count: int, thickness: float) -> float:
-    """Độ rộng gáy (inch). Lulu: trang < 32 thì không có gáy in được."""
+def spine_width(page_count: int, thickness: float = 0.002252) -> float:
+    """Độ rộng gáy (inch). Chuẩn Lulu Paperback: page_count * thickness."""
+    if page_count <= 0:
+        return 0.0
     return page_count * thickness
+
+
+def get_lulu_gutter(page_count: int, binding: str = "perfect") -> float:
+    """Độ rộng lề Gutter cộng thêm phía gáy theo bảng chuẩn Lulu Creation Guide (Trang 9)."""
+    if binding in ["coil", "saddle"]:
+        return 0.0
+    if page_count <= 60:
+        return 0.0
+    elif page_count <= 150:
+        return 0.125
+    elif page_count <= 400:
+        return 0.5
+    elif page_count <= 600:
+        return 0.625
+    else:
+        return 0.75
 
 
 def round_up_even(n: int) -> int:
@@ -98,9 +116,9 @@ def build_interior(
         c.setFont(font, 30)
         c.drawCentredString(page_w / 2, page_h * 0.60, b["title"])
         if b.get("subtitle"):
-            c.setFont("Helvetica", 15)
+            c.setFont(font, 15)
             c.drawCentredString(page_w / 2, page_h * 0.54, b["subtitle"])
-        c.setFont("Helvetica", 12)
+        c.setFont(font, 12)
         c.drawCentredString(page_w / 2, page_h * 0.44, b["author"])
         c.showPage()
         pages += 1
@@ -108,24 +126,47 @@ def build_interior(
         blank_page()
 
     # ---- các trang hình ----
+    safety_margin = float(p.get("safety_margin", 0.5))
+    full_bleed = bool(p.get("full_bleed_interior", False))
+
     for img in images:
         c.setFillColor(white)
         c.rect(0, 0, page_w, page_h, stroke=0, fill=1)
         try:
             with Image.open(img) as im:
                 iw, ih = im.size
-            # phủ kín cả trang + bleed, giữ tỉ lệ (cover-fit)
-            scale = max(page_w / iw, page_h / ih)
-            w, h = iw * scale, ih * scale
+
+            if full_bleed or safety_margin <= 0:
+                # Tràn lề full-bleed: phủ kín cả trang + bleed (cover-fit)
+                scale = max(page_w / iw, page_h / ih)
+                w, h = iw * scale, ih * scale
+            else:
+                # Cách lề an toàn (margin-contain fit): tranh nằm gọn bên trong lề an toàn
+                margin_pt = (bleed + safety_margin) * PT
+                avail_w = max(0, page_w - 2 * margin_pt)
+                avail_h = max(0, page_h - 2 * margin_pt)
+                scale = min(avail_w / iw, avail_h / ih)
+                w, h = iw * scale, ih * scale
+
+            img_x = (page_w - w) / 2
+            img_y = (page_h - h) / 2
             c.drawImage(
                 ImageReader(str(img)),
-                (page_w - w) / 2,
-                (page_h - h) / 2,
+                img_x,
+                img_y,
                 width=w,
                 height=h,
                 preserveAspectRatio=False,
                 mask="auto",
             )
+
+            # Vẽ viền đen nhỏ bo khung ảnh trang ruột nếu được bật
+            draw_border = bool(p.get("interior_border", not full_bleed and safety_margin > 0))
+            if draw_border:
+                border_w = float(p.get("interior_border_width", 1.5))
+                c.setStrokeColor(black)
+                c.setLineWidth(border_w)
+                c.rect(img_x, img_y, w, h, stroke=1, fill=0)
         except Exception as e:  # noqa: BLE001
             log.error("Không đặt được ảnh %s: %s", img, e)
         c.showPage()
@@ -189,7 +230,14 @@ def build_cover(
     ct = cfg.get("cover_text", {})
 
     trim_w, trim_h, bleed = p["trim_width"], p["trim_height"], p["bleed"]
-    spine = spine_width(page_count, p["paper_thickness"])
+    binding = p.get("binding", "perfect")
+    
+    if "spine_width" in p and p["spine_width"] is not None:
+        spine = float(p["spine_width"])
+    elif binding in ["coil", "saddle"]:
+        spine = 0.0
+    else:
+        spine = spine_width(page_count, p["paper_thickness"])
 
     total_w = (trim_w * 2 + spine + bleed * 2) * PT
     total_h = (trim_h + bleed * 2) * PT
@@ -221,18 +269,27 @@ def build_cover(
     place(back_img, back_x, bl + tw)             # bìa sau + bleed trái
     place(front_img, front_x, tw + bl)           # bìa trước + bleed phải
 
-    # ---- gáy ----
-    c.setFillColor(HexColor("#2B2B2B"))
-    c.rect(spine_x, 0, sp, total_h, stroke=0, fill=1)
-    # Lulu: chỉ in chữ lên gáy khi đủ ~0.25" (tương đương >=110 trang giấy 60#)
-    if spine >= 0.25:
-        c.saveState()
-        c.translate(spine_x + sp / 2, total_h / 2)
-        c.rotate(-90)
-        c.setFillColor(white)
-        c.setFont(font, min(14, sp * 0.55))
-        c.drawCentredString(0, -min(14, sp * 0.55) * 0.35, b["title"])
-        c.restoreState()
+    # ---- gáy sách (Spine Column) ----
+    if sp > 0:
+        spine_color = HexColor(ct.get("spine_color", "#1E293B"))
+        c.setFillColor(spine_color)
+        c.rect(spine_x, 0, sp, total_h, stroke=0, fill=1)
+        
+        # Vẽ 2 đường biên nếp gấp gáy mỏng hai bên để gáy hiển thị rõ nét trên PDF
+        c.setStrokeColor(HexColor("#475569"))
+        c.setLineWidth(0.6)
+        c.line(spine_x, 0, spine_x, total_h)
+        c.line(spine_x + sp, 0, spine_x + sp, total_h)
+
+        # Lulu: chỉ in chữ lên gáy khi gáy đủ rộng >= 0.25" (tương đương >=110 trang)
+        if spine >= 0.25:
+            c.saveState()
+            c.translate(spine_x + sp / 2, total_h / 2)
+            c.rotate(-90)
+            c.setFillColor(white)
+            c.setFont(font, min(14, sp * 0.55))
+            c.drawCentredString(0, -min(14, sp * 0.55) * 0.35, b["title"])
+            c.restoreState()
 
     # ---- chữ bìa trước ----
     cx = front_x + tw / 2
@@ -279,22 +336,23 @@ def build_cover(
     # ---- chữ bìa sau ----
     bx = bl + tw / 2
     c.setFillColor(black)
-    c.setFont("Helvetica", 14)
+    c.setFont(font, 14)
     y = total_h - bl - th * 0.30
     for line in ct.get("back_blurb", "").strip().splitlines():
         c.drawCentredString(bx, y, line.strip())
         y -= 20
 
-    # ô trắng chừa chỗ barcode (Lulu yêu cầu 2.0 x 1.2 in, cách mép 0.25")
+    # ô trắng chừa chỗ barcode (Chuẩn Lulu Template: 3.622" x 1.26", cách mép 0.5")
     if ct.get("barcode", True):
-        bw, bh = 2.0 * PT, 1.2 * PT
-        bxx = bl + tw - bw - 0.35 * PT
-        byy = bl + 0.35 * PT
+        bw, bh = 3.622 * PT, 1.26 * PT
+        margin = 0.5 * PT
+        bxx = (bl + tw) - margin - bw
+        byy = margin
         c.setFillColor(white)
         c.setStrokeColor(HexColor("#CCCCCC"))
         c.rect(bxx, byy, bw, bh, stroke=1, fill=1)
         c.setFillColor(HexColor("#999999"))
-        c.setFont("Helvetica", 8)
+        c.setFont(font, 9)
         c.drawCentredString(bxx + bw / 2, byy + bh / 2 - 3, "BARCODE AREA")
 
     c.showPage()

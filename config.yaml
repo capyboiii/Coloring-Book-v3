@@ -1,13 +1,14 @@
 book:
-  title: halloween
+  title: Tree of Life Mandala Coloring Book – Inspirational Nature Designs to Calm
+    Your Mind
   subtitle: ''
   author: ''
-  num_images: 5
+  num_images: 10
   blank_verso: true
-  front_matter_pages: 2
+  front_matter_pages: 0
 print:
   trim_width: 8.5
-  trim_height: 11
+  trim_height: 8.5
   bleed: 0.125
   safety_margin: 0.5
   gutter: 0.375
@@ -16,6 +17,9 @@ print:
   binding: perfect
   min_pages: 32
   cover_wrap: 0.25
+  spine_width: 0.0
+  full_bleed_interior: false
+  interior_border: true
 process:
   pure_bw: false
 prompts:
@@ -117,17 +121,42 @@ prompts:
     Vertical portrait orientation, aspect ratio 8.5:11, maximum resolution.
 
     '
+  previews:
+    preview_1: Generate a professional 3D product mockup photograph of the paperback
+      coloring book titled '{title}'. The attached image is the OUTSIDE FRONT COVER
+      of the book. Render this exact image printed cleanly on the front cover of a
+      paperback book, isolated and centered on a solid pure white background with
+      a subtle realistic drop shadow, clean minimalist ecommerce product shot, high
+      resolution.
+    preview_2: Generate a realistic photograph of an open paperback coloring book
+      titled '{title}' laying flat on a wooden table. The attached images are INTERIOR
+      COLORING PAGES. Render these black-and-white line art pages printed clearly
+      INSIDE the open pages of the book, next to colored pencils and a warm cup of
+      tea.
+    preview_3: Generate a close-up photograph of hands actively coloring an INTERIOR
+      PAGE INSIDE an open coloring book titled '{title}'. The attached image is the
+      black-and-white line art page printed on the open book page being colored with
+      vibrant colored pencils.
+    preview_4: Generate a clean flatlay collage photograph showing 4 INTERIOR COLORING
+      PAGES from the book '{title}'. Render these 4 attached black-and-white line-art
+      interior pages arranged in an aesthetic 2x2 grid collage on a bright wooden
+      surface with colored pencils.
+    preview_5: Generate a warm aesthetic lifestyle photograph featuring a physical
+      paperback copy of the book '{title}'. The attached image is the OUTSIDE FRONT
+      COVER. Display the physical book showing this exact cover image on a cozy desk
+      next to house plants, watercolor set, and soft morning sunlight.
 subjects:
-- A happy vampire sipping juice from a juice box.
-- A small Frankenstein monster building a wooden block tower.
-- A friendly mummy wrapping up a teddy bear in bandages.
-- A cute werewolf chasing a falling autumn leaf.
-- A smiling broomstick resting against a giant carved pumpkin.
-- A little dragon wearing a witch hat and roasting a marshmallow.
-- A baby owl sitting inside a hollow jack-o'-lantern.
-- A ghost pushing a small pumpkin on a swing.
-- A playful black cat peeking out of a trick-or-treat bucket.
-- A candy corn character riding a small tricycle.
+- A peaceful tree of life surrounded by fluttering butterflies and blooming wildflowers.
+- A cozy owl sitting on a thick branch of a mandala-patterned tree under a crescent
+  moon.
+- A tall tree with roots weaving into a circle around swimming koi fish.
+- A friendly squirrel gathering acorns under a lush tree with leaf patterns.
+- A majestic tree growing inside a giant sunburst mandala.
+- A mother deer and her fawn standing beneath a blooming cherry blossom tree.
+- A tree of life with heart-shaped leaves surrounded by floating sea turtles.
+- A whimsical tree with spiral branches filled with singing woodland birds.
+- A starry night sky framed by the leafy branches of a peaceful mandala tree.
+- A happy hummingbird sipping nectar from flowers on a tree of life.
 cover_text:
   back_blurb: '
 
@@ -155,11 +184,11 @@ browser:
   max_retries: 3
   model_hint: ''
   profiles:
-  - ./.chrome-account2
+  - ./.chrome-account1
   concurrency_per_profile: 2
 paths:
   raw_dir: output/01_raw
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: halloween
+_book: tree-of-life-mandala-coloring-book-inspirational-nature-desi

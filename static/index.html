@@ -44,6 +44,7 @@
     <button class="tab-btn" onclick="switchTab('tab-inspector')">🔍 2. Lọc & Duyệt Ảnh Raw</button>
     <button class="tab-btn" onclick="switchTab('tab-pipeline')">⚡ 3. Sinh Sách & Live Console</button>
     <button class="tab-btn" onclick="switchTab('tab-gallery')">🖼️ 4. Thư Viện & File PDF Lulu</button>
+    <button class="tab-btn" onclick="switchTab('tab-previews')">📸 5. Marketing Preview</button>
   </nav>
 
   <!-- MAIN CONTAINER -->
@@ -113,6 +114,14 @@
           </div>
 
           <div class="form-group">
+            <label>Trang Tiêu Đề Đầu Sách (Front Matter Title Page)</label>
+            <select id="front-matter-select" onchange="saveConfigFromUI()">
+              <option value="0">Tắt (Không tạo trang tiêu đề, bắt đầu ngay từ tranh đầu tiên)</option>
+              <option value="2">Bật (Tạo 2 trang tiêu đề & bản quyền đầu sách)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
             <label>Mô tả / Lời giới thiệu bìa sau (Back Cover Blurb)</label>
             <textarea id="cover-back-blurb" rows="3" onchange="saveConfigFromUI()"></textarea>
           </div>
@@ -166,12 +175,31 @@
             </select>
           </div>
 
+          <div class="form-group">
+            <label>Căn Lề Trang Ruột (Interior Safety Margin)</label>
+            <select id="safety-margin-select" onchange="saveConfigFromUI()">
+              <option value="0.5">0.50 inch (Chuẩn lề an toàn Lulu - Cách mép 0.5")</option>
+              <option value="0.6">0.60 inch (Lề thoáng rộng - Cách mép 0.6")</option>
+              <option value="0.375">0.375 inch (Lề vừa - Cách mép 0.375")</option>
+              <option value="0.0">0.00 inch (Tràn lề Full-Bleed sát mép giấy)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Khung Viền Đen Trang Ruột (Interior Border)</label>
+            <select id="interior-border-select" onchange="saveConfigFromUI()">
+              <option value="true">Bật (Vẽ khung viền đen mảnh bo quanh tranh)</option>
+              <option value="false">Tắt (Không vẽ khung viền)</option>
+            </select>
+          </div>
+
           <!-- Computed Specs Summary Card -->
           <div class="spec-calculator-box">
             <div class="box-title">📊 Kích thước File PDF Xuất Cho Lulu (Đã gồm Bleed 0.125"):</div>
             <div class="box-line">• <b>File Ruột (interior.pdf):</b> <span id="calc-interior-size" class="highlight">8.75 x 11.25 in</span></div>
-            <div class="box-line">• <b>File Bìa (cover.pdf):</b> <span id="calc-cover-size" class="highlight">17.64 x 11.25 in</span></div>
-            <div class="box-line">• <b>Độ rộng gáy (Spine Width):</b> <span id="calc-spine-detail" class="highlight-amber">0.144 in (3.66 mm)</span></div>
+            <div class="box-line">• <b>File Bìa (cover.pdf):</b> <span id="calc-cover-size" class="highlight">17.25 x 11.25 in</span></div>
+            <div class="box-line">• <b>Độ rộng gáy (Spine Width):</b> <span id="calc-spine-detail" class="highlight-amber">0 in (Coil / No Spine)</span></div>
+            <div class="box-line">• <b>Ô Barcode bìa sau:</b> <span class="highlight" style="color: var(--accent-cyan);">3.622" x 1.26" (92mm x 32mm) - Cách mép 0.5"</span></div>
           </div>
         </div>
       </div>
@@ -315,6 +343,14 @@
           </div>
 
           <div class="form-group">
+            <label>Chế độ hiển thị Chrome Web (Headless Mode)</label>
+            <select id="browser-headless-select" onchange="saveConfigFromUI()">
+              <option value="true">Ẩn trình duyệt - Chạy ngầm siêu tốc (Headless = true)</option>
+              <option value="false">Mở cửa sổ Chrome hiển thị (Headless = false)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
             <label>Chế độ lọc đường nét (Image Filter)</label>
             <select id="process-pure-bw" onchange="saveConfigFromUI()">
               <option value="false">Giữ ảnh xám mịn 300 DPI (Antialiased Grayscale - Khuyên dùng)</option>
@@ -334,11 +370,15 @@
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
               <button class="btn btn-secondary" onclick="runTaskCommand('build')">📦 Bước 3: Dựng PDF Lulu</button>
-              <button class="btn btn-secondary" onclick="runTaskCommand('check')">🔍 Kiểm Tra PDF Lulu</button>
+              <button class="btn" style="background: #8b5cf6;" onclick="runTaskCommand('preview')">📸 Bước 4: Gen 5 Ảnh Preview</button>
             </div>
 
             <button class="btn btn-secondary btn-block" style="margin-top: 6px;" onclick="runTaskCommand('demo')">
               🧪 Chạy Thử Dựng PDF Bằng Ảnh Demo (No-AI Test)
+            </button>
+
+            <button class="btn btn-danger btn-block" style="font-size: 0.95rem; padding: 12px; margin-top: 6px; box-shadow: 0 0 15px rgba(244, 63, 94, 0.4);" onclick="stopCurrentTask()">
+              🛑 DỪNG TIẾN TRÌNH KHẨN CẤP (STOP PROGRAM)
             </button>
           </div>
         </div>
@@ -347,7 +387,10 @@
         <div class="card">
           <div class="card-title">
             <span>💻 Real-Time Terminal Console</span>
-            <button class="btn btn-secondary" onclick="clearConsole()" style="padding: 2px 8px; font-size: 0.75rem;">Xóa Console</button>
+            <div style="display: flex; gap: 6px;">
+              <button class="btn btn-danger" onclick="stopCurrentTask()" style="padding: 2px 10px; font-size: 0.75rem;">🛑 Dừng Khẩn Cấp</button>
+              <button class="btn btn-secondary" onclick="clearConsole()" style="padding: 2px 8px; font-size: 0.75rem;">Xóa Console</button>
+            </div>
           </div>
 
           <div class="terminal" id="log-terminal">
@@ -357,7 +400,7 @@
       </div>
     </div>
 
-    <!-- TAB 3: GALLERY & PDF DOWNLOADS -->
+    <!-- TAB 4: GALLERY & PDF DOWNLOADS -->
     <div id="tab-gallery" class="tab-content">
       <div class="card" style="margin-bottom: 1.5rem;">
         <div class="card-title">
@@ -375,6 +418,26 @@
         </div>
         <div class="gallery-grid" id="gallery-grid-container">
           <!-- Dynamically populated -->
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 5: MARKETING PREVIEW MOCKUPS -->
+    <div id="tab-previews" class="tab-content">
+      <div class="card">
+        <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+          <span>📸 Bộ 5 Ảnh Marketing Preview & Mockup Sản Phẩm (Amazon A+ / Etsy)</span>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-secondary" onclick="loadPreviewInspector()">🔄 Cập nhật UI</button>
+            <button class="btn" style="background: #8b5cf6;" onclick="runTaskCommand('preview')">🚀 Gen Trọn Bộ 5 Ảnh Preview</button>
+          </div>
+        </div>
+        <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: -6px; margin-bottom: 1.5rem;">
+          Dùng để quảng cáo Amazon A+, Etsy, TikTok Shop hoặc Facebook Ads. Bạn có thể tự chỉnh sửa prompt mẫu bên dưới và bấm "Sinh lại ảnh" bất cứ lúc nào.
+        </p>
+
+        <div id="previews-grid-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
+          <div style="color: var(--text-muted);">Đang tải thông tin ảnh preview...</div>
         </div>
       </div>
     </div>

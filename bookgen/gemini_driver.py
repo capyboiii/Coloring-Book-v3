@@ -53,6 +53,10 @@ SELECTORS = {
         'button[aria-label*="Gửi" i]',
         'button.send-button',
         'button[mattooltip*="Send" i]',
+        'button[aria-label*="Submit" i]',
+        '.send-button-container button',
+        'button:has(mat-icon[fonticon*="send"])',
+        'button[data-test-id="send-button"]',
     ],
     "stop_button": [
         'button[aria-label*="Stop" i]',
@@ -171,11 +175,21 @@ class ImageCatcher:
     def __init__(self, min_bytes: int = 10_000):
         self.min_bytes = min_bytes
         self.images: list[bytes] = []
+        self.ignore_hashes: set[str] = set()
         self.armed = False
 
-    def arm(self) -> None:
-        """Bật bắt ảnh. Gọi ngay trước khi gửi prompt."""
+    def arm(self, ignore_files: list[Path] | None = None) -> None:
+        """Bật bắt ảnh. Gọi ngay trước khi gửi prompt, có thể bỏ qua các file ảnh đính kèm."""
+        import hashlib
         self.images.clear()
+        self.ignore_hashes = set()
+        if ignore_files:
+            for f in ignore_files:
+                if f and Path(f).exists():
+                    try:
+                        self.ignore_hashes.add(hashlib.md5(Path(f).read_bytes()).hexdigest())
+                    except Exception:
+                        pass
         self.armed = True
 
     def disarm(self) -> None:
@@ -192,6 +206,12 @@ class ImageCatcher:
                 return
             body = resp.body()
             if len(body) >= self.min_bytes:
+                if self.ignore_hashes:
+                    import hashlib
+                    h = hashlib.md5(body).hexdigest()
+                    if h in self.ignore_hashes:
+                        log.debug("Bỏ qua ảnh đính kèm trùng hash: %d KB", len(body) // 1024)
+                        return
                 self.images.append(body)
                 log.debug("Bắt được ảnh từ mạng: %d KB (%s)", len(body) // 1024, ct)
         except Exception:
@@ -216,18 +236,88 @@ class ImageCatcher:
         return best_bytes
 
 
+def copy_file_safe(src: Path, dst: Path) -> None:
+    """Sao chép file an toàn ngay cả khi file đang được mở bởi tiến trình Chrome khác."""
+    try:
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        data = src.read_bytes()
+        dst.write_bytes(data)
+    except Exception:
+        try:
+            import shutil
+            shutil.copy2(src, dst)
+        except Exception:
+            pass
+
+
+def clone_profile_cookies(source_dir: Path, target_dir: Path) -> None:
+    """Sao chép cookie & session đăng nhập từ source_dir sang target_dir để không bị đòi đăng nhập lại."""
+    if source_dir == target_dir or not source_dir.exists():
+        return
+    import shutil
+    try:
+        target_dir.mkdir(parents=True, exist_ok=True)
+        src_default = source_dir / "Default"
+        dst_default = target_dir / "Default"
+        if src_default.exists():
+            dst_default.mkdir(parents=True, exist_ok=True)
+            for item_name in ["Cookies", "Network", "Local Storage", "Preferences", "Secure Preferences", "Session Storage"]:
+                s = src_default / item_name
+                d = dst_default / item_name
+                if s.exists():
+                    try:
+                        if s.is_dir():
+                            shutil.copytree(s, d, dirs_exist_ok=True)
+                        else:
+                            copy_file_safe(s, d)
+                    except Exception:
+                        pass
+    except Exception as e:
+        log.warning("Không copy được session đăng nhập: %s", e)
+
+
+def is_profile_locked(profile_dir: Path) -> bool:
+    """Kiểm tra xem profile Chrome có đang bị chiếm giữ bởi tiến trình Chrome khác không."""
+    lock_file = profile_dir / "SingletonLock"
+    if not lock_file.exists():
+        return False
+    try:
+        lock_file.unlink()
+        return False
+    except Exception:
+        return True
+
+
+def get_unique_profile_dir(base_dir: Path) -> Path:
+    """Trả về thư mục profile khả dụng không bị khóa bởi tiến trình Chrome khác, tự động giữ đăng nhập."""
+    base_dir.mkdir(parents=True, exist_ok=True)
+    if not is_profile_locked(base_dir):
+        return base_dir
+        
+    for idx in range(1, 10):
+        alt = base_dir.parent / f"{base_dir.name}-p{idx}"
+        alt.mkdir(parents=True, exist_ok=True)
+        if not is_profile_locked(alt):
+            clone_profile_cookies(base_dir, alt)
+            return alt
+            
+    import tempfile
+    tmp = Path(tempfile.mkdtemp(prefix=f"{base_dir.name}-run-"))
+    clone_profile_cookies(base_dir, tmp)
+    return tmp
+
+
 class GeminiDriver:
-    """Context manager mở Chrome có profile lưu sẵn và nói chuyện với Gemini."""
+    """Điều khiển một trình duyệt duy nhất thông qua Playwright."""
 
     def __init__(self, cfg: dict):
-        b = cfg["browser"]
-        self.url = b["gemini_url"]
-        
+        b = cfg.get("browser", {})
+        self.url = b.get("gemini_url", "https://gemini.google.com/app")
         profiles = b.get("profiles", [])
         if not profiles and "user_data_dir" in b:
             profiles = [b["user_data_dir"]]
         if not profiles:
-            profiles = ["./.chrome-profile"]
+            profiles = ["./.chrome-data"]
             
         self.user_data_dir = Path(profiles[0]).resolve()
         self.headless = b.get("headless", False)
@@ -241,19 +331,38 @@ class GeminiDriver:
     # ---------- lifecycle ----------
 
     def __enter__(self) -> "GeminiDriver":
-        self.user_data_dir.mkdir(parents=True, exist_ok=True)
+        actual_dir = get_unique_profile_dir(self.user_data_dir)
         self._pw = sync_playwright().start()
-        self._ctx = self._pw.chromium.launch_persistent_context(
-            user_data_dir=str(self.user_data_dir),
-            headless=self.headless,
-            channel="chrome",              # dùng Chrome thật, ít bị chặn hơn Chromium
-            viewport={"width": 1440, "height": 960},
-            args=[
-                "--disable-blink-features=AutomationControlled",
-                "--no-default-browser-check",
-                "--no-first-run",
-            ],
-        )
+        launch_args = [
+            "--disable-blink-features=AutomationControlled",
+            "--no-default-browser-check",
+            "--no-first-run",
+        ]
+        
+        for retry in range(10):
+            try:
+                self._ctx = self._pw.chromium.launch_persistent_context(
+                    user_data_dir=str(actual_dir),
+                    headless=self.headless,
+                    channel="chrome",
+                    viewport={"width": 1440, "height": 960},
+                    args=launch_args,
+                )
+                break
+            except Exception as e:
+                if ("ProcessSingleton" in str(e) or "already in use" in str(e)) and retry < 9:
+                    actual_dir = self.user_data_dir.parent / f"{self.user_data_dir.name}-run{retry+1}"
+                    actual_dir.mkdir(parents=True, exist_ok=True)
+                    for lock_name in ["SingletonLock", "SingletonCookie", "SingletonSocket"]:
+                        f = actual_dir / lock_name
+                        if f.exists():
+                            try:
+                                f.unlink()
+                            except Exception:
+                                pass
+                    clone_profile_cookies(self.user_data_dir, actual_dir)
+                else:
+                    raise
         self.page = self._ctx.pages[0] if self._ctx.pages else self._ctx.new_page()
         # Bắt ảnh trực tiếp ở tầng mạng (network response sniffing)
         self.catcher = ImageCatcher()
@@ -275,24 +384,56 @@ class GeminiDriver:
             if self._pw:
                 self._pw.stop()
 
+def is_user_signed_in(page: Page) -> bool:
+    """Kiểm tra thực tế xem trình duyệt đã đăng nhập tài khoản Google trên Gemini chưa."""
+    try:
+        signin_btn = page.locator(
+            'a[href*="ServiceLogin"], '
+            'a:has-text("Đăng nhập"), a:has-text("Sign in"), '
+            'button:has-text("Đăng nhập"), button:has-text("Sign in")'
+        )
+        cnt = signin_btn.count()
+        if cnt > 0:
+            for i in range(cnt):
+                try:
+                    txt = signin_btn.nth(i).inner_text().strip().lower()
+                    if signin_btn.nth(i).is_visible() and ("đăng nhập" in txt or "sign in" in txt):
+                        return False
+                except Exception:
+                    pass
+    except Exception:
+        pass
+        
+    return True
+
+
     def _ensure_logged_in(self) -> None:
-        """Chờ tới khi thấy ô nhập prompt. Nếu chưa đăng nhập -> yêu cầu user làm tay."""
+        """Kiểm tra đăng nhập thực tế. Nếu chưa đăng nhập -> yêu cầu user đăng nhập."""
         try:
             self._find(SELECTORS["prompt_box"], timeout=20_000)
-            log.info("Đã đăng nhập Gemini.")
-            return
-        except PWTimeout:
+        except Exception:
             pass
 
+        # Chờ 2s để Google nhận dạng Cookie đăng nhập từ profile
+        time.sleep(2.0)
+
+        if is_user_signed_in(self.page):
+            log.info("✓ Đã xác nhận đăng nhập Google Gemini thành công.")
+            return
+
+        log.warning("⚠️ Chưa đăng nhập Google trên Chrome (Phát hiện thấy nút 'Đăng nhập')!")
         if self.headless:
             raise RuntimeError(
-                "Chưa đăng nhập Google và đang chạy headless. "
-                "Hãy đặt browser.headless: false trong config.yaml, chạy lại, "
-                "đăng nhập trong cửa sổ Chrome, rồi mới bật headless."
+                "Chưa đăng nhập tài khoản Google trên Chrome! "
+                "Hãy mở file config.yaml, tạm thời đặt 'browser.headless: false', sau đó khởi chạy lại để Chrome hiện lên và đăng nhập Google 1 lần."
             )
 
-        print("\n" + "=" * 62)
-        print("  Cửa sổ Chrome đã mở. Hãy ĐĂNG NHẬP Google và mở Gemini.")
+        print("\n" + "=" * 65)
+        print("  Cửa sổ Chrome đã mở. Hãy ĐĂNG NHẬP tài khoản Google của bạn.")
+        print("  Sau khi đăng nhập xong trên Chrome, hãy quay lại đây nhấn Enter...")
+        print("=" * 65 + "\n")
+        input()
+        time.sleep(2.0)
         print("  Đăng nhập xong, quay lại đây và nhấn Enter...")
         print("=" * 62 + "\n")
         input()
@@ -425,11 +566,20 @@ class GeminiDriver:
         if b is not None:
             try:
                 b.click(timeout=5_000)
-                return started()
+                if started():
+                    return True
             except Exception as e:  # noqa: BLE001
                 log.debug("Bấm nút gửi lỗi: %s", e)
 
-        try:                                          # dự phòng: phím Enter
+        try:                                          # dự phòng 1: Control+Enter
+            box.focus()
+            self.page.keyboard.press("Control+Enter")
+            if started():
+                return True
+        except Exception:
+            pass
+
+        try:                                          # dự phòng 2: phím Enter
             box.click()
             self.page.keyboard.press("End")
             self.page.keyboard.press("Enter")
@@ -533,15 +683,52 @@ class GeminiDriver:
                 log.debug("Tải %s lỗi: %s", candidate, e)
         return False
 
+    def attach_images(self, file_paths: list[Path]) -> bool:
+        """Đính kèm danh sách ảnh (bìa, trang ruột) vào ô chat Gemini."""
+        valid_paths = [str(Path(p).resolve()) for p in file_paths if p and Path(p).exists()]
+        if not valid_paths:
+            return False
+        try:
+            plus_btn = self.page.locator(
+                'button[aria-label*="tải" i], button[aria-label*="upload" i], '
+                'button[aria-label*="thêm" i], button[aria-label*="đính kèm" i], '
+                'button[aria-label*="add" i], button.uploader-button'
+            ).first
+            
+            if plus_btn.is_visible():
+                try:
+                    with self.page.expect_file_chooser(timeout=4_000) as fc_info:
+                        plus_btn.click()
+                    file_chooser = fc_info.value
+                    file_chooser.set_files(valid_paths)
+                    self.page.wait_for_timeout(2_000)
+                    log.info("Đã đính kèm %d ảnh thực tế qua nút Upload.", len(valid_paths))
+                    return True
+                except Exception:
+                    pass
+
+            inp = self.page.locator('input[type="file"]').first
+            inp.set_input_files(valid_paths, timeout=3_000)
+            self.page.wait_for_timeout(2_000)
+            log.info("Đã đính kèm %d ảnh thực tế vào ô chat.", len(valid_paths))
+            return True
+        except Exception as e:  # noqa: BLE001
+            log.warning("Không đính kèm được ảnh mẫu: %s", e)
+            return False
+
     # ---------- API chính ----------
 
-    def generate_image(self, prompt: str, dest: Path) -> Path | None:
-        """Gửi 1 prompt, chờ, tải ảnh về dest. Trả về đường dẫn hoặc None."""
+    def generate_image(self, prompt: str, dest: Path, attach_files: list[Path] | None = None) -> Path | None:
+        """Gửi 1 prompt + đính kèm ảnh thực tế (nếu có), chờ, tải ảnh về dest."""
         for attempt in range(1, self.max_retries + 1):
+            from bookgen.cancel import check_cancel
+            check_cancel()
             try:
                 self.new_chat()
+                if attach_files:
+                    self.attach_images(attach_files)
                 if hasattr(self, 'catcher') and self.catcher:
-                    self.catcher.arm()
+                    self.catcher.arm(ignore_files=attach_files)
                 before = set(self._collect_image_urls())
                 self.send_prompt(prompt)
                 self.wait_for_generation()

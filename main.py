@@ -94,6 +94,7 @@ def paths_of(cfg: dict) -> dict[str, Path]:
         "raw_dir": base / "01_raw",
         "processed_dir": base / "02_processed",
         "pdf_dir": base / "03_pdf",
+        "preview_dir": base / "04_previews",
         "state_file": base / "state.json",
     }
 
@@ -363,7 +364,13 @@ def cmd_build(cfg: dict) -> None:
         pages,
     )
 
-    spine = pdf_builder.spine_width(pages, cfg["print"]["paper_thickness"])
+    binding = cfg["print"].get("binding", "perfect")
+    if "spine_width" in cfg["print"] and cfg["print"]["spine_width"] is not None:
+        spine = float(cfg["print"]["spine_width"])
+    elif binding in ["coil", "saddle"]:
+        spine = 0.0
+    else:
+        spine = pdf_builder.spine_width(pages, cfg["print"]["paper_thickness"])
     print(f"""
 ================= SẴN SÀNG TẢI LÊN LULU =================
   Interior : {interior}
@@ -562,13 +569,137 @@ def cmd_ask(cfg: dict) -> None:
     print("  Bước tiếp: python main.py process && python main.py build\n")
 
 
+def cmd_preview_parallel(cfg: dict) -> None:
+    """Mở nhiều tab Gemini và sinh 5 ảnh Preview Marketing song song."""
+    import asyncio
+    from bookgen.gemini_pool import GeminiPool
+
+    P = paths_of(cfg)
+    raw_dir = P["raw_dir"]
+    preview_dir = P.get("preview_dir") or (raw_dir.parent / "04_previews")
+    preview_dir.mkdir(parents=True, exist_ok=True)
+    
+    title = cfg["book"].get("title", "Coloring Book")
+    
+    cover_front = raw_dir / "cover_front.png"
+    interior_pages = sorted(list(raw_dir.glob("page_*.png")))
+    p1 = interior_pages[0] if len(interior_pages) > 0 else None
+    p2 = interior_pages[1] if len(interior_pages) > 1 else p1
+    p3 = interior_pages[2] if len(interior_pages) > 2 else p1
+    p4 = interior_pages[3] if len(interior_pages) > 3 else p2
+    
+    attachments_map = {
+        "preview_1": [f for f in [cover_front] if f and f.exists()],
+        "preview_2": [f for f in [p1, p2] if f and f.exists()],
+        "preview_3": [f for f in [p1] if f and f.exists()],
+        "preview_4": [f for f in [p1, p2, p3, p4] if f and f.exists()],
+        "preview_5": [f for f in [cover_front] if f and f.exists()],
+    }
+
+    templates = cfg.get("prompts", {}).get("previews", {})
+    if not templates:
+        templates = {
+            "preview_1": "Professional 3D product mockup of a paperback coloring book titled '{title}' featuring this exact attached front cover image. The book is standing on a clean wooden desk surrounded by colored pencils, soft natural lighting.",
+            "preview_2": "An open coloring book laying flat on a rustic wooden table, showing these attached black and white interior line-art pages of '{title}', next to scattered colored pencils and a cup of tea.",
+            "preview_3": "Close-up action shot of artist hands coloring this attached interior coloring page of '{title}' with vibrant colored pencils, detailed shading, warm cozy background.",
+            "preview_4": "A flatlay grid collage mockup displaying these attached 4 interior coloring pages from '{title}', clean minimalist aesthetic, bright studio lighting.",
+            "preview_5": "A warm aesthetic lifestyle photograph featuring a physical copy of '{title}' with this attached front cover on a cozy desk next to house plants, watercolor set, and morning sunlight.",
+        }
+
+    jobs = []
+    for idx in range(1, 6):
+        key = f"preview_{idx}"
+        dest = preview_dir / f"{key}.png"
+        raw_prompt = templates.get(key, f"Coloring book mockup {idx}")
+        prompt = raw_prompt.format(title=title)
+        attach = attachments_map.get(key, [])
+        jobs.append((key, prompt, dest, attach))
+
+    async def run() -> None:
+        async with GeminiPool(cfg) as pool:
+            log.info("🖼️ Bắt đầu sinh SONG SONG 5 ảnh Preview Marketing trên %d tab...", pool.workers)
+            def on_done(key: str, ok: bool) -> None:
+                if ok:
+                    print(f"  ✓ {key}.png")
+                else:
+                    print(f"  ✗ {key} thất bại")
+
+            await pool.run_jobs(jobs, on_done)
+
+    asyncio.run(run())
+
+
+def cmd_preview(cfg: dict) -> None:
+    """Tạo 5 ảnh Preview Marketing dùng ĐÚNG ảnh bìa & ảnh ruột thực tế vừa gen."""
+    backend = cfg.get("backend", "web")
+    b = cfg.get("browser", {})
+    profiles = b.get("profiles", [])
+    if not profiles and "user_data_dir" in b:
+        profiles = [b["user_data_dir"]]
+    workers = int(b.get("concurrency_per_profile", b.get("concurrency", 1))) * max(1, len(profiles))
+
+    if backend == "web" and workers > 1:
+        return cmd_preview_parallel(cfg)
+
+    P = paths_of(cfg)
+    raw_dir = P["raw_dir"]
+    preview_dir = P.get("preview_dir") or (raw_dir.parent / "04_previews")
+    preview_dir.mkdir(parents=True, exist_ok=True)
+    
+    title = cfg["book"].get("title", "Coloring Book")
+    
+    cover_front = raw_dir / "cover_front.png"
+    interior_pages = sorted(list(raw_dir.glob("page_*.png")))
+    p1 = interior_pages[0] if len(interior_pages) > 0 else None
+    p2 = interior_pages[1] if len(interior_pages) > 1 else p1
+    p3 = interior_pages[2] if len(interior_pages) > 2 else p1
+    p4 = interior_pages[3] if len(interior_pages) > 3 else p2
+    
+    attachments_map = {
+        "preview_1": [f for f in [cover_front] if f and f.exists()],
+        "preview_2": [f for f in [p1, p2] if f and f.exists()],
+        "preview_3": [f for f in [p1] if f and f.exists()],
+        "preview_4": [f for f in [p1, p2, p3, p4] if f and f.exists()],
+        "preview_5": [f for f in [cover_front] if f and f.exists()],
+    }
+
+    templates = cfg.get("prompts", {}).get("previews", {})
+    if not templates:
+        templates = {
+            "preview_1": "Professional 3D product mockup of a paperback coloring book titled '{title}' featuring this exact attached front cover image. The book is standing on a clean wooden desk surrounded by colored pencils, soft natural lighting.",
+            "preview_2": "An open coloring book laying flat on a rustic wooden table, showing these attached black and white interior line-art pages of '{title}', next to scattered colored pencils and a cup of tea.",
+            "preview_3": "Close-up action shot of artist hands coloring this attached interior coloring page of '{title}' with vibrant colored pencils, detailed shading, warm cozy background.",
+            "preview_4": "A flatlay grid collage mockup displaying these attached 4 interior coloring pages from '{title}', clean minimalist aesthetic, bright studio lighting.",
+            "preview_5": "A warm aesthetic lifestyle photograph featuring a physical copy of '{title}' with this attached front cover on a cozy desk next to house plants, watercolor set, and morning sunlight.",
+        }
+
+    log.info("🖼️ Bắt đầu tạo 5 ảnh Preview Marketing dùng ĐÚNG ảnh thật của '%s'...", title)
+    with make_driver(cfg) as g:
+        for idx in range(1, 6):
+            from bookgen.cancel import check_cancel
+            check_cancel()
+            
+            key = f"preview_{idx}"
+            dest = preview_dir / f"{key}.png"
+            raw_prompt = templates.get(key, f"Coloring book mockup {idx}")
+            prompt = raw_prompt.format(title=title)
+            attach = attachments_map.get(key, [])
+            
+            log.info("[%d/5] Đang tạo %s (đính kèm %d ảnh thật)...", idx, key, len(attach))
+            if g.generate_image(prompt, dest, attach_files=attach):
+                log.info("[%d/5] ✓ Hoàn thành %s!", idx, key)
+            else:
+                log.error("[%d/5] ✗ Thất bại khi tạo %s.", idx, key)
+            g._sleep_jitter()
+
+
 # --------------------------------------------------------------- CLI
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Coloring Book Generator (Gemini -> Lulu)")
     ap.add_argument("command",
                     choices=["ask", "books", "generate", "process", "build",
-                             "all", "check", "demo"])
+                             "all", "check", "demo", "preview"])
     ap.add_argument("-c", "--config", default="config.yaml")
     ap.add_argument("-b", "--book", default=None,
                     help="Chọn chủ đề (tên thư mục trong output/books). "
@@ -588,10 +719,11 @@ def main() -> None:
         cmd_process(cfg)
         cmd_build(cfg)
         cmd_check(cfg)
+        cmd_preview(cfg)
     else:
         {"ask": cmd_ask, "books": cmd_books, "generate": cmd_generate,
          "process": cmd_process, "build": cmd_build, "check": cmd_check,
-         "demo": cmd_demo}[args.command](cfg)
+         "demo": cmd_demo, "preview": cmd_preview}[args.command](cfg)
 
 
 if __name__ == "__main__":

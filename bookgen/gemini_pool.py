@@ -128,11 +128,21 @@ class ImageCatcher:
     def __init__(self, min_bytes: int = 20_000):
         self.min_bytes = min_bytes
         self.images: list[bytes] = []
+        self.ignore_hashes: set[str] = set()
         self.armed = False
 
-    def arm(self) -> None:
+    def arm(self, ignore_files: list[Path] | None = None) -> None:
         """Bật bắt, xoá kết quả cũ. Gọi ngay trước khi gửi prompt."""
+        import hashlib
         self.images.clear()
+        self.ignore_hashes = set()
+        if ignore_files:
+            for f in ignore_files:
+                if f and Path(f).exists():
+                    try:
+                        self.ignore_hashes.add(hashlib.md5(Path(f).read_bytes()).hexdigest())
+                    except Exception:
+                        pass
         self.armed = True
 
     def disarm(self) -> None:
@@ -149,6 +159,12 @@ class ImageCatcher:
                 return
             body = await resp.body()
             if len(body) >= self.min_bytes:
+                if self.ignore_hashes:
+                    import hashlib
+                    h = hashlib.md5(body).hexdigest()
+                    if h in self.ignore_hashes:
+                        log.debug("Bỏ qua ảnh đính kèm trùng hash: %d KB", len(body) // 1024)
+                        return
                 self.images.append(body)
                 log.debug("Bắt được ảnh từ mạng: %d KB (%s)",
                           len(body) // 1024, ct)
@@ -173,6 +189,29 @@ class ImageCatcher:
             if w * h > best_area:
                 best_bytes, best_area = b, w * h
         return best_bytes
+
+
+async def is_user_signed_in_async(page: Page) -> bool:
+    """Kiểm tra thực tế xem trình duyệt đã đăng nhập tài khoản Google trên Gemini chưa (bản async)."""
+    try:
+        signin_btn = page.locator(
+            'a[href*="ServiceLogin"], '
+            'a:has-text("Đăng nhập"), a:has-text("Sign in"), '
+            'button:has-text("Đăng nhập"), button:has-text("Sign in")'
+        )
+        cnt = await signin_btn.count()
+        if cnt > 0:
+            for i in range(cnt):
+                try:
+                    txt = (await signin_btn.nth(i).inner_text()).strip().lower()
+                    if (await signin_btn.nth(i).is_visible()) and ("đăng nhập" in txt or "sign in" in txt):
+                        return False
+                except Exception:
+                    pass
+    except Exception:
+        pass
+        
+    return True
 
 
 class GeminiPool:
@@ -216,23 +255,46 @@ class GeminiPool:
 
     async def __aenter__(self) -> "GeminiPool":
         self._pw = await async_playwright().start()
+        from bookgen.gemini_driver import get_unique_profile_dir
         
         for p_dir in self.profile_dirs:
-            p_dir.mkdir(parents=True, exist_ok=True)
-            ctx = await self._pw.chromium.launch_persistent_context(
-                user_data_dir=str(p_dir),
-                headless=self.headless,
-                channel="chrome",
-                viewport={"width": 1440, "height": 960},
-                args=[
-                    "--disable-blink-features=AutomationControlled",
-                    "--no-default-browser-check",
-                    "--no-first-run",
-                    "--disable-extensions",
-                    "--disable-dev-shm-usage",
-                    "--js-flags=--max-old-space-size=512",
-                ],
-            )
+            actual_dir = get_unique_profile_dir(p_dir)
+            launch_args = [
+                "--disable-blink-features=AutomationControlled",
+                "--no-default-browser-check",
+                "--no-first-run",
+                "--disable-extensions",
+                "--disable-dev-shm-usage",
+                "--js-flags=--max-old-space-size=512",
+            ]
+            
+            ctx = None
+            for retry in range(10):
+                try:
+                    ctx = await self._pw.chromium.launch_persistent_context(
+                        user_data_dir=str(actual_dir),
+                        headless=self.headless,
+                        channel="chrome",
+                        viewport={"width": 1440, "height": 960},
+                        args=launch_args,
+                    )
+                    break
+                except Exception as e:
+                    if ("ProcessSingleton" in str(e) or "already in use" in str(e)) and retry < 9:
+                        actual_dir = p_dir.parent / f"{p_dir.name}-run{retry+1}"
+                        actual_dir.mkdir(parents=True, exist_ok=True)
+                        for lock_name in ["SingletonLock", "SingletonCookie", "SingletonSocket"]:
+                            f = actual_dir / lock_name
+                            if f.exists():
+                                try:
+                                    f.unlink()
+                                except Exception:
+                                    pass
+                        from bookgen.gemini_driver import clone_profile_cookies
+                        clone_profile_cookies(p_dir, actual_dir)
+                    else:
+                        raise
+
             self.contexts.append(ctx)
             first = ctx.pages[0] if ctx.pages else await ctx.new_page()
             self.pages.append(first)
@@ -260,20 +322,29 @@ class GeminiPool:
     async def _ensure_logged_in(self, page: Page) -> None:
         try:
             await self._find(page, SELECTORS["prompt_box"], timeout=20_000)
-            return
-        except PWTimeout:
+        except Exception:
             pass
+
+        # Chờ 2s để Google nhận dạng Cookie đăng nhập từ profile
+        await asyncio.sleep(2.0)
+
+        if await is_user_signed_in_async(page):
+            log.info("✓ Đã xác nhận đăng nhập Google Gemini thành công.")
+            return
+
+        log.warning("⚠️ Chưa đăng nhập Google trên Chrome (Phát hiện thấy nút 'Đăng nhập')!")
         if self.headless:
             raise RuntimeError(
-                "Chưa đăng nhập Google và đang chạy headless. "
-                "Đặt browser.headless: false, đăng nhập một lần rồi chạy lại."
+                "Chưa đăng nhập tài khoản Google trên Chrome! "
+                "Hãy mở file config.yaml, tạm thời đặt 'browser.headless: false', sau đó khởi chạy lại để Chrome hiện lên và đăng nhập Google 1 lần."
             )
-        print("\n" + "=" * 62)
-        print("  Hãy ĐĂNG NHẬP Google trong cửa sổ Chrome vừa mở.")
-        print("  Xong thì quay lại đây và nhấn Enter...")
-        print("=" * 62 + "\n")
+
+        print("\n" + "=" * 65)
+        print("  Cửa sổ Chrome đã mở. Hãy ĐĂNG NHẬP tài khoản Google của bạn.")
+        print("  Sau khi đăng nhập xong trên Chrome, hãy quay lại đây nhấn Enter...")
+        print("=" * 65 + "\n")
         await asyncio.get_running_loop().run_in_executor(None, input)
-        await self._find(page, SELECTORS["prompt_box"], timeout=60_000)
+        await asyncio.sleep(2.0)
 
     # ---------- helper ----------
 
@@ -334,16 +405,31 @@ class GeminiPool:
         await page.goto(self.url, wait_until="domcontentloaded")
         await page.wait_for_timeout(2_500)
 
+    async def _wake_editor(self, page: Page, box) -> None:
+        try:
+            await box.focus()
+            await box.type(" .")
+            await page.keyboard.press("Backspace")
+            await page.keyboard.press("Backspace")
+        except Exception:
+            pass
+
     async def _send_prompt(self, page: Page, text: str) -> None:
+        text = flatten(text)
         box = await self._find(page, SELECTORS["prompt_box"], timeout=30_000)
-        await box.click()
-        await page.keyboard.press("Control+A")
-        await page.keyboard.press("Delete")
-        # Gõ bằng phím thật, một dòng duy nhất - xem ghi chú trong gemini_driver.py.
-        # Prompt dài ~430 ký tự: delay 8ms/ký tự = 3.4 giây, delay 1ms = 0.4 giây.
-        # Vẫn là sự kiện bàn phím thật nên Angular vẫn bật nút Send.
-        await page.keyboard.type(flatten(text), delay=self.typing_delay)
-        await page.wait_for_timeout(400)
+        try:
+            await box.evaluate("""(el, txt) => {
+                el.innerText = txt;
+                el.dispatchEvent(new Event('input', {bubbles: true}));
+                el.dispatchEvent(new Event('change', {bubbles: true}));
+            }""", text)
+            await self._wake_editor(page, box)
+        except Exception:
+            await box.click()
+            await box.fill(text)
+            await self._wake_editor(page, box)
+
+        await page.wait_for_timeout(300)
         if not await self._click_send(page, box):
             raise RuntimeError("Không bấm được nút Send.")
 
@@ -374,7 +460,7 @@ class GeminiPool:
             return False
 
         send = page.locator(", ".join(SELECTORS["send_button"]))
-        deadline = time.time() + 12
+        deadline = time.time() + 8
         while time.time() < deadline:
             for b in await send.all():
                 try:
@@ -384,12 +470,23 @@ class GeminiPool:
                     if "stop" in aria or "dừng" in aria:
                         continue                     # tuyệt đối không bấm
                     await b.click(timeout=5_000)
-                    return await started()           # bấm một lần rồi thôi
+                    if await started():
+                        return True
                 except Exception:
                     continue
             await page.wait_for_timeout(300)
 
-        try:                                   # dự phòng: gửi bằng phím Enter
+        # Dự phòng 1: Gửi bằng tổ hợp phím Control + Enter (Phím tắt chính thức của Gemini)
+        try:
+            await box.focus()
+            await page.keyboard.press("Control+Enter")
+            if await started():
+                return True
+        except Exception:
+            pass
+
+        # Dự phòng 2: Gửi bằng phím Enter
+        try:
             await box.click()
             await page.keyboard.press("End")
             await page.keyboard.press("Enter")
@@ -812,24 +909,56 @@ class GeminiPool:
                 continue
         return ""
 
-    async def _one_job(self, page: Page, idx: int, prompt: str, dest: Path,
-                       same_chat: bool = False) -> bool:
-        """same_chat=True: gửi tiếp vào cuộc trò chuyện đang mở thay vì mở mới.
+    async def _attach_images(self, page: Page, file_paths: list[Path]) -> bool:
+        """Đính kèm danh sách ảnh (bìa, trang ruột) vào ô chat Gemini."""
+        valid_paths = [str(Path(p).resolve()) for p in file_paths if p and Path(p).exists()]
+        if not valid_paths:
+            return False
+        try:
+            plus_btn = page.locator(
+                'button[aria-label*="tải" i], button[aria-label*="upload" i], '
+                'button[aria-label*="thêm" i], button[aria-label*="đính kèm" i], '
+                'button[aria-label*="add" i], button.uploader-button'
+            ).first
+            
+            if await plus_btn.is_visible():
+                try:
+                    async with page.expect_file_chooser(timeout=4_000) as fc_info:
+                        await plus_btn.click()
+                    file_chooser = await fc_info.value
+                    await file_chooser.set_files(valid_paths)
+                    await page.wait_for_timeout(2_000)
+                    log.info("[tab] Đã đính kèm %d ảnh thực tế qua nút Upload.", len(valid_paths))
+                    return True
+                except Exception:
+                    pass
 
-        Dùng cho các ảnh cần thấy nhau, ví dụ bìa sau phải khớp tông với bìa
-        trước - tả lại bằng chữ không bao giờ khớp bằng việc cho model nhìn
-        thẳng vào ảnh nó vừa vẽ.
-        """
+            inp = page.locator('input[type="file"]').first
+            await inp.set_input_files(valid_paths, timeout=3_000)
+            await page.wait_for_timeout(2_000)
+            log.info("[tab] Đã đính kèm %d ảnh thực tế.", len(valid_paths))
+            return True
+        except Exception as e:  # noqa: BLE001
+            log.warning("Không đính kèm được ảnh mẫu: %s", e)
+            return False
+
+    async def _one_job(self, page: Page, idx: int, prompt: str, dest: Path,
+                       same_chat: bool = False, attach_files: list[Path] | None = None) -> bool:
+        """same_chat=True: gửi tiếp vào cuộc trò chuyện đang mở thay vì mở mới."""
         for attempt in range(1, self.max_retries + 1):
+            from bookgen.cancel import check_cancel
+            check_cancel()
             await self.throttle.acquire()
             try:
                 if not same_chat:
                     await self._new_chat(page)
+                if attach_files:
+                    await self._attach_images(page, attach_files)
                 before = set(await self._image_urls(page))
 
                 catcher = self.catchers.get(page)
                 if catcher:
-                    catcher.arm()          # bật bắt NGAY TRƯỚC khi gửi
+                    catcher.arm(ignore_files=attach_files)          # bật bắt SAU KHI đính kèm & bỏ qua hash ảnh gốc!
                 await self._send_prompt(page, prompt)
 
                 # 0) Đường chính: bắt ảnh ở tầng mạng. Chắc chắn nhất, và cho
@@ -951,10 +1080,15 @@ class GeminiPool:
 
         async def run_steps(idx: int, steps: list) -> None:
             page = self.pages[idx - 1]        # có thể đã bị thay bởi _recycle
-            for n, (key, prompt, dest) in enumerate(steps):
+            for n, step in enumerate(steps):
+                if len(step) == 4:
+                    key, prompt, dest, attach = step
+                else:
+                    key, prompt, dest = step
+                    attach = None
                 # Bước đầu mở chat mới, các bước sau nối tiếp trong đó.
                 ok = await self._one_job(page, idx, prompt, dest,
-                                         same_chat=(n > 0))
+                                         same_chat=(n > 0), attach_files=attach)
                 results[key] = ok
                 if on_done:
                     on_done(key, ok)
@@ -985,7 +1119,7 @@ class GeminiPool:
                 busy += 1
                 try:
                     steps = item if isinstance(item, list) else [item]
-                    names = ", ".join(k for k, _, _ in steps)
+                    names = ", ".join(step[0] for step in steps)
                     stalled = False
                     try:
                         # Đồng hồ canh: quá stall_timeout mà chưa xong thì bỏ

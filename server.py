@@ -141,8 +141,14 @@ def calculate_lulu_specs(cfg: dict) -> dict:
     if final_pages % 2 != 0:
         final_pages += 1
 
+    binding = p.get("binding", "perfect")
     # Tính độ rộng gáy (Spine Width)
-    spine_in = final_pages * paper_thick
+    if "spine_width" in p and p["spine_width"] is not None:
+        spine_in = float(p["spine_width"])
+    elif binding in ["coil", "saddle"]:
+        spine_in = 0.0
+    else:
+        spine_in = final_pages * paper_thick
     
     # Kích thước interior file (bao gồm bleed)
     interior_w_in = trim_w + (2 * bleed)
@@ -661,8 +667,11 @@ class StreamToQueue:
 
 @app.post("/api/tasks/run")
 def run_task(payload: dict):
+    from bookgen.cancel import reset_cancel
+    reset_cancel()
+    
     command = payload.get("command")
-    if command not in ["generate", "process", "build", "check", "demo", "all"]:
+    if command not in ["generate", "process", "build", "check", "preview", "demo", "all"]:
         raise HTTPException(status_code=400, detail="Invalid command")
 
     task_id = f"task_{command}_{os.urandom(4).hex()}"
@@ -693,6 +702,8 @@ def run_task(payload: dict):
                 book_main.cmd_build(cfg)
             elif command == "check":
                 book_main.cmd_check(cfg)
+            elif command == "preview":
+                book_main.cmd_preview(cfg)
             elif command == "demo":
                 book_main.cmd_demo(cfg)
             elif command == "all":
@@ -700,6 +711,7 @@ def run_task(payload: dict):
                 book_main.cmd_process(cfg)
                 book_main.cmd_build(cfg)
                 book_main.cmd_check(cfg)
+                book_main.cmd_preview(cfg)
             log_q.put(f"[SUCCESS] Command '{command}' completed!")
         except Exception as e:
             logger.exception(f"Task failed: {e}")
@@ -712,6 +724,14 @@ def run_task(payload: dict):
 
     threading.Thread(target=worker, daemon=True).start()
     return {"task_id": task_id, "command": command}
+
+
+@app.post("/api/tasks/stop")
+def stop_task():
+    from bookgen.cancel import request_cancel
+    request_cancel()
+    logger.info("[STOP] User requested task cancellation!")
+    return {"status": "success", "message": "Đã gửi lệnh DỪNG tới tất cả tiến trình đang chạy!"}
 
 
 @app.get("/api/tasks/stream/{task_id}")
@@ -780,12 +800,12 @@ def get_gallery():
 
 @app.get("/api/images/{slug}/{folder}/{filename}")
 def serve_image(slug: str, folder: str, filename: str):
-    if folder not in ["01_raw", "02_processed"]:
+    if folder not in ["01_raw", "02_processed", "04_previews"]:
         raise HTTPException(status_code=400, detail="Invalid folder")
     path = book_main.BOOKS_DIR / slug / folder / filename
     if not path.exists():
         cfg = book_main.load_cfg(ROOT / "config.yaml")
-        path = ROOT / cfg["paths"].get(f"{folder.replace('01_', '').replace('02_', '')}_dir", f"output/{folder}") / filename
+        path = ROOT / cfg["paths"].get(f"{folder.replace('01_', '').replace('02_', '').replace('04_', '')}_dir", f"output/{folder}") / filename
         if not path.exists():
             raise HTTPException(status_code=404, detail="Image file not found")
     return FileResponse(path, media_type="image/png")
@@ -800,6 +820,92 @@ def serve_pdf(slug: str, filename: str):
         if not path.exists():
             raise HTTPException(status_code=404, detail="PDF file not found")
     return FileResponse(path, media_type="application/pdf", filename=filename)
+
+
+# ------------ PREVIEW MARKETING ENDPOINTS ------------
+
+@app.get("/api/previews/details")
+def get_preview_details():
+    cfg = book_main.load_cfg(ROOT / "config.yaml")
+    P = book_main.paths_of(cfg)
+    slug = cfg.get("_book") or book_main.get_current_book() or "default"
+    title = cfg.get("book", {}).get("title", "Coloring Book")
+    templates = cfg.get("prompts", {}).get("previews", {})
+    
+    preview_dir = P.get("preview_dir") or (P["raw_dir"].parent / "04_previews")
+    
+    items = []
+    for idx in range(1, 6):
+        key = f"preview_{idx}"
+        fname = f"{key}.png"
+        fpath = preview_dir / fname
+        has_file = fpath.exists()
+        raw_prompt = templates.get(key, f"Mockup preview {idx}")
+        prompt = raw_prompt.format(title=title)
+        
+        items.append({
+            "key": key,
+            "filename": fname,
+            "index": idx,
+            "has_file": has_file,
+            "url": f"/api/images/{slug}/04_previews/{fname}?v={int(fpath.stat().st_mtime)}" if has_file else None,
+            "prompt": prompt,
+            "size_kb": round(fpath.stat().st_size / 1024, 1) if has_file else 0
+        })
+        
+    return {"status": "success", "items": items, "title": title}
+
+
+@app.post("/api/previews/regenerate-single")
+def regenerate_preview_single(payload: dict):
+    key = payload.get("key")
+    custom_prompt = payload.get("prompt")
+    if not key:
+        raise HTTPException(status_code=400, detail="Missing preview key")
+        
+    cfg = book_main.load_cfg(ROOT / "config.yaml")
+    P = book_main.paths_of(cfg)
+    raw_dir = P["raw_dir"]
+    preview_dir = P.get("preview_dir") or (raw_dir.parent / "04_previews")
+    preview_dir.mkdir(parents=True, exist_ok=True)
+    
+    title = cfg.get("book", {}).get("title", "Coloring Book")
+    if not custom_prompt:
+        templates = cfg.get("prompts", {}).get("previews", {})
+        custom_prompt = templates.get(key, f"Coloring book mockup {key}").format(title=title)
+        
+    # Lấy các ảnh thực tế cần đính kèm
+    cover_front = raw_dir / "cover_front.png"
+    interior_pages = sorted(list(raw_dir.glob("page_*.png")))
+    p1 = interior_pages[0] if len(interior_pages) > 0 else None
+    p2 = interior_pages[1] if len(interior_pages) > 1 else p1
+    p3 = interior_pages[2] if len(interior_pages) > 2 else p1
+    p4 = interior_pages[3] if len(interior_pages) > 3 else p2
+    
+    attachments_map = {
+        "preview_1": [f for f in [cover_front] if f and f.exists()],
+        "preview_2": [f for f in [p1, p2] if f and f.exists()],
+        "preview_3": [f for f in [p1] if f and f.exists()],
+        "preview_4": [f for f in [p1, p2, p3, p4] if f and f.exists()],
+        "preview_5": [f for f in [cover_front] if f and f.exists()],
+    }
+    attach = attachments_map.get(key, [])
+    dest = preview_dir / f"{key}.png"
+    
+    with book_main.make_driver(cfg) as g:
+        from bookgen.cancel import reset_cancel
+        reset_cancel()
+        ok = g.generate_image(custom_prompt, dest, attach_files=attach)
+        if not ok:
+            raise HTTPException(status_code=500, detail=f"Không sinh được {key}")
+            
+    slug = cfg.get("_book") or book_main.get_current_book() or "default"
+    mtime = int(dest.stat().st_mtime) if dest.exists() else 0
+    return {
+        "status": "success",
+        "key": key,
+        "url": f"/api/images/{slug}/04_previews/{key}.png?v={mtime}"
+    }
 
 
 # ------------ RAW INSPECTOR ENDPOINTS ------------
