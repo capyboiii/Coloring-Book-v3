@@ -581,8 +581,12 @@ def cmd_preview_parallel(cfg: dict) -> None:
     
     title = cfg["book"].get("title", "Coloring Book")
     
-    cover_front = raw_dir / "cover_front.png"
-    interior_pages = sorted(list(raw_dir.glob("page_*.png")))
+    proc_dir = P["processed_dir"]
+    cover_front = (proc_dir / "cover_front.png") if (proc_dir / "cover_front.png").exists() else (raw_dir / "cover_front.png")
+    interior_pages = sorted(list(proc_dir.glob("page_*.png")))
+    if not interior_pages:
+        interior_pages = sorted(list(raw_dir.glob("page_*.png")))
+
     p1 = interior_pages[0] if len(interior_pages) > 0 else None
     p2 = interior_pages[1] if len(interior_pages) > 1 else p1
     p3 = interior_pages[2] if len(interior_pages) > 2 else p1
@@ -599,11 +603,11 @@ def cmd_preview_parallel(cfg: dict) -> None:
     templates = cfg.get("prompts", {}).get("previews", {})
     if not templates:
         templates = {
-            "preview_1": "Professional 3D product mockup of a paperback coloring book titled '{title}' featuring this exact attached front cover image. The book is standing on a clean wooden desk surrounded by colored pencils, soft natural lighting.",
-            "preview_2": "An open coloring book laying flat on a rustic wooden table, showing these attached black and white interior line-art pages of '{title}', next to scattered colored pencils and a cup of tea.",
-            "preview_3": "Close-up action shot of artist hands coloring this attached interior coloring page of '{title}' with vibrant colored pencils, detailed shading, warm cozy background.",
-            "preview_4": "A flatlay grid collage mockup displaying these attached 4 interior coloring pages from '{title}', clean minimalist aesthetic, bright studio lighting.",
-            "preview_5": "A warm aesthetic lifestyle photograph featuring a physical copy of '{title}' with this attached front cover on a cozy desk next to house plants, watercolor set, and morning sunlight.",
+            "preview_1": "Generate a professional 3D product mockup photograph of a paperback coloring book standing isolated on a solid white background with a soft drop shadow. The attached image is the exact FRONT COVER. Printed on the front cover of the book mockup, render the attached image with 100% exact visual fidelity. ABSOLUTE RULE: DO NOT add, modify, or remove any text, title, words, letters, logos, or drawings. The front cover must be an exact 1:1 replica of the attached image without any extra added text, words, or illustrations. High resolution ecommerce product shot.",
+            "preview_2": "Generate a realistic photograph of an open paperback coloring book laying flat on a warm wooden table next to colored pencils and a cup of tea. The attached images are the exact INTERIOR COLORING PAGES. Render these attached line-art pages printed on the open left and right pages of the book with 100% exact visual fidelity. ABSOLUTE RULE: DO NOT add, modify, or remove any text, titles, captions, words, or drawings on the open pages. The pages inside the book must showcase the exact attached black-and-white line-art drawings without any added text or modified artwork.",
+            "preview_3": "Generate a close-up photograph of hands actively coloring an open page inside a coloring book with colored pencils. The attached image is the exact INTERIOR COLORING PAGE. Render this attached line-art drawing printed on the page with 100% exact visual fidelity. ABSOLUTE RULE: DO NOT add, modify, or remove any text, titles, words, or drawings on the page. Do not generate any new text or extra illustrations. Only realistic colored pencil shading applied within the existing attached line art.",
+            "preview_4": "Generate a clean overhead flatlay photograph displaying 4 interior coloring pages arranged in a 2x2 grid collage on a bright wooden surface with colored pencils. The attached images are the exact INTERIOR COLORING PAGES. Render all 4 attached line-art pages with 100% exact visual fidelity. ABSOLUTE RULE: DO NOT add, modify, or remove any text, titles, words, numbers, or artwork on any of the 4 pages. Keep all line-art drawings and text 100% identical to the attached images without adding any new text or extra drawings.",
+            "preview_5": "Generate a warm aesthetic lifestyle photograph of a paperback coloring book on a cozy desk next to house plants, watercolor set, and soft morning sunlight. The attached image is the exact FRONT COVER. Display the physical book showing this exact cover image printed with 100% exact visual fidelity. ABSOLUTE RULE: DO NOT add, modify, or remove any text, titles, words, letters, logos, or drawings on the book cover. Keep all graphics and text 100% identical to the attached image without adding any new text or extra artwork.",
         }
 
     jobs = []
@@ -648,8 +652,12 @@ def cmd_preview(cfg: dict) -> None:
     
     title = cfg["book"].get("title", "Coloring Book")
     
-    cover_front = raw_dir / "cover_front.png"
-    interior_pages = sorted(list(raw_dir.glob("page_*.png")))
+    proc_dir = P["processed_dir"]
+    cover_front = (proc_dir / "cover_front.png") if (proc_dir / "cover_front.png").exists() else (raw_dir / "cover_front.png")
+    interior_pages = sorted(list(proc_dir.glob("page_*.png")))
+    if not interior_pages:
+        interior_pages = sorted(list(raw_dir.glob("page_*.png")))
+
     p1 = interior_pages[0] if len(interior_pages) > 0 else None
     p2 = interior_pages[1] if len(interior_pages) > 1 else p1
     p3 = interior_pages[2] if len(interior_pages) > 2 else p1
@@ -666,11 +674,11 @@ def cmd_preview(cfg: dict) -> None:
     templates = cfg.get("prompts", {}).get("previews", {})
     if not templates:
         templates = {
-            "preview_1": "Professional 3D product mockup of a paperback coloring book titled '{title}' featuring this exact attached front cover image. The book is standing on a clean wooden desk surrounded by colored pencils, soft natural lighting.",
-            "preview_2": "An open coloring book laying flat on a rustic wooden table, showing these attached black and white interior line-art pages of '{title}', next to scattered colored pencils and a cup of tea.",
-            "preview_3": "Close-up action shot of artist hands coloring this attached interior coloring page of '{title}' with vibrant colored pencils, detailed shading, warm cozy background.",
-            "preview_4": "A flatlay grid collage mockup displaying these attached 4 interior coloring pages from '{title}', clean minimalist aesthetic, bright studio lighting.",
-            "preview_5": "A warm aesthetic lifestyle photograph featuring a physical copy of '{title}' with this attached front cover on a cozy desk next to house plants, watercolor set, and morning sunlight.",
+            "preview_1": "Generate a professional 3D product mockup photograph of a paperback coloring book standing isolated on a solid white background with a soft drop shadow. The attached image is the exact FRONT COVER. Printed on the front cover of the book mockup, render the attached image with 100% exact visual fidelity. ABSOLUTE RULE: DO NOT add, modify, or remove any text, title, words, letters, logos, or drawings. The front cover must be an exact 1:1 replica of the attached image without any extra added text, words, or illustrations. High resolution ecommerce product shot.",
+            "preview_2": "Generate a realistic photograph of an open paperback coloring book laying flat on a warm wooden table next to colored pencils and a cup of tea. The attached images are the exact INTERIOR COLORING PAGES. Render these attached line-art pages printed on the open left and right pages of the book with 100% exact visual fidelity. ABSOLUTE RULE: DO NOT add, modify, or remove any text, titles, captions, words, or drawings on the open pages. The pages inside the book must showcase the exact attached black-and-white line-art drawings without any added text or modified artwork.",
+            "preview_3": "Generate a close-up photograph of hands actively coloring an open page inside a coloring book with colored pencils. The attached image is the exact INTERIOR COLORING PAGE. Render this attached line-art drawing printed on the page with 100% exact visual fidelity. ABSOLUTE RULE: DO NOT add, modify, or remove any text, titles, words, or drawings on the page. Do not generate any new text or extra illustrations. Only realistic colored pencil shading applied within the existing attached line art.",
+            "preview_4": "Generate a clean overhead flatlay photograph displaying 4 interior coloring pages arranged in a 2x2 grid collage on a bright wooden surface with colored pencils. The attached images are the exact INTERIOR COLORING PAGES. Render all 4 attached line-art pages with 100% exact visual fidelity. ABSOLUTE RULE: DO NOT add, modify, or remove any text, titles, words, numbers, or artwork on any of the 4 pages. Keep all line-art drawings and text 100% identical to the attached images without adding any new text or extra drawings.",
+            "preview_5": "Generate a warm aesthetic lifestyle photograph of a paperback coloring book on a cozy desk next to house plants, watercolor set, and soft morning sunlight. The attached image is the exact FRONT COVER. Display the physical book showing this exact cover image printed with 100% exact visual fidelity. ABSOLUTE RULE: DO NOT add, modify, or remove any text, titles, words, letters, logos, or drawings on the book cover. Keep all graphics and text 100% identical to the attached image without adding any new text or extra artwork.",
         }
 
     log.info("🖼️ Bắt đầu tạo 5 ảnh Preview Marketing dùng ĐÚNG ảnh thật của '%s'...", title)

@@ -874,9 +874,12 @@ def regenerate_preview_single(payload: dict):
         templates = cfg.get("prompts", {}).get("previews", {})
         custom_prompt = templates.get(key, f"Coloring book mockup {key}").format(title=title)
         
-    # Lấy các ảnh thực tế cần đính kèm
-    cover_front = raw_dir / "cover_front.png"
-    interior_pages = sorted(list(raw_dir.glob("page_*.png")))
+    # Lấy các ảnh thực tế cần đính kèm (ưu tiên ảnh đã qua xử lý trong 02_processed)
+    proc_dir = P["processed_dir"]
+    cover_front = (proc_dir / "cover_front.png") if (proc_dir / "cover_front.png").exists() else (raw_dir / "cover_front.png")
+    interior_pages = sorted(list(proc_dir.glob("page_*.png")))
+    if not interior_pages:
+        interior_pages = sorted(list(raw_dir.glob("page_*.png")))
     p1 = interior_pages[0] if len(interior_pages) > 0 else None
     p2 = interior_pages[1] if len(interior_pages) > 1 else p1
     p3 = interior_pages[2] if len(interior_pages) > 2 else p1

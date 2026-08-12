@@ -1,14 +1,13 @@
 book:
-  title: Tree of Life Mandala Coloring Book – Inspirational Nature Designs to Calm
-    Your Mind
+  title: Unicorn Coloring Book – Sparkly & Magical Creatures to Color
   subtitle: ''
   author: ''
-  num_images: 10
+  num_images: 5
   blank_verso: true
   front_matter_pages: 0
 print:
   trim_width: 8.5
-  trim_height: 8.5
+  trim_height: 11
   bleed: 0.125
   safety_margin: 0.5
   gutter: 0.375
@@ -122,41 +121,49 @@ prompts:
 
     '
   previews:
-    preview_1: Generate a professional 3D product mockup photograph of the paperback
-      coloring book titled '{title}'. The attached image is the OUTSIDE FRONT COVER
-      of the book. Render this exact image printed cleanly on the front cover of a
-      paperback book, isolated and centered on a solid pure white background with
-      a subtle realistic drop shadow, clean minimalist ecommerce product shot, high
-      resolution.
-    preview_2: Generate a realistic photograph of an open paperback coloring book
-      titled '{title}' laying flat on a wooden table. The attached images are INTERIOR
-      COLORING PAGES. Render these black-and-white line art pages printed clearly
-      INSIDE the open pages of the book, next to colored pencils and a warm cup of
-      tea.
-    preview_3: Generate a close-up photograph of hands actively coloring an INTERIOR
-      PAGE INSIDE an open coloring book titled '{title}'. The attached image is the
-      black-and-white line art page printed on the open book page being colored with
-      vibrant colored pencils.
-    preview_4: Generate a clean flatlay collage photograph showing 4 INTERIOR COLORING
-      PAGES from the book '{title}'. Render these 4 attached black-and-white line-art
-      interior pages arranged in an aesthetic 2x2 grid collage on a bright wooden
-      surface with colored pencils.
-    preview_5: Generate a warm aesthetic lifestyle photograph featuring a physical
-      paperback copy of the book '{title}'. The attached image is the OUTSIDE FRONT
-      COVER. Display the physical book showing this exact cover image on a cozy desk
-      next to house plants, watercolor set, and soft morning sunlight.
+    preview_1: 'Generate a professional 3D product mockup photograph of a paperback
+      coloring book standing isolated on a solid white background with a soft drop
+      shadow. The attached image is the exact FRONT COVER. Printed on the front cover
+      of the book mockup, render the attached image with 100% exact visual fidelity.
+      ABSOLUTE RULE: DO NOT add, modify, or remove any text, title, words, letters,
+      logos, or drawings. The front cover must be an exact 1:1 replica of the attached
+      image without any extra added text, words, or illustrations. High resolution
+      ecommerce product shot.'
+    preview_2: 'Generate a realistic photograph of an open paperback coloring book
+      laying flat on a warm wooden table next to colored pencils and a cup of tea.
+      The attached images are the exact INTERIOR COLORING PAGES. Render these attached
+      line-art pages printed on the open left and right pages of the book with 100%
+      exact visual fidelity. ABSOLUTE RULE: DO NOT add, modify, or remove any text,
+      titles, captions, words, or drawings on the open pages. The pages inside the
+      book must showcase the exact attached black-and-white line-art drawings without
+      any added text or modified artwork.'
+    preview_3: 'Generate a close-up photograph of hands actively coloring an open
+      page inside a coloring book with colored pencils. The attached image is the
+      exact INTERIOR COLORING PAGE. Render this attached line-art drawing printed
+      on the page with 100% exact visual fidelity. ABSOLUTE RULE: DO NOT add, modify,
+      or remove any text, titles, words, or drawings on the page. Do not generate
+      any new text or extra illustrations. Only realistic colored pencil shading applied
+      within the existing attached line art.'
+    preview_4: 'Generate a clean overhead flatlay photograph displaying 4 interior
+      coloring pages arranged in a 2x2 grid collage on a bright wooden surface with
+      colored pencils. The attached images are the exact INTERIOR COLORING PAGES.
+      Render all 4 attached line-art pages with 100% exact visual fidelity. ABSOLUTE
+      RULE: DO NOT add, modify, or remove any text, titles, words, numbers, or artwork
+      on any of the 4 pages. Keep all line-art drawings and text 100% identical to
+      the attached images without adding any new text or extra drawings.'
+    preview_5: 'Generate a warm aesthetic lifestyle photograph of a paperback coloring
+      book on a cozy desk next to house plants, watercolor set, and soft morning sunlight.
+      The attached image is the exact FRONT COVER. Display the physical book showing
+      this exact cover image printed with 100% exact visual fidelity. ABSOLUTE RULE:
+      DO NOT add, modify, or remove any text, titles, words, letters, logos, or drawings
+      on the book cover. Keep all graphics and text 100% identical to the attached
+      image without adding any new text or extra artwork.'
 subjects:
-- A peaceful tree of life surrounded by fluttering butterflies and blooming wildflowers.
-- A cozy owl sitting on a thick branch of a mandala-patterned tree under a crescent
-  moon.
-- A tall tree with roots weaving into a circle around swimming koi fish.
-- A friendly squirrel gathering acorns under a lush tree with leaf patterns.
-- A majestic tree growing inside a giant sunburst mandala.
-- A mother deer and her fawn standing beneath a blooming cherry blossom tree.
-- A tree of life with heart-shaped leaves surrounded by floating sea turtles.
-- A whimsical tree with spiral branches filled with singing woodland birds.
-- A starry night sky framed by the leafy branches of a peaceful mandala tree.
-- A happy hummingbird sipping nectar from flowers on a tree of life.
+- A happy unicorn wearing a birthday hat eats a slice of cake.
+- A cheerful unicorn jumps high over a big colorful rainbow.
+- A sleepy unicorn rests on a soft fluffy cloud surrounded by stars.
+- A friendly unicorn plays tag with two fluttering butterflies in a field.
+- A cute unicorn wears a shiny crown while sitting near a enchanted castle.
 cover_text:
   back_blurb: '
 
@@ -185,10 +192,11 @@ browser:
   model_hint: ''
   profiles:
   - ./.chrome-account1
+  - ./.chrome-account2
   concurrency_per_profile: 2
 paths:
   raw_dir: output/01_raw
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: tree-of-life-mandala-coloring-book-inspirational-nature-desi
+_book: unicorn-coloring-book-sparkly-magical-creatures-to-color

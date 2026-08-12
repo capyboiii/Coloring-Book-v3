@@ -292,6 +292,10 @@ async function switchBook(slug) {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({slug: slug})
     });
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Server error (${res.status}): ${errText}`);
+    }
     const data = await res.json();
 
     state.config = data.config;
