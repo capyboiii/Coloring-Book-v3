@@ -152,8 +152,44 @@ def upscale_url(src: str) -> str:
     return src
 
 
-def is_real_art(path: Path, min_px: int = MIN_ART_PX) -> bool:
-    """Mở file kiểm tra đây có phải tranh thật không, không phải icon/thumbnail."""
+def calc_dhash(img_bytes_or_path, hash_size: int = 16) -> int:
+    """Tính 256-bit dHash cho ảnh để so sánh độ tương đồng thị giác (bỏ qua nén/đổi định dạng)."""
+    try:
+        from PIL import Image
+        from io import BytesIO
+        if isinstance(img_bytes_or_path, (str, Path)):
+            im = Image.open(img_bytes_or_path)
+        else:
+            im = Image.open(BytesIO(img_bytes_or_path))
+        im = im.convert("L").resize((hash_size + 1, hash_size), Image.Resampling.BILINEAR)
+        raw = im.tobytes()
+        diff = []
+        for row in range(hash_size):
+            row_start = row * (hash_size + 1)
+            for col in range(hash_size):
+                p1 = raw[row_start + col]
+                p2 = raw[row_start + col + 1]
+                diff.append(p1 > p2)
+        val = 0
+        for bit in diff:
+            val = (val << 1) | bit
+        return val
+    except Exception:
+        return 0
+
+
+def is_similar_dhash(hash1: int, hash2: int, hash_size: int = 16, threshold: float = 0.22) -> bool:
+    """Kiểm tra 2 ảnh có giống hệt nhau về mặt thị giác hay không (chênh lệch bit < 22%)."""
+    if not hash1 or not hash2:
+        return False
+    xor_val = hash1 ^ hash2
+    diff_bits = bin(xor_val).count("1")
+    total_bits = hash_size * hash_size
+    return (diff_bits / total_bits) < threshold
+
+
+def is_real_art(path: Path, min_px: int = MIN_ART_PX, ignore_files: list[Path] | None = None) -> bool:
+    """Mở file kiểm tra đây có phải tranh thật không, và không trùng thị giác với ảnh đính kèm."""
     try:
         from PIL import Image
 
@@ -166,6 +202,16 @@ def is_real_art(path: Path, min_px: int = MIN_ART_PX) -> bool:
         log.warning("Bỏ %s: chỉ %dx%d, quá nhỏ để là tranh (cần >= %dpx).",
                     path.name, w, h, min_px)
         return False
+    
+    if ignore_files:
+        path_dh = calc_dhash(path)
+        if path_dh:
+            for ig in ignore_files:
+                if ig and Path(ig).exists():
+                    ig_dh = calc_dhash(Path(ig))
+                    if ig_dh and is_similar_dhash(path_dh, ig_dh):
+                        log.warning("Bỏ %s: Trùng thị giác (>80%%) với ảnh đính kèm %s!", path.name, Path(ig).name)
+                        return False
     return True
 
 
@@ -175,25 +221,27 @@ class ImageCatcher:
     def __init__(self, min_bytes: int = 10_000):
         self.min_bytes = min_bytes
         self.images: list[bytes] = []
-        self.ignore_hashes: set[str] = set()
+        self.ignore_dhashes: list[int] = []
         self.armed = False
 
     def arm(self, ignore_files: list[Path] | None = None) -> None:
-        """Bật bắt ảnh. Gọi ngay trước khi gửi prompt, có thể bỏ qua các file ảnh đính kèm."""
-        import hashlib
+        """Bật bắt ảnh. Tự động tính dHash cho các file ảnh đính kèm để loại trừ ảnh trùng thị giác."""
         self.images.clear()
-        self.ignore_hashes = set()
+        self.ignore_dhashes = []
         if ignore_files:
             for f in ignore_files:
                 if f and Path(f).exists():
-                    try:
-                        self.ignore_hashes.add(hashlib.md5(Path(f).read_bytes()).hexdigest())
-                    except Exception:
-                        pass
+                    dh = calc_dhash(Path(f))
+                    if dh:
+                        self.ignore_dhashes.append(dh)
         self.armed = True
+
+    def clear(self) -> None:
+        self.images.clear()
 
     def disarm(self) -> None:
         self.armed = False
+        self.images.clear()
 
     def on_response(self, resp) -> None:
         if not self.armed:
@@ -206,12 +254,13 @@ class ImageCatcher:
                 return
             body = resp.body()
             if len(body) >= self.min_bytes:
-                if self.ignore_hashes:
-                    import hashlib
-                    h = hashlib.md5(body).hexdigest()
-                    if h in self.ignore_hashes:
-                        log.debug("Bỏ qua ảnh đính kèm trùng hash: %d KB", len(body) // 1024)
-                        return
+                if self.ignore_dhashes:
+                    body_dh = calc_dhash(body)
+                    if body_dh:
+                        for target_dh in self.ignore_dhashes:
+                            if is_similar_dhash(body_dh, target_dh):
+                                log.info("Bỏ qua ảnh đính kèm (trùng 80%%+ thị giác với ảnh prompt gốc): %d KB", len(body) // 1024)
+                                return
                 self.images.append(body)
                 log.debug("Bắt được ảnh từ mạng: %d KB (%s)", len(body) // 1024, ct)
         except Exception:
@@ -618,10 +667,18 @@ def is_user_signed_in(page: Page) -> bool:
     def _collect_image_urls(self) -> list[str]:
         """Ảnh ứng viên, to nhất đứng trước. Xem ghi chú ở đầu file về bộ lọc."""
         best: dict[str, float] = {}
-        for sel in SELECTORS["generated_image"] + ["img"]:
+        for sel in SELECTORS["generated_image"]:
             try:
                 for el in self.page.locator(sel).all():
                     try:
+                        is_user = el.evaluate("""
+                            node => {
+                                let p = node.closest('user-query, rich-textarea, .query-text, .user-prompt, [class*="attachment"], [class*="uploader"]');
+                                return p !== null;
+                            }
+                        """)
+                        if is_user:
+                            continue
                         src = el.get_attribute("src") or ""
                     except Exception:
                         continue
@@ -791,13 +848,19 @@ def is_user_signed_in(page: Page) -> bool:
             from bookgen.cancel import check_cancel
             check_cancel()
             try:
-                self.new_chat()
-                if attach_files:
-                    self.attach_images(attach_files)
                 if hasattr(self, 'catcher') and self.catcher:
                     self.catcher.arm(ignore_files=attach_files)
-                before = set(self._collect_image_urls())
+                if attach_files:
+                    self.attach_images(attach_files)
+                    self.page.wait_for_timeout(1_000)
+
                 self.send_prompt(prompt)
+
+                # QUAN TRỌNG: Ngay sau khi gửi prompt, xóa sạch toàn bộ ảnh upload/paste lỡ bị catcher bắt trước đó!
+                if hasattr(self, 'catcher') and self.catcher:
+                    self.catcher.clear()
+
+                before = set(self._collect_image_urls())
                 self.wait_for_generation()
 
                 # 1. Cơ chế BẮT ẢNH TỪ TẦNG MẠNG (dùng lại của gen hàng loạt):

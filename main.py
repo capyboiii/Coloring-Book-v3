@@ -642,10 +642,17 @@ def cmd_preview_parallel(cfg: dict) -> None:
     for idx in range(1, 6):
         key = f"preview_{idx}"
         dest = preview_dir / f"{key}.png"
+        if dest.exists() and dest.stat().st_size > 20_000:
+            log.info("Bỏ qua %s (đã tồn tại: %d KB).", key, dest.stat().st_size // 1024)
+            continue
         raw_prompt = templates.get(key, f"Coloring book mockup {idx}")
         prompt = raw_prompt.format(title=title)
         attach = attachments_map.get(key, [])
         jobs.append((key, prompt, dest, attach))
+
+    if not jobs:
+        log.info("✓ Tất cả 5 ảnh Preview Marketing đã sinh xong trước đó!")
+        return
 
     async def run() -> None:
         async with GeminiPool(cfg) as pool:
@@ -699,6 +706,10 @@ def cmd_preview(cfg: dict) -> None:
             
             key = f"preview_{idx}"
             dest = preview_dir / f"{key}.png"
+            if dest.exists() and dest.stat().st_size > 20_000:
+                log.info("[%d/5] Bỏ qua %s (đã tồn tại: %d KB).", idx, key, dest.stat().st_size // 1024)
+                continue
+
             raw_prompt = templates.get(key, f"Coloring book mockup {idx}")
             prompt = raw_prompt.format(title=title)
             attach = attachments_map.get(key, [])

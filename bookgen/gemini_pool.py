@@ -128,25 +128,28 @@ class ImageCatcher:
     def __init__(self, min_bytes: int = 20_000):
         self.min_bytes = min_bytes
         self.images: list[bytes] = []
-        self.ignore_hashes: set[str] = set()
+        self.ignore_dhashes: list[int] = []
         self.armed = False
 
     def arm(self, ignore_files: list[Path] | None = None) -> None:
-        """Bật bắt, xoá kết quả cũ. Gọi ngay trước khi gửi prompt."""
-        import hashlib
+        """Bật bắt, xoá kết quả cũ. Tự động tính dHash các file đính kèm để loại trừ ảnh trùng thị giác."""
+        from bookgen.gemini_driver import calc_dhash
         self.images.clear()
-        self.ignore_hashes = set()
+        self.ignore_dhashes = []
         if ignore_files:
             for f in ignore_files:
                 if f and Path(f).exists():
-                    try:
-                        self.ignore_hashes.add(hashlib.md5(Path(f).read_bytes()).hexdigest())
-                    except Exception:
-                        pass
+                    dh = calc_dhash(Path(f))
+                    if dh:
+                        self.ignore_dhashes.append(dh)
         self.armed = True
+
+    def clear(self) -> None:
+        self.images.clear()
 
     def disarm(self) -> None:
         self.armed = False
+        self.images.clear()
 
     async def on_response(self, resp) -> None:
         if not self.armed:
@@ -159,12 +162,14 @@ class ImageCatcher:
                 return
             body = await resp.body()
             if len(body) >= self.min_bytes:
-                if self.ignore_hashes:
-                    import hashlib
-                    h = hashlib.md5(body).hexdigest()
-                    if h in self.ignore_hashes:
-                        log.debug("Bỏ qua ảnh đính kèm trùng hash: %d KB", len(body) // 1024)
-                        return
+                if self.ignore_dhashes:
+                    from bookgen.gemini_driver import calc_dhash, is_similar_dhash
+                    body_dh = calc_dhash(body)
+                    if body_dh:
+                        for target_dh in self.ignore_dhashes:
+                            if is_similar_dhash(body_dh, target_dh):
+                                log.info("Bỏ qua ảnh đính kèm (trùng 80%%+ thị giác với ảnh prompt gốc): %d KB", len(body) // 1024)
+                                return
                 self.images.append(body)
                 log.debug("Bắt được ảnh từ mạng: %d KB (%s)",
                           len(body) // 1024, ct)
@@ -1017,16 +1022,19 @@ class GeminiPool:
             check_cancel()
             await self.throttle.acquire()
             try:
-                if not same_chat:
-                    await self._new_chat(page)
-                if attach_files:
-                    await self._attach_images(page, attach_files)
-                before = set(await self._image_urls(page))
-
                 catcher = self.catchers.get(page)
                 if catcher:
-                    catcher.arm(ignore_files=attach_files)          # bật bắt SAU KHI đính kèm & bỏ qua hash ảnh gốc!
+                    catcher.arm(ignore_files=attach_files)
+
+                if attach_files:
+                    await self._attach_images(page, attach_files)
+                    await page.wait_for_timeout(1_000)
+
                 await self._send_prompt(page, prompt)
+
+                # QUAN TRỌNG: Ngay sau khi gửi prompt, xóa sạch toàn bộ ảnh upload/paste lỡ bị catcher bắt trước đó!
+                if catcher:
+                    catcher.clear()
 
                 # 0) Đường chính: bắt ảnh ở tầng mạng. Chắc chắn nhất, và cho
                 #    luôn bytes gốc nên không cần rê chuột/bấm nút/đoán URL.
