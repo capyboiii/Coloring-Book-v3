@@ -291,47 +291,7 @@ def build_cover(
             c.drawCentredString(0, -min(14, sp * 0.55) * 0.35, b["title"])
             c.restoreState()
 
-    # ---- chữ bìa trước ----
-    cx = front_x + tw / 2
-    c.setFillColor(HexColor(ct.get("title_color", "#FFFFFF")))
-    c.setStrokeColor(HexColor(ct.get("stroke_color", "#2B2B2B")))
-    c.setLineWidth(2.2)
-    size = ct.get("title_font_size", 62)
-    c.setFont(font, size)
-    text_obj_y = total_h - bl - th * 0.16
-    for line in _wrap(b["title"], 18):
-        c.setFont(font, size)
-        # vẽ viền + fill để chữ nổi trên ảnh
-        c.saveState()
-        from reportlab.pdfgen.textobject import PDFTextObject  # noqa: F401
-        t = c.beginText()
-        t.setTextRenderMode(2)  # fill + stroke
-        w = c.stringWidth(line, font, size)
-        t.setTextOrigin(cx - w / 2, text_obj_y)
-        t.textOut(line)
-        c.drawText(t)
-        c.restoreState()
-        text_obj_y -= size * 1.12
-
-    if b.get("subtitle"):
-        c.setFillColor(HexColor(ct.get("title_color", "#FFFFFF")))
-        s = ct.get("subtitle_font_size", 26)
-        c.setFont(font, s)
-        t = c.beginText()
-        t.setTextRenderMode(2)
-        w = c.stringWidth(b["subtitle"], font, s)
-        t.setTextOrigin(cx - w / 2, text_obj_y - 10)
-        t.textOut(b["subtitle"])
-        c.drawText(t)
-
-    a = ct.get("author_font_size", 20)
-    c.setFont(font, a)
-    t = c.beginText()
-    t.setTextRenderMode(2)
-    w = c.stringWidth(b["author"], font, a)
-    t.setTextOrigin(cx - w / 2, bl + th * 0.07)
-    t.textOut(b["author"])
-    c.drawText(t)
+    # Chữ tiêu đề đã nằm sẵn 100% trong hình vẽ nghệ thuật của Gemini, không vẽ chèn thêm chữ bằng code Python nữa.
 
     # ---- chữ bìa sau ----
     bx = bl + tw / 2

@@ -1,8 +1,8 @@
 book:
-  title: Cute Dino Coloring
+  title: cute cat
   subtitle: ''
   author: ''
-  num_images: 30
+  num_images: 10
   blank_verso: true
   front_matter_pages: 0
 print:
@@ -19,6 +19,7 @@ print:
   spine_width: 0.0
   full_bleed_interior: false
   interior_border: true
+  interior_border_width: 1.5
 process:
   pure_bw: false
 prompts:
@@ -26,100 +27,88 @@ prompts:
 
     Subject: {subject}.
 
-    ABSOLUTELY NO BORDER: no frame, no rectangle or box around the drawing,
+    ABSOLUTELY NO BORDER: no frame, no rectangle or box around the drawing, no outline
+    along the edges of the image. The white background must extend cleanly around
+    the artwork.
 
-    no outline along the edges of the image, no decorative margin, no rounded
+    NO TEXT of any kind: no title, no caption, no letters, numbers, page number, signature,
+    watermark or logo.
 
-    corners, no torn-paper or sketchbook edge, no drop shadow, no vignette.
-
-    The white background must extend cleanly all the way to every edge of the
-
-    image, with nothing drawn at the edges.
-
-    NO TEXT of any kind: no title, no caption, no letters, numbers, page number,
-
-    signature, watermark or logo.
-
-    Line work: pure black outlines on a pure white background, uniform thick
-
-    strokes, closed shapes with large open areas that are easy to colour in.
+    Line work: pure black outlines on a pure white background, uniform thick strokes,
+    closed shapes with large open areas that are easy to colour in.
 
     NO shading, NO hatching, NO stippling, NO gray tones, NO fill, NO colour.
 
-    Composition: one single centred illustration, drawn as isolated artwork on
-
-    plain white, with a small even area of empty white space around it. Vertical
-
-    portrait orientation, aspect ratio 8.5:11. Maximum resolution, crisp
-
+    Vertical portrait orientation, aspect ratio 8.5:11. Maximum resolution, crisp
     vector-like edges.
 
     '
-  cover_style: 'Art style: cheerful children''s picture-book illustration, soft rounded
+  cover_style: 'ART STYLE (HAND-COLORED COLORING BOOK STYLE): Vibrant, charming children''s
+    coloring book cover style that looks like a beautifully completed hand-colored
+    illustration. - LINEWORK: Bold, clean, crisp black outlines defining all characters
+    and elements, matching the line-art style inside the coloring book. - COLORING
+    & TEXTURE: Filled with rich, cheerful, vibrant colors having subtle colored pencil
+    and crayon shading textures within the black outlines, giving it a warm, delightful
+    hand-colored look. - COLOR PALETTE: Harmonious, bright, friendly colors (warm
+    sun yellow, soft coral, sky blue, mint green, cozy lavender, warm cream) filled
+    with soft gradient shading. - NO photorealism, NO harsh 3D glossy plastic renders,
+    NO dark gritty shadows. '
+  front_cover: 'A vibrant, eye-catching, high-quality full-colour FRONT COVER illustration
+    for a children''s coloring book.
 
-    cartoon shapes, bold clean outlines, flat colours with gentle soft shading.
+    BOOK TITLE TEXT: Prominently render and display the book title text "{title}"
+    in large, beautiful, colorful, readable typography at the top of the cover, perfectly
+    integrated into the illustration artwork style.
 
-    NO photorealism, NO 3D render, NO glossy plastic look, NO harsh contrast.
+    COMPOSITION & LAYOUT (CREATIVE & DYNAMIC): Create an engaging, beautifully balanced
+    composition suited to the theme. You may choose one of the following dynamic compositions:
+    - SCENIC STORYBOOK LAYOUT: 1-3 adorable main characters interacting playfully
+    in a rich, detailed environment (such as a cozy room, magical meadow, underwater
+    world, or fantasy landscape) with distinct foreground, midground, and background
+    depth. - EMBLEM / VIGNETTE LAYOUT: Main character framed nicely inside a central
+    decorative arch, ribbon, or circular vignette with surrounding thematic elements
+    (stars, flowers, leaves, toys). - FULL-PAGE ACTION / PLAY SCENE: Characters engaging
+    in a joyful, dynamic activity with colorful props and environment details filling
+    the scene naturally.
 
-    Colour palette: use ONLY these colours and their light/dark variations -
+    ART STYLE & QUALITY: {style}
 
-    leaf green #7FB77E, warm cream #F1F0C0, sky blue #A8DADC,
-
-    soft coral #F4A896, warm brown #8D6E63, off-white #FFFDF5.
-
-    Lighting: flat, even, warm daylight. Same line weight and same rendering
-
-    quality across the whole image.
-
-    '
-  front_cover: 'A vibrant full-colour FRONT COVER illustration for a children''s coloring
-
-    book. Theme: {title}. One friendly hero character from the theme, placed in
-
-    the lower two thirds, with a simple whimsical background.
-
-    Keep the upper third visually calm and mostly empty so a title can be
-
-    placed there later.
-
-    {style}
-
-    NO text, letters, numbers, logo or watermark anywhere in the image.
-
-    Vertical portrait orientation, aspect ratio 8.5:11, maximum resolution.
-
-    '
+    RULES: Render ONLY the specified book title text "{title}". Do NOT add any extra
+    random scrambled letters or watermarks. Vertical portrait orientation, aspect
+    ratio 8.5:11, maximum resolution, crisp details, professional book publishing
+    quality. '
   nudge: 'Generate the image now. Output only the image itself, with no explanation
+    and no text in your reply. '
+  back_cover: 'THIS IS THE BACK COVER (REAR COVER OF THE BOOK). DO NOT WRITE OR DRAW
+    ANY TITLE TEXT.
 
-    and no text in your reply.
+    Generate the matching BACK COVER for the children''s coloring book.
 
-    '
-  back_cover: 'Generate an image. Do NOT reply with words, do NOT describe what you
-    will
+    CRITICAL RULE - NO TITLE TEXT: Unlike the front cover, this BACK COVER must have
+    ABSOLUTELY ZERO WORDS, ZERO TITLE TEXT, ZERO LETTERS, and ZERO HEADINGS. Do NOT
+    repeat or render the book title on this back cover image. Pure background illustration
+    artwork only.
 
-    draw - output the picture itself.
+    MATCHING ART STYLE & COLOUR: MUST use EXACTLY the same art style, colour palette
+    ({style}), line weight, and character design as the front cover to form a seamless
+    matching set.
 
-    Create the matching BACK COVER for the same book, using EXACTLY the
+    CREATIVE & DYNAMIC BACK COVER COMPOSITION OPTIONS: Create a complementary scene
+    or composition that feels distinct from the front cover: - STORY CONTINUATION
+    LAYOUT: A charming continuation scene (e.g. characters resting at sunset, waving
+    goodbye, sleeping cozy under stars, or playing with secondary theme elements).
+    - CORNER / BOTTOM VIGNETTE LAYOUT: A cute mini-scene featuring 1-2 secondary characters
+    or objects placed in the bottom or lower corner with decorative elements framing
+    the edges. - PASTEL PATTERN & FRAME LAYOUT: A subtle, whimsical background pattern
+    (cloud, star, flower, or paw motifs) with a soft, clean central area.
 
-    same colour palette, art style, line weight and character design as the
+    TEXT & BARCODE BLURB AREA: Keep the middle/upper central area visually soft, clean,
+    and uncluttered so text blurb and ISBN barcode can be placed cleanly.
 
-    front cover you just made. It must look like the same book.
-
-    Theme: {title}. A simple background: a few small decorative elements from
-
-    the theme (leaves, stars, paw prints) scattered around the EDGES only.
-
-    The CENTRE must stay clean, calm and uncluttered so a text blurb can be
-
-    placed there later.
-
-    {style}
-
-    NO text, letters, numbers, logo or watermark anywhere in the image.
-
-    Vertical portrait orientation, aspect ratio 8.5:11, maximum resolution.
-
-    '
+    RULES: ABSOLUTELY NO TEXT of any kind: NO title, NO title text, NO letters, NO
+    words, NO numbers, NO logos, NO signatures, or watermarks anywhere in the image.
+    Pure artwork illustration only. Vertical portrait orientation, aspect ratio 8.5:11,
+    maximum resolution. '
   previews:
     preview_1: 'Generate a high-resolution professional 3D product mockup photograph
       of a paperback coloring book standing on a solid white background with a realistic
@@ -157,37 +146,7 @@ prompts:
       on the front cover. CRITICAL REQUIREMENT: Render the attached cover image with
       100% exact visual fidelity. Do NOT generate or modify any artwork or text on
       the book cover. Keep the cover design identical to the attached image.'
-subjects:
-- Gemini đã nói
-- A happy baby triceratops wears a party hat and licks a giant ice cream cone.",
-- A friendly stegosaurus wears a tiny backpack and walks to school.",
-- A cute velociraptor brushes its teeth with a giant toothbrush in front of a mirror.",
-- A cheerful brachiosaurus peeks out from behind a large potted houseplant.",
-- A sweet baby t-rex tries to tie its own tiny sneakers.
-- a cute forest animal scene number 7
-- a cute forest animal scene number 8
-- a cute forest animal scene number 9
-- a cute forest animal scene number 10
-- a cute forest animal scene number 11
-- a cute forest animal scene number 12
-- a cute forest animal scene number 13
-- a cute forest animal scene number 14
-- a cute forest animal scene number 15
-- a cute forest animal scene number 16
-- a cute forest animal scene number 17
-- a cute forest animal scene number 18
-- a cute forest animal scene number 19
-- a cute forest animal scene number 20
-- a cute forest animal scene number 21
-- a cute forest animal scene number 22
-- a cute forest animal scene number 23
-- a cute forest animal scene number 24
-- a cute forest animal scene number 25
-- a cute forest animal scene number 26
-- a cute forest animal scene number 27
-- a cute forest animal scene number 28
-- a cute forest animal scene number 29
-- a cute forest animal scene number 30
+subjects: []
 cover_text:
   back_blurb: '
 
@@ -223,4 +182,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: cute-dino-coloring
+_book: cute-cat
