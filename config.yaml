@@ -1,8 +1,8 @@
 book:
-  title: Beautiful Butterfly Coloring Book – Perfect Gift for Butterfly Lovers
+  title: dragon
   subtitle: ''
   author: ''
-  num_images: 50
+  num_images: 5
   blank_verso: true
   front_matter_pages: 0
 print:
@@ -212,56 +212,12 @@ prompts:
     Pure artwork illustration only. Vertical portrait orientation, aspect ratio 8.5:11,
     maximum resolution.'
 subjects:
-- A happy butterfly sits atop a giant open sunflower facing the sun.
-- A friendly butterfly perches on a juicy sliced watermelon on a summer day.
-- A large butterfly glides over a smooth river stone surrounded by gentle water ripples.
-- A butterfly rests on the tip of a crescent moon surrounded by small stars.
-- A cute butterfly lands on a cozy knitted mitten in the snow.
-- A butterfly balances on a shiny red apple hanging from a tree branch.
-- A cheerful butterfly visits a potted cactus with a big blooming flower.
-- A majestic butterfly lands on top of a friendly sea turtle resting on the beach.
-- A butterfly rests on a sea shell lying on a sandy shoreline.
-- A playful butterfly rests on a cute toadstool mushroom in a quiet forest.
-- A butterfly lands on an open umbrella during a light spring shower.
-- A smiling butterfly sits on a picnic basket full of fresh fruit.
-- A delicate butterfly perches on a blooming lily pad in a peaceful pond.
-- A curious butterfly examines a shiny glass marble on a wooden porch.
-- A butterfly rests gently on the handle of a colorful garden watering can.
-- A large butterfly floats happily beside a floating heart-shaped balloon.
-- A friendly butterfly lands on the nose of a sleeping puppy in a garden.
-- A butterfly rests on top of a stack of old leather-bound books.
-- A joyful butterfly perches on a dangling wind chime hanging from a porch.
-- A cute butterfly sits atop a bright yellow rubber duck in a puddle.
-- A peaceful butterfly lands on a carved Halloween pumpkin in autumn.
-- A butterfly rests on the peak of a small birdhouse mounted on a post.
-- A smiling butterfly lands on a scoop of ice cream inside a waffle cone.
-- A butterfly glides gracefully around a cheerful sunflower with big petals.
-- A friendly butterfly perches on the woven rim of a wicker bicycle basket.
-- A large butterfly rests on a shiny brass bell resting on a garden bench.
-- A cute butterfly perches on a single dandelion clock with flying seeds.
-- A butterfly lands gently on a soft pinecone lying on the forest floor.
-- A joyful butterfly rests on the wooden arm of a sunlit rocking chair.
-- A happy butterfly perches on a bright red strawberry growing in a garden.
-- A butterfly rests on the roof of a cozy wooden bird feeder full of seeds.
-- A curious butterfly lands on the frame of a pair of round reading glasses.
-- A cheerful butterfly sits on the bow of a wrapped birthday gift box.
-- A butterfly lands gracefully on a quiet sailboat floating on calm water.
-- A friendly butterfly perches on a shiny glass jar filled with twinkle lights.
-- A large butterfly rests on a bright orange pumpkin sitting in a patch.
-- A peaceful butterfly lands on the keys of a grand piano near an open window.
-- A cute butterfly perches on a sweet cupcake decorated with sprinkles.
-- A butterfly rests on the brim of a woven straw sunhat resting on grass.
-- A smiling butterfly lands on a cheerful daisy blossoming in a wide field.
-- A curious butterfly perches on a compass resting open on an old map.
-- A friendly butterfly rests on top of a potted tulip on a windowsill.
-- A butterfly lands softly on a vibrant autumn leaf floating in the air.
-- A large butterfly perches on a wooden paint palette covered in dabs of paint.
-- A happy butterfly rests on the wooden seat of a garden swing.
-- A cute butterfly lands on a colorful hot air balloon drifting through clouds.
-- A butterfly perches on a simple acoustic guitar leaning against a tree.
-- A peaceful butterfly rests on a soft clover flower with four big leaves.
-- A smiling butterfly lands on a pair of bright rubber rain boots.
-- A butterfly perches on the top of a wooden fence post in a green meadow.
+- A friendly baby dragon sits inside a cracked eggshell surrounded by flowers.
+- A little dragon roasts a marshmallow over its own tiny flame at night.
+- A smiling dragon flies happily among soft fluffy clouds and a bright rainbow.
+- A cute dragon wearing a crown sleeps peacefully on a pile of shiny treasure.
+- A playful dragon waters a garden of oversized magical mushrooms with a watering
+  can.
 cover_text:
   back_blurb: '
 
@@ -297,4 +253,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: beautiful-butterfly-coloring-book-perfect-gift-for-butterfly
+_book: dragon
