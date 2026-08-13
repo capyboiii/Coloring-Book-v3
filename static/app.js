@@ -901,7 +901,15 @@ async function regenerateInspectorImage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ key: item.key, prompt: prompt })
     });
-    const data = await res.json();
+    
+    let data;
+    const rawText = await res.text();
+    try {
+      data = JSON.parse(rawText);
+    } catch (e) {
+      throw new Error(`Server trả về lỗi (HTTP ${res.status}): ${rawText.slice(0, 120)}`);
+    }
+
     if (res.ok && data.status === 'success') {
       // Auto process single image to update 300DPI lineart if raw regenerated
       try {
@@ -917,7 +925,7 @@ async function regenerateInspectorImage() {
       await loadInspector();
       alert(`🎉 Đã sinh lại & tự động thay thế ảnh ${item.key}.png thành công!`);
     } else {
-      alert(`⚠️ Lỗi: ${data.detail || "Không thể sinh lại ảnh"}`);
+      alert(`⚠️ Lỗi: ${data.detail || data.message || "Không thể sinh lại ảnh"}`);
     }
   } catch (err) {
     alert(`Lỗi mạng/hệ thống: ${err.message}`);

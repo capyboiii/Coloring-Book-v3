@@ -1,5 +1,5 @@
 book:
-  title: Zodiac Garden Coloring Pages
+  title: Cozy Nature Getaway Coloring Book
   subtitle: ''
   author: ''
   num_images: 50
@@ -146,57 +146,124 @@ prompts:
       on the front cover. CRITICAL REQUIREMENT: Render the attached cover image with
       100% exact visual fidelity. Do NOT generate or modify any artwork or text on
       the book cover. Keep the cover design identical to the attached image.'
+  front_cover_custom: "A vibrant, eye-catching, high-quality full-colour FRONT COVER\
+    \ illustration for a children's coloring book.\nBOOK TITLE TEXT: Prominently render\
+    \ and display the book title text \"Cozy Nature Getaway Coloring Book\" in large,\
+    \ beautiful, colorful, readable typography at the top of the cover, perfectly\
+    \ integrated into the illustration artwork style.\nCOMPOSITION & LAYOUT (CREATIVE\
+    \ & DYNAMIC): Create an engaging, beautifully balanced composition suited to the\
+    \ theme. You may choose one of the following dynamic compositions: - SCENIC STORYBOOK\
+    \ LAYOUT: 1-3 adorable main characters interacting playfully in a rich, detailed\
+    \ environment (such as a cozy room, magical meadow, underwater world, or fantasy\
+    \ landscape) with distinct foreground, midground, and background depth. - EMBLEM\
+    \ / VIGNETTE LAYOUT: Main character framed nicely inside a central decorative\
+    \ arch, ribbon, or circular vignette with surrounding thematic elements (stars,\
+    \ flowers, leaves, toys). - FULL-PAGE ACTION / PLAY SCENE: Characters engaging\
+    \ in a joyful, dynamic activity with colorful props and environment details filling\
+    \ the scene naturally.\nART STYLE & QUALITY: ART STYLE (HAND-COLORED COLORING\
+    \ BOOK STYLE): Vibrant, charming children's coloring book cover style that looks\
+    \ like a beautifully completed hand-colored illustration. - LINEWORK: Bold, clean,\
+    \ crisp black outlines defining all characters and elements, matching the line-art\
+    \ style inside the coloring book. - COLORING & TEXTURE: Filled with rich, cheerful,\
+    \ vibrant colors having subtle colored pencil and crayon shading textures within\
+    \ the black outlines, giving it a warm, delightful hand-colored look. - COLOR\
+    \ PALETTE: Harmonious, bright, friendly colors (warm sun yellow, soft coral, sky\
+    \ blue, mint green, cozy lavender, warm cream) filled with soft gradient shading.\
+    \ - NO photorealism, NO harsh 3D glossy plastic renders, NO dark gritty shadows.\
+    \ \nRULES: Render ONLY the specified book title text \"Cozy Nature Getaway Coloring\
+    \ Book\". Do NOT add any extra random scrambled letters or watermarks. Vertical\
+    \ portrait orientation, aspect ratio 8.5:11, maximum resolution, crisp details,\
+    \ professional book publishing quality."
+  back_cover_custom: 'THIS IS THE BACK COVER (REAR COVER OF THE BOOK). DO NOT WRITE
+    OR DRAW ANY TITLE TEXT.
+
+    Generate the matching BACK COVER for the children''s coloring book.
+
+    CRITICAL RULE - NO TITLE TEXT: Unlike the front cover, this BACK COVER must have
+    ABSOLUTELY ZERO WORDS, ZERO TITLE TEXT, ZERO LETTERS, and ZERO HEADINGS. Do NOT
+    repeat or render the book title on this back cover image. Pure background illustration
+    artwork only.
+
+    MATCHING ART STYLE & COLOUR: MUST use EXACTLY the same art style, colour palette
+    (ART STYLE (HAND-COLORED COLORING BOOK STYLE): Vibrant, charming children''s coloring
+    book cover style that looks like a beautifully completed hand-colored illustration.
+    - LINEWORK: Bold, clean, crisp black outlines defining all characters and elements,
+    matching the line-art style inside the coloring book. - COLORING & TEXTURE: Filled
+    with rich, cheerful, vibrant colors having subtle colored pencil and crayon shading
+    textures within the black outlines, giving it a warm, delightful hand-colored
+    look. - COLOR PALETTE: Harmonious, bright, friendly colors (warm sun yellow, soft
+    coral, sky blue, mint green, cozy lavender, warm cream) filled with soft gradient
+    shading. - NO photorealism, NO harsh 3D glossy plastic renders, NO dark gritty
+    shadows. ), line weight, and character design as the front cover to form a seamless
+    matching set.
+
+    CREATIVE & DYNAMIC BACK COVER COMPOSITION OPTIONS: Create a complementary scene
+    or composition that feels distinct from the front cover: - STORY CONTINUATION
+    LAYOUT: A charming continuation scene (e.g. characters resting at sunset, waving
+    goodbye, sleeping cozy under stars, or playing with secondary theme elements).
+    - CORNER / BOTTOM VIGNETTE LAYOUT: A cute mini-scene featuring 1-2 secondary characters
+    or objects placed in the bottom or lower corner with decorative elements framing
+    the edges. - PASTEL PATTERN & FRAME LAYOUT: A subtle, whimsical background pattern
+    (cloud, star, flower, or paw motifs) with a soft, clean central area.
+
+    TEXT & BARCODE BLURB AREA: Keep the middle/upper central area visually soft, clean,
+    and uncluttered so text blurb and ISBN barcode can be placed cleanly.
+
+    RULES: ABSOLUTELY NO TEXT of any kind: NO title, NO title text, NO letters, NO
+    words, NO numbers, NO logos, NO signatures, or watermarks anywhere in the image.
+    Pure artwork illustration only. Vertical portrait orientation, aspect ratio 8.5:11,
+    maximum resolution.'
 subjects:
-- A friendly ram with curled horns sleeping among bright blooming sunflowers.
-- A happy little bull wearing a wreath of daisies in a grassy meadow.
-- Two cheerful twin fairies holding hands while watering giant tulips.
-- A cute little crab resting inside a carved wooden flower pot.
-- A playful lion cub wearing a crown made of garden roses.
-- A gentle fairy maiden planting colorful wildflower seeds with a tiny shovel.
-- A golden set of balance scales resting under a canopy of weeping willow leaves.
-- A smiling little scorpion sitting safely on top of a big green lotus leaf.
-- A brave centaur archer shooting a toy arrow made of flower stems.
-- A friendly sea-goat swimming in a shallow pond filled with lily pads.
-- A young water-bearer pouring sparkling water from a pitcher onto blooming violets.
-- Two happy goldfish swimming in a circular garden fountain.
-- A cozy Aries ram napping beneath a hedge of sweet pea blossoms.
-- A calm Taurus bull sniffing a butterfly perched on a garden fence.
-- Twin kittens playing with a ball of yarn in a bed of lavender.
-- A tiny Cancer crab building a tiny soil castle near a garden hose.
-- A proud Leo lion sitting on a stone bench surrounded by marigolds.
-- A Virgo girl gathering fresh herbs into a small wicker basket.
-- Scales balanced with a fluffy dandelion on one side and a pebble on the other.
-- A friendly Scorpio scorpion admiring a glowing firefly near a rosebush.
-- A merry Sagittarius centaur collecting fallen acorns along a leafy garden path.
-- A Capricorn goat munching happily on a patch of fresh green clover.
-- An Aquarius child using a watering can to nurture a row of baby carrots.
-- Two Pisces fish jumping playfully over floating water lily blossoms.
-- A cute Aries lamb wearing a necklace made of buttercups.
-- A strong Taurus calf leaning against a giant pumpkin in the garden patch.
-- Twin bunny rabbits sharing a juicy strawberry under a shaded garden canopy.
-- A little Cancer crab hiding happily under a big spotted mushroom umbrella.
-- A brave lion wearing a flower crown while guarding a secret garden gate.
-- A sweet Virgo fairy whispering to a friendly ladybug on a hosta leaf.
-- Hanging balance scales decorated with climbing ivy and sweet pea vine.
-- A small Scorpio scorpion resting on a sun-warmed garden stepping stone.
-- A cheerful centaur practicing archery using a target painted on a sunflower.
-- A smiling sea-goat resting by a tiny garden waterfall framed by ferns.
-- An Aquarius fairy pouring rain showers from a fluffy cloud onto garden sprouts.
-- Two glowing fish swirling together in a clear crystal-lined garden pool.
-- A fluffy Aries ram peeking out from behind a blooming hydrangea bush.
-- A peaceful Taurus bull resting its chin on a bed of soft garden moss.
-- Twin puppies chasing a dragonfly through a colorful patch of zinnia flowers.
-- A smiling Cancer crab wearing a seashell hat while resting under a fern.
-- A royal Leo lion cub taking a nap on a soft pillow of clover blossoms.
-- A gentle Virgo maiden feeding a tiny songbird near a garden birdbath.
-- Golden balance scales holding a red strawberry on one side and a cherry on the other.
-- A cute Scorpio scorpion playing hide and seek among smooth garden pebbles.
-- A smiling Sagittarius centaur picking sweet berries from a low bush.
-- A friendly Capricorn goat helping tend a small wooden garden trellis.
-- An Aquarius child pouring water onto a patch of bright yellow daffodils.
-- Two playful fish creating bubbles near floating lotus flowers.
-- An Aries ram balancing a pretty daisy right on its nose.
-- A Taurus bull surrounded by fluttering butterflies in a blooming garden.
+- test
+- A friendly fox reading a book under a large toadstool umbrella in the rain.
+- A cute owl wearing a knitted scarf sitting on a moonlit tree branch.
+- Two little rabbits sharing a picnic basket full of strawberries in a flower meadow.
+- A happy squirrel roasting a marshmallow over a small campfire.
+- A cheerful hedgehog sleeping inside a hollow log filled with soft autumn leaves.
+- A cute deer drinking water from a clear woodland stream under a rainbow.
+- A cozy treehouse with hanging lanterns nestled in a pine forest.
+- A sweet bird nesting inside a decorated wooden birdhouse surrounded by vines.
+- A friendly frog resting on a big lotus leaf in a calm lily pond.
+- A tiny mouse taking a nap inside a cozy teacup in the grass.
+- A cute raccoon fishing from a small wooden dock on a quiet lake.
+- A happy turtle taking a gentle stroll past giant colorful mushrooms.
+- A cozy tent pitched under a starry sky filled with glowing fireflies.
+- A sweet badger watering a small garden of bright sunflowers.
+- A little bear swinging on a rope swing tied to a big oak tree.
+- A cute bunny sleeping in a hammock stretched between two birch trees.
+- A friendly chipmunk gathering acorns into a woven wicker basket.
+- A cozy campfire surrounded by log seats and a steaming teapot.
+- A sweet fawn resting peacefully in a patch of soft clover.
+- A tiny chickadee perching on a wooden bird feeder filled with seeds.
+- A happy beaver painting a picture on a mini easel by the river.
+- A cozy wooden cabin tucked away among tall pine trees and mountains.
+- A friendly otter floating happily on its back with a smooth river stone.
+- A cute duckling taking a dip in a puddle surrounded by fall leaves.
+- A sleepy cat resting on the sunny windowsill of a forest cottage.
+- A cute skunk picking wild blueberries into a little tin pail.
+- A sweet sheep nibbling grass near a rustic wooden fence.
+- A friendly snail gliding across a smooth mossy rock.
+- A cute wolf pup gazing gently at a bright crescent moon.
+- A cozy picnic blanket set with a pie, apples, and a pitcher of lemonade.
+- A tiny fairy house built inside an old tree trunk with a little wooden door.
+- A cheerful moose wearing a warm hat standing near an evergreen tree.
+- A sweet bumblebee collecting pollen from a large daisy.
+- A cozy stone fireplace with a warm fire inside a rustic cabin.
+- A friendly hedgehog painting wooden signs for a forest trail.
+- A cute squirrel knitting a long wool scarf on a wooden bench.
+- A happy frog playing a tiny banjo under a weeping willow tree.
+- A sweet deer family resting together under a leafy forest canopy.
+- A cozy sailboat gliding across a peaceful forest lake at sunset.
+- A little mouse baking cookies in a tiny underground kitchen.
+- A friendly owl delivering mail with a small satchel over its shoulder.
+- A cute bunny picking fresh carrots from a cozy vegetable garden patch.
+- A happy bear sleeping soundly on a mound of soft green moss.
+- A cozy wooden bridge crossing a gentle stream filled with smooth stones.
+- A sweet butterfly resting on a cluster of wild lavender flowers.
+- A friendly raccoon wearing an apron and serving fresh apple pie.
+- A cute fox wearing a rain jacket splashing in a clear puddle.
+- A cozy hamster nest filled with soft grass and shiny pebbles.
+- A happy squirrel balancing on a fence post holding a giant pinecone.
 cover_text:
   back_blurb: '
 
@@ -232,4 +299,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: zodiac-garden-coloring-pages
+_book: cozy-nature-getaway-coloring-book

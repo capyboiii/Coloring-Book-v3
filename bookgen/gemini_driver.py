@@ -356,6 +356,29 @@ def get_unique_profile_dir(base_dir: Path) -> Path:
     return tmp
 
 
+def is_user_signed_in(page: Page) -> bool:
+    """Kiểm tra thực tế xem trình duyệt đã đăng nhập tài khoản Google trên Gemini chưa."""
+    try:
+        signin_btn = page.locator(
+            'a[href*="ServiceLogin"], '
+            'a:has-text("Đăng nhập"), a:has-text("Sign in"), '
+            'button:has-text("Đăng nhập"), button:has-text("Sign in")'
+        )
+        cnt = signin_btn.count()
+        if cnt > 0:
+            for i in range(cnt):
+                try:
+                    txt = signin_btn.nth(i).inner_text().strip().lower()
+                    if signin_btn.nth(i).is_visible() and ("đăng nhập" in txt or "sign in" in txt):
+                        return False
+                except Exception:
+                    pass
+    except Exception:
+        pass
+        
+    return True
+
+
 class GeminiDriver:
     """Điều khiển một trình duyệt duy nhất thông qua Playwright."""
 
@@ -432,29 +455,6 @@ class GeminiDriver:
         finally:
             if self._pw:
                 self._pw.stop()
-
-def is_user_signed_in(page: Page) -> bool:
-    """Kiểm tra thực tế xem trình duyệt đã đăng nhập tài khoản Google trên Gemini chưa."""
-    try:
-        signin_btn = page.locator(
-            'a[href*="ServiceLogin"], '
-            'a:has-text("Đăng nhập"), a:has-text("Sign in"), '
-            'button:has-text("Đăng nhập"), button:has-text("Sign in")'
-        )
-        cnt = signin_btn.count()
-        if cnt > 0:
-            for i in range(cnt):
-                try:
-                    txt = signin_btn.nth(i).inner_text().strip().lower()
-                    if signin_btn.nth(i).is_visible() and ("đăng nhập" in txt or "sign in" in txt):
-                        return False
-                except Exception:
-                    pass
-    except Exception:
-        pass
-        
-    return True
-
 
     def _ensure_logged_in(self) -> None:
         """Kiểm tra đăng nhập thực tế. Nếu chưa đăng nhập -> yêu cầu user đăng nhập."""

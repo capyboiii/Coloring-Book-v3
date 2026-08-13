@@ -982,6 +982,8 @@ def get_raw_inspector_details():
         })
         
     # Covers
+    title = cfg.get("book", {}).get("title", "")
+    style = cfg.get("prompts", {}).get("cover_style", "")
     for key, title_label in [("cover_front", "Bìa trước (Front Cover)"), ("cover_back", "Bìa sau (Back Cover)")]:
         fname = f"{key}.png"
         raw_f = raw_files.get(key)
@@ -989,12 +991,17 @@ def get_raw_inspector_details():
         has_proc = key in proc_files
         status = reviews.get(key, "pending" if has_raw else "missing")
         
+        if key == "cover_front":
+            subj = cfg.get("prompts", {}).get("front_cover_custom") or cfg.get("prompts", {}).get("front_cover", "").format(title=title, style=style)
+        else:
+            subj = cfg.get("prompts", {}).get("back_cover_custom") or cfg.get("prompts", {}).get("back_cover", "").format(title=title, style=style)
+
         items.append({
             "key": key,
             "name": fname,
             "index": None,
             "type": "cover",
-            "subject": title_label,
+            "subject": subj,
             "has_raw": has_raw,
             "raw_url": f"/api/images/{slug}/01_raw/{fname}" if has_raw else None,
             "has_proc": has_proc,
@@ -1061,6 +1068,14 @@ def update_inspector_subject(payload: dict):
             book_main.save_state(P["state_file"], state)
         except ValueError:
             pass
+    elif key == "cover_front":
+        cfg.setdefault("prompts", {})["front_cover_custom"] = subject
+        with open(ROOT / "config.yaml", "w", encoding="utf-8") as f:
+            yaml.dump(cfg, f, allow_unicode=True, sort_keys=False)
+    elif key == "cover_back":
+        cfg.setdefault("prompts", {})["back_cover_custom"] = subject
+        with open(ROOT / "config.yaml", "w", encoding="utf-8") as f:
+            yaml.dump(cfg, f, allow_unicode=True, sort_keys=False)
             
     return {"status": "success", "key": key, "subject": subject}
 
@@ -1208,28 +1223,50 @@ def regenerate_inspector_image_single(payload: dict):
         if subj.lower().startswith("a black and white") or "coloring page illustration" in subj.lower():
             prompt = subj
         else:
-            prompt = cfg["prompts"]["page"].format(i=idx, subject=subj)
+            try:
+                prompt = cfg["prompts"]["page"].format(subject=subj)
+            except Exception:
+                prompt = f"A black and white line-art coloring page illustration for children. Subject: {subj}."
 
     elif key == "cover_front":
-        if custom_prompt and ("coloring book cover" in custom_prompt.lower() or "front cover" in custom_prompt.lower()):
+        if custom_prompt:
             prompt = custom_prompt
+            cfg.setdefault("prompts", {})["front_cover_custom"] = custom_prompt
+            with open(ROOT / "config.yaml", "w", encoding="utf-8") as f:
+                yaml.dump(cfg, f, allow_unicode=True, sort_keys=False)
         else:
-            style = custom_prompt or cfg["prompts"].get("cover_style", "")
-            prompt = cfg["prompts"]["front_cover"].format(title=title, style=style)
+            style = cfg.get("prompts", {}).get("cover_style", "")
+            prompt = cfg.get("prompts", {}).get("front_cover_custom") or cfg["prompts"]["front_cover"].format(title=title, style=style)
 
     elif key == "cover_back":
-        if custom_prompt and ("back cover" in custom_prompt.lower() or "rear cover" in custom_prompt.lower()):
+        if custom_prompt:
             prompt = custom_prompt
+            cfg.setdefault("prompts", {})["back_cover_custom"] = custom_prompt
+            with open(ROOT / "config.yaml", "w", encoding="utf-8") as f:
+                yaml.dump(cfg, f, allow_unicode=True, sort_keys=False)
         else:
-            style = custom_prompt or cfg["prompts"].get("cover_style", "")
-            prompt = cfg["prompts"]["back_cover"].format(title=title, style=style)
+            style = cfg.get("prompts", {}).get("cover_style", "")
+            prompt = cfg.get("prompts", {}).get("back_cover_custom") or cfg["prompts"]["back_cover"].format(title=title, style=style)
 
-    else:
-        prompt = custom_prompt or f"Coloring page scene for {key}"
+    attach = []
+    if key == "cover_back":
+        front_file = P["raw_dir"] / "cover_front_titled.png"
+        if not front_file.exists():
+            front_file = P["raw_dir"] / "cover_front.png"
+        if front_file.exists():
+            attach = [front_file]
             
+    if dest.exists():
+        try:
+            dest.unlink()
+        except Exception:
+            pass
+
     driver = book_main.make_driver(cfg)
     with driver as g:
-        ok = g.generate_image(prompt, dest)
+        from bookgen.cancel import reset_cancel
+        reset_cancel()
+        ok = g.generate_image(prompt, dest, attach_files=attach)
         if not ok:
             raise HTTPException(status_code=500, detail="Gemini sinh ảnh thất bại. Kiểm tra kết nối / API Key / Chrome.")
             
@@ -1240,10 +1277,12 @@ def regenerate_inspector_image_single(payload: dict):
     book_main.save_state(P["state_file"], state)
     
     slug = cfg.get("_book") or book_main.get_current_book() or "default"
+    import time
+    ts = int(time.time())
     return {
         "status": "success",
         "key": key,
-        "raw_url": f"/api/images/{slug}/01_raw/{key}.png"
+        "raw_url": f"/api/images/{slug}/01_raw/{key}.png?v={ts}"
     }
 
 
