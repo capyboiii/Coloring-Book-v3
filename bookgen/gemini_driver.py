@@ -849,7 +849,8 @@ def is_user_signed_in(page: Page) -> bool:
             check_cancel()
             try:
                 if hasattr(self, 'catcher') and self.catcher:
-                    self.catcher.arm(ignore_files=attach_files)
+                    eff_ignore = None if "preview" in dest.stem else attach_files
+                    self.catcher.arm(ignore_files=eff_ignore)
                 if attach_files:
                     self.attach_images(attach_files)
                     self.page.wait_for_timeout(1_000)

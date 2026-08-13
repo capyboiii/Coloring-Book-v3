@@ -1024,7 +1024,8 @@ class GeminiPool:
             try:
                 catcher = self.catchers.get(page)
                 if catcher:
-                    catcher.arm(ignore_files=attach_files)
+                    eff_ignore = None if "preview" in dest.stem else attach_files
+                    catcher.arm(ignore_files=eff_ignore)
 
                 if attach_files:
                     await self._attach_images(page, attach_files)
@@ -1237,7 +1238,8 @@ class GeminiPool:
                             log.info("Xếp lại %s vào hàng đợi (lần %d/%d).",
                                      names, tries + 1, self.max_requeue)
                         else:
-                            for key, _, _ in steps:
+                            for step in steps:
+                                key = step[0]
                                 results.setdefault(key, False)
                                 if on_done:
                                     on_done(key, False)

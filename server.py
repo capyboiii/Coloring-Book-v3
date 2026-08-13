@@ -895,7 +895,13 @@ def regenerate_preview_single(payload: dict):
     preview_dir.mkdir(parents=True, exist_ok=True)
     
     title = cfg.get("book", {}).get("title", "Coloring Book")
-    if not custom_prompt:
+    if custom_prompt:
+        templates = cfg.get("prompts", {}).get("previews", {})
+        templates[key] = custom_prompt
+        cfg.setdefault("prompts", {})["previews"] = templates
+        with open(ROOT / "config.yaml", "w", encoding="utf-8") as f:
+            yaml.dump(cfg, f, allow_unicode=True, sort_keys=False)
+    else:
         templates = cfg.get("prompts", {}).get("previews", {})
         custom_prompt = templates.get(key, f"Coloring book mockup {key}").format(title=title)
         
@@ -903,6 +909,11 @@ def regenerate_preview_single(payload: dict):
     attachments_map = book_main.get_preview_attachments_map(cfg)
     attach = attachments_map.get(key, [])
     dest = preview_dir / f"{key}.png"
+    if dest.exists():
+        try:
+            dest.unlink()
+        except Exception:
+            pass
     
     with book_main.make_driver(cfg) as g:
         from bookgen.cancel import reset_cancel

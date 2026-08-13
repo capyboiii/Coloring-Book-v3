@@ -1,8 +1,8 @@
 book:
-  title: cute cat
+  title: Zodiac Garden Coloring Pages
   subtitle: ''
   author: ''
-  num_images: 10
+  num_images: 50
   blank_verso: true
   front_matter_pages: 0
 print:
@@ -146,7 +146,57 @@ prompts:
       on the front cover. CRITICAL REQUIREMENT: Render the attached cover image with
       100% exact visual fidelity. Do NOT generate or modify any artwork or text on
       the book cover. Keep the cover design identical to the attached image.'
-subjects: []
+subjects:
+- A friendly ram with curled horns sleeping among bright blooming sunflowers.
+- A happy little bull wearing a wreath of daisies in a grassy meadow.
+- Two cheerful twin fairies holding hands while watering giant tulips.
+- A cute little crab resting inside a carved wooden flower pot.
+- A playful lion cub wearing a crown made of garden roses.
+- A gentle fairy maiden planting colorful wildflower seeds with a tiny shovel.
+- A golden set of balance scales resting under a canopy of weeping willow leaves.
+- A smiling little scorpion sitting safely on top of a big green lotus leaf.
+- A brave centaur archer shooting a toy arrow made of flower stems.
+- A friendly sea-goat swimming in a shallow pond filled with lily pads.
+- A young water-bearer pouring sparkling water from a pitcher onto blooming violets.
+- Two happy goldfish swimming in a circular garden fountain.
+- A cozy Aries ram napping beneath a hedge of sweet pea blossoms.
+- A calm Taurus bull sniffing a butterfly perched on a garden fence.
+- Twin kittens playing with a ball of yarn in a bed of lavender.
+- A tiny Cancer crab building a tiny soil castle near a garden hose.
+- A proud Leo lion sitting on a stone bench surrounded by marigolds.
+- A Virgo girl gathering fresh herbs into a small wicker basket.
+- Scales balanced with a fluffy dandelion on one side and a pebble on the other.
+- A friendly Scorpio scorpion admiring a glowing firefly near a rosebush.
+- A merry Sagittarius centaur collecting fallen acorns along a leafy garden path.
+- A Capricorn goat munching happily on a patch of fresh green clover.
+- An Aquarius child using a watering can to nurture a row of baby carrots.
+- Two Pisces fish jumping playfully over floating water lily blossoms.
+- A cute Aries lamb wearing a necklace made of buttercups.
+- A strong Taurus calf leaning against a giant pumpkin in the garden patch.
+- Twin bunny rabbits sharing a juicy strawberry under a shaded garden canopy.
+- A little Cancer crab hiding happily under a big spotted mushroom umbrella.
+- A brave lion wearing a flower crown while guarding a secret garden gate.
+- A sweet Virgo fairy whispering to a friendly ladybug on a hosta leaf.
+- Hanging balance scales decorated with climbing ivy and sweet pea vine.
+- A small Scorpio scorpion resting on a sun-warmed garden stepping stone.
+- A cheerful centaur practicing archery using a target painted on a sunflower.
+- A smiling sea-goat resting by a tiny garden waterfall framed by ferns.
+- An Aquarius fairy pouring rain showers from a fluffy cloud onto garden sprouts.
+- Two glowing fish swirling together in a clear crystal-lined garden pool.
+- A fluffy Aries ram peeking out from behind a blooming hydrangea bush.
+- A peaceful Taurus bull resting its chin on a bed of soft garden moss.
+- Twin puppies chasing a dragonfly through a colorful patch of zinnia flowers.
+- A smiling Cancer crab wearing a seashell hat while resting under a fern.
+- A royal Leo lion cub taking a nap on a soft pillow of clover blossoms.
+- A gentle Virgo maiden feeding a tiny songbird near a garden birdbath.
+- Golden balance scales holding a red strawberry on one side and a cherry on the other.
+- A cute Scorpio scorpion playing hide and seek among smooth garden pebbles.
+- A smiling Sagittarius centaur picking sweet berries from a low bush.
+- A friendly Capricorn goat helping tend a small wooden garden trellis.
+- An Aquarius child pouring water onto a patch of bright yellow daffodils.
+- Two playful fish creating bubbles near floating lotus flowers.
+- An Aries ram balancing a pretty daisy right on its nose.
+- A Taurus bull surrounded by fluttering butterflies in a blooming garden.
 cover_text:
   back_blurb: '
 
@@ -182,4 +232,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: cute-cat
+_book: zodiac-garden-coloring-pages
