@@ -593,6 +593,30 @@ def get_preview_attachments_map(cfg: dict) -> dict[str, list[Path]]:
             except Exception:
                 cover_front = cover_front_raw
 
+    # Đảm bảo các trang ruột trong 01_raw được làm sạch nét và đóng khung viền đen vào 02_processed trước khi đính kèm vào preview
+    raw_pages = sorted(list(raw_dir.glob("page_*.png"))) + sorted(list(raw_dir.glob("page_*.jpg")))
+    proc_dir.mkdir(parents=True, exist_ok=True)
+    p = cfg.get("print", {})
+    dpi = int(p.get("dpi", 300))
+    bleed = float(p.get("bleed", 0.125))
+    trim_w = float(p.get("trim_width", 8.5))
+    trim_h = float(p.get("trim_height", 11.0))
+    w_px = int((trim_w + 2 * bleed) * dpi)
+    h_px = int((trim_h + 2 * bleed) * dpi)
+    pr = cfg.get("process") or {}
+
+    for r_file in raw_pages[:5]:
+        p_file = proc_dir / r_file.name
+        try:
+            imaging.process_lineart(
+                r_file, p_file, w_px, h_px,
+                threshold=int(pr.get("threshold", 165)),
+                pure_bw=bool(pr.get("pure_bw", False)),
+                sharpen=bool(pr.get("sharpen", True)),
+            )
+        except Exception:
+            pass
+
     interior_pages = sorted(list(proc_dir.glob("page_*.png")))
     if not interior_pages:
         interior_pages = sorted(list(proc_dir.glob("page_*.jpg")))
@@ -632,9 +656,9 @@ def cmd_preview_parallel(cfg: dict) -> None:
     if not templates:
         templates = {
             "preview_1": "Generate a professional 3D product mockup photograph of a paperback coloring book standing isolated on a solid white background with a soft drop shadow. The attached image is the exact FRONT COVER. Printed on the front cover of the book mockup, render the attached image with 100% exact visual fidelity. ABSOLUTE RULE: DO NOT add, modify, or remove any text, title, words, letters, logos, or drawings. The front cover must be an exact 1:1 replica of the attached image without any extra added text, words, or illustrations. High resolution ecommerce product shot.",
-            "preview_2": "Generate a realistic photograph of an open paperback coloring book laying flat on a warm wooden table next to colored pencils and a cup of tea. The attached images are the exact INTERIOR COLORING PAGES. Render these attached line-art pages printed on the open left and right pages of the book with 100% exact visual fidelity. ABSOLUTE RULE: DO NOT add, modify, or remove any text, titles, captions, words, or drawings on the open pages. The pages inside the book must showcase the exact attached black-and-white line-art drawings without any added text or modified artwork.",
-            "preview_3": "Generate a close-up photograph of hands actively coloring an open page inside a coloring book with colored pencils. The attached image is the exact INTERIOR COLORING PAGE. Render this attached line-art drawing printed on the page with 100% exact visual fidelity. ABSOLUTE RULE: DO NOT add, modify, or remove any text, titles, words, or drawings on the page. Do not generate any new text or extra illustrations. Only realistic colored pencil shading applied within the existing attached line art.",
-            "preview_4": "Generate a clean overhead flatlay photograph displaying 4 interior coloring pages arranged in a 2x2 grid collage on a bright wooden surface with colored pencils. The attached images are the exact INTERIOR COLORING PAGES. Render all 4 attached line-art pages with 100% exact visual fidelity. ABSOLUTE RULE: DO NOT add, modify, or remove any text, titles, words, numbers, or artwork on any of the 4 pages. Keep all line-art drawings and text 100% identical to the attached images without adding any new text or extra drawings.",
+            "preview_2": "Generate a realistic photograph of an open paperback coloring book laying flat on a warm wooden table next to colored pencils and a cup of tea. I have ATTACHED the exact image files of the INTERIOR COLORING PAGES. Render these attached black-and-white line-art pages printed clearly on the open left and right pages of the book with 100% exact visual fidelity, including the neat black border frame box around each page illustration.",
+            "preview_3": "Generate a close-up photograph of hands actively coloring an open page inside a coloring book with colored pencils. I have ATTACHED the exact image file of the INTERIOR COLORING PAGE. Render this attached line-art drawing printed on the page with 100% exact visual fidelity, including the thin black border frame box around the page artwork.",
+            "preview_4": "Generate a clean overhead flatlay photograph displaying a 2x2 grid collage of 4 interior coloring book pages on a bright wooden surface with colored pencils. I have ATTACHED the exact 4 image files of the INTERIOR COLORING PAGES. Render these 4 ATTACHED black-and-white line-art drawings clearly inside the 2x2 grid layout, one attached page per grid slot with 100% exact visual fidelity, reproducing the exact black border frame box around each of the 4 pages.",
             "preview_5": "Generate a warm aesthetic lifestyle photograph of a paperback coloring book on a cozy desk next to house plants, watercolor set, and soft morning sunlight. The attached image is the exact FRONT COVER. Display the physical book showing this exact cover image printed with 100% exact visual fidelity. ABSOLUTE RULE: DO NOT add, modify, or remove any text, titles, words, letters, logos, or drawings on the book cover. Keep all graphics and text 100% identical to the attached image without adding any new text or extra artwork.",
         }
 

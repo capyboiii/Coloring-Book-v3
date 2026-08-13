@@ -91,6 +91,7 @@ def verify_gemini_api_key(api_key: str) -> tuple[bool, str]:
 
 # Active log listeners for SSE
 tasks_logs: Dict[str, queue.Queue] = {}
+single_gen_lock = threading.Lock()
 
 # Lulu Presets
 LULU_PRESETS = {
@@ -908,19 +909,16 @@ def regenerate_preview_single(payload: dict):
     # Lấy các ảnh thực tế cần đính kèm (dùng helper thống nhất)
     attachments_map = book_main.get_preview_attachments_map(cfg)
     attach = attachments_map.get(key, [])
+    # Giữ nguyên file cũ cho tới khi sinh xong file mới thành công, không xóa sớm
     dest = preview_dir / f"{key}.png"
-    if dest.exists():
-        try:
-            dest.unlink()
-        except Exception:
-            pass
     
-    with book_main.make_driver(cfg) as g:
-        from bookgen.cancel import reset_cancel
-        reset_cancel()
-        ok = g.generate_image(custom_prompt, dest, attach_files=attach)
-        if not ok:
-            raise HTTPException(status_code=500, detail=f"Không sinh được {key}")
+    with single_gen_lock:
+        with book_main.make_driver(cfg) as g:
+            from bookgen.cancel import reset_cancel
+            reset_cancel()
+            ok = g.generate_image(custom_prompt, dest, attach_files=attach)
+            if not ok:
+                raise HTTPException(status_code=500, detail=f"Không sinh được {key}")
             
     slug = cfg.get("_book") or book_main.get_current_book() or "default"
     mtime = int(dest.stat().st_mtime) if dest.exists() else 0
@@ -1256,19 +1254,16 @@ def regenerate_inspector_image_single(payload: dict):
         if front_file.exists():
             attach = [front_file]
             
-    if dest.exists():
-        try:
-            dest.unlink()
-        except Exception:
-            pass
+    # Giữ nguyên file cũ cho tới khi sinh xong file mới thành công, không xóa sớm
 
-    driver = book_main.make_driver(cfg)
-    with driver as g:
-        from bookgen.cancel import reset_cancel
-        reset_cancel()
-        ok = g.generate_image(prompt, dest, attach_files=attach)
-        if not ok:
-            raise HTTPException(status_code=500, detail="Gemini sinh ảnh thất bại. Kiểm tra kết nối / API Key / Chrome.")
+    with single_gen_lock:
+        driver = book_main.make_driver(cfg)
+        with driver as g:
+            from bookgen.cancel import reset_cancel
+            reset_cancel()
+            ok = g.generate_image(prompt, dest, attach_files=attach)
+            if not ok:
+                raise HTTPException(status_code=500, detail="Gemini sinh ảnh thất bại. Kiểm tra kết nối / API Key / Chrome.")
             
     state = book_main.load_state(P["state_file"])
     if key not in state.get("done", []):

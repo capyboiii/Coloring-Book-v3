@@ -1,5 +1,5 @@
 book:
-  title: Cozy Nature Getaway Coloring Book
+  title: Beautiful Butterfly Coloring Book – Perfect Gift for Butterfly Lovers
   subtitle: ''
   author: ''
   num_images: 50
@@ -121,24 +121,22 @@ prompts:
       laying flat on a warm wooden table next to colored pencils and a cup of tea.
       I have ATTACHED the exact image files of the INTERIOR COLORING PAGES. Render
       these attached black-and-white line-art pages printed clearly on the open left
-      and right pages of the book with 100% exact visual fidelity. CRITICAL REQUIREMENT:
-      Do NOT add, modify, or remove any text, titles, captions, or drawings on the
-      open pages. Showcase the exact attached black-and-white line-art drawings.'
+      and right pages of the book with 100% exact visual fidelity. MANDATORY REQUIREMENT:
+      Each printed page illustration MUST include the crisp, solid black rectangular
+      border frame box enclosing the artwork, exactly as shown in the attached files.'
     preview_3: 'Generate a close-up photograph of hands actively coloring an open
       page inside a coloring book with colored pencils. I have ATTACHED the exact
       image file of the INTERIOR COLORING PAGE. Render this attached line-art drawing
-      printed on the page with 100% exact visual fidelity. CRITICAL REQUIREMENT: Do
-      NOT add, modify, or remove any text, titles, words, or drawings on the page.
-      Only realistic colored pencil shading applied within the existing attached line
-      art.'
+      printed on the page with 100% exact visual fidelity. MANDATORY REQUIREMENT:
+      Render the prominent solid black rectangular border frame box enclosing the
+      page artwork, exactly as shown in the attached file.'
     preview_4: 'Generate a clean overhead flatlay photograph displaying a 2x2 grid
       collage of 4 interior coloring book pages on a bright wooden surface with colored
       pencils. I have ATTACHED the exact 4 image files of the INTERIOR COLORING PAGES.
       Render these 4 ATTACHED black-and-white line-art drawings clearly inside the
-      2x2 grid layout, one attached page per grid slot. CRITICAL REQUIREMENT: Render
-      the 4 attached interior line-art images with 100% exact visual fidelity. Do
-      NOT generate or invent any new drawings or extra text. Maintain the exact line-art
-      artwork from the 4 attached images.'
+      2x2 grid layout, one attached page per grid slot with 100% exact visual fidelity.
+      MANDATORY REQUIREMENT: Render the crisp solid black rectangular border frame
+      box enclosing each of the 4 page illustrations.'
     preview_5: 'Generate a warm aesthetic lifestyle photograph featuring a physical
       paperback coloring book on a cozy wooden desk next to green house plants, watercolor
       pencils, and soft sunlight. I have ATTACHED the exact image file of the FRONT
@@ -214,56 +212,56 @@ prompts:
     Pure artwork illustration only. Vertical portrait orientation, aspect ratio 8.5:11,
     maximum resolution.'
 subjects:
-- test
-- A friendly fox reading a book under a large toadstool umbrella in the rain.
-- A cute owl wearing a knitted scarf sitting on a moonlit tree branch.
-- Two little rabbits sharing a picnic basket full of strawberries in a flower meadow.
-- A happy squirrel roasting a marshmallow over a small campfire.
-- A cheerful hedgehog sleeping inside a hollow log filled with soft autumn leaves.
-- A cute deer drinking water from a clear woodland stream under a rainbow.
-- A cozy treehouse with hanging lanterns nestled in a pine forest.
-- A sweet bird nesting inside a decorated wooden birdhouse surrounded by vines.
-- A friendly frog resting on a big lotus leaf in a calm lily pond.
-- A tiny mouse taking a nap inside a cozy teacup in the grass.
-- A cute raccoon fishing from a small wooden dock on a quiet lake.
-- A happy turtle taking a gentle stroll past giant colorful mushrooms.
-- A cozy tent pitched under a starry sky filled with glowing fireflies.
-- A sweet badger watering a small garden of bright sunflowers.
-- A little bear swinging on a rope swing tied to a big oak tree.
-- A cute bunny sleeping in a hammock stretched between two birch trees.
-- A friendly chipmunk gathering acorns into a woven wicker basket.
-- A cozy campfire surrounded by log seats and a steaming teapot.
-- A sweet fawn resting peacefully in a patch of soft clover.
-- A tiny chickadee perching on a wooden bird feeder filled with seeds.
-- A happy beaver painting a picture on a mini easel by the river.
-- A cozy wooden cabin tucked away among tall pine trees and mountains.
-- A friendly otter floating happily on its back with a smooth river stone.
-- A cute duckling taking a dip in a puddle surrounded by fall leaves.
-- A sleepy cat resting on the sunny windowsill of a forest cottage.
-- A cute skunk picking wild blueberries into a little tin pail.
-- A sweet sheep nibbling grass near a rustic wooden fence.
-- A friendly snail gliding across a smooth mossy rock.
-- A cute wolf pup gazing gently at a bright crescent moon.
-- A cozy picnic blanket set with a pie, apples, and a pitcher of lemonade.
-- A tiny fairy house built inside an old tree trunk with a little wooden door.
-- A cheerful moose wearing a warm hat standing near an evergreen tree.
-- A sweet bumblebee collecting pollen from a large daisy.
-- A cozy stone fireplace with a warm fire inside a rustic cabin.
-- A friendly hedgehog painting wooden signs for a forest trail.
-- A cute squirrel knitting a long wool scarf on a wooden bench.
-- A happy frog playing a tiny banjo under a weeping willow tree.
-- A sweet deer family resting together under a leafy forest canopy.
-- A cozy sailboat gliding across a peaceful forest lake at sunset.
-- A little mouse baking cookies in a tiny underground kitchen.
-- A friendly owl delivering mail with a small satchel over its shoulder.
-- A cute bunny picking fresh carrots from a cozy vegetable garden patch.
-- A happy bear sleeping soundly on a mound of soft green moss.
-- A cozy wooden bridge crossing a gentle stream filled with smooth stones.
-- A sweet butterfly resting on a cluster of wild lavender flowers.
-- A friendly raccoon wearing an apron and serving fresh apple pie.
-- A cute fox wearing a rain jacket splashing in a clear puddle.
-- A cozy hamster nest filled with soft grass and shiny pebbles.
-- A happy squirrel balancing on a fence post holding a giant pinecone.
+- A happy butterfly sits atop a giant open sunflower facing the sun.
+- A friendly butterfly perches on a juicy sliced watermelon on a summer day.
+- A large butterfly glides over a smooth river stone surrounded by gentle water ripples.
+- A butterfly rests on the tip of a crescent moon surrounded by small stars.
+- A cute butterfly lands on a cozy knitted mitten in the snow.
+- A butterfly balances on a shiny red apple hanging from a tree branch.
+- A cheerful butterfly visits a potted cactus with a big blooming flower.
+- A majestic butterfly lands on top of a friendly sea turtle resting on the beach.
+- A butterfly rests on a sea shell lying on a sandy shoreline.
+- A playful butterfly rests on a cute toadstool mushroom in a quiet forest.
+- A butterfly lands on an open umbrella during a light spring shower.
+- A smiling butterfly sits on a picnic basket full of fresh fruit.
+- A delicate butterfly perches on a blooming lily pad in a peaceful pond.
+- A curious butterfly examines a shiny glass marble on a wooden porch.
+- A butterfly rests gently on the handle of a colorful garden watering can.
+- A large butterfly floats happily beside a floating heart-shaped balloon.
+- A friendly butterfly lands on the nose of a sleeping puppy in a garden.
+- A butterfly rests on top of a stack of old leather-bound books.
+- A joyful butterfly perches on a dangling wind chime hanging from a porch.
+- A cute butterfly sits atop a bright yellow rubber duck in a puddle.
+- A peaceful butterfly lands on a carved Halloween pumpkin in autumn.
+- A butterfly rests on the peak of a small birdhouse mounted on a post.
+- A smiling butterfly lands on a scoop of ice cream inside a waffle cone.
+- A butterfly glides gracefully around a cheerful sunflower with big petals.
+- A friendly butterfly perches on the woven rim of a wicker bicycle basket.
+- A large butterfly rests on a shiny brass bell resting on a garden bench.
+- A cute butterfly perches on a single dandelion clock with flying seeds.
+- A butterfly lands gently on a soft pinecone lying on the forest floor.
+- A joyful butterfly rests on the wooden arm of a sunlit rocking chair.
+- A happy butterfly perches on a bright red strawberry growing in a garden.
+- A butterfly rests on the roof of a cozy wooden bird feeder full of seeds.
+- A curious butterfly lands on the frame of a pair of round reading glasses.
+- A cheerful butterfly sits on the bow of a wrapped birthday gift box.
+- A butterfly lands gracefully on a quiet sailboat floating on calm water.
+- A friendly butterfly perches on a shiny glass jar filled with twinkle lights.
+- A large butterfly rests on a bright orange pumpkin sitting in a patch.
+- A peaceful butterfly lands on the keys of a grand piano near an open window.
+- A cute butterfly perches on a sweet cupcake decorated with sprinkles.
+- A butterfly rests on the brim of a woven straw sunhat resting on grass.
+- A smiling butterfly lands on a cheerful daisy blossoming in a wide field.
+- A curious butterfly perches on a compass resting open on an old map.
+- A friendly butterfly rests on top of a potted tulip on a windowsill.
+- A butterfly lands softly on a vibrant autumn leaf floating in the air.
+- A large butterfly perches on a wooden paint palette covered in dabs of paint.
+- A happy butterfly rests on the wooden seat of a garden swing.
+- A cute butterfly lands on a colorful hot air balloon drifting through clouds.
+- A butterfly perches on a simple acoustic guitar leaning against a tree.
+- A peaceful butterfly rests on a soft clover flower with four big leaves.
+- A smiling butterfly lands on a pair of bright rubber rain boots.
+- A butterfly perches on the top of a wooden fence post in a green meadow.
 cover_text:
   back_blurb: '
 
@@ -299,4 +297,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: cozy-nature-getaway-coloring-book
+_book: beautiful-butterfly-coloring-book-perfect-gift-for-butterfly
