@@ -1056,6 +1056,26 @@ async function loadPreviewInspector() {
         </div>
 
         <div class="form-group" style="margin-bottom: 0;">
+          <div style="margin-bottom: 10px; background: rgba(0,0,0,0.25); padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border-color);">
+            <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">
+              📎 Ảnh bìa & ruột thực tế đính kèm (${item.attachments ? item.attachments.length : 0} ảnh):
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              ${item.attachments && item.attachments.length > 0
+                ? item.attachments.map(att => `
+                    <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1);">
+                      <img src="${att.url}" style="width: 36px; height: 36px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color);" title="${att.filename}">
+                      <div style="display: flex; flex-direction: column;">
+                        <span style="font-size: 0.75rem; font-weight: 600; color: var(--primary);">${att.label}</span>
+                        <span style="font-size: 0.65rem; color: var(--text-muted);">${att.filename}</span>
+                      </div>
+                    </div>
+                  `).join('')
+                : `<span style="font-size: 0.75rem; color: #f59e0b;">⚠️ Chưa có ảnh bìa/ruột trong thư mục 01_raw hoặc 02_processed</span>`
+              }
+            </div>
+          </div>
+
           <label style="font-size: 0.8rem; color: var(--text-muted);">Prompt mẫu (có thể chỉnh sửa trước khi sinh lại):</label>
           <textarea id="prompt-preview-${item.key}" rows="3" style="font-size: 0.8rem; font-family: var(--font-mono); width: 100%;">${item.prompt}</textarea>
         </div>

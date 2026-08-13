@@ -569,6 +569,52 @@ def cmd_ask(cfg: dict) -> None:
     print("  Bước tiếp: python main.py process && python main.py build\n")
 
 
+def get_preview_attachments_map(cfg: dict) -> dict[str, list[Path]]:
+    """Tự động xác định ảnh bìa & các trang ruột thực tế cần đính kèm cho 5 ảnh preview marketing."""
+    P = paths_of(cfg)
+    raw_dir = P["raw_dir"]
+    proc_dir = P["processed_dir"]
+    title = cfg.get("book", {}).get("title", "Coloring Book")
+    subtitle = cfg.get("book", {}).get("subtitle", "")
+    author = cfg.get("book", {}).get("author", "")
+
+    cover_front_titled = proc_dir / "cover_front_titled.png"
+    if cover_front_titled.exists():
+        cover_front = cover_front_titled
+    else:
+        cover_front_raw = (proc_dir / "cover_front.png") if (proc_dir / "cover_front.png").exists() else (raw_dir / "cover_front.png")
+        cover_front = cover_front_raw
+        if cover_front_raw.exists():
+            try:
+                cover_front = imaging.render_titled_cover(
+                    cover_front_raw, cover_front_titled,
+                    title, subtitle, author
+                )
+            except Exception:
+                cover_front = cover_front_raw
+
+    interior_pages = sorted(list(proc_dir.glob("page_*.png")))
+    if not interior_pages:
+        interior_pages = sorted(list(proc_dir.glob("page_*.jpg")))
+    if not interior_pages:
+        interior_pages = sorted(list(raw_dir.glob("page_*.png")))
+    if not interior_pages:
+        interior_pages = sorted(list(raw_dir.glob("page_*.jpg")))
+
+    p1 = interior_pages[0] if len(interior_pages) > 0 else None
+    p2 = interior_pages[1] if len(interior_pages) > 1 else p1
+    p3 = interior_pages[2] if len(interior_pages) > 2 else p1
+    p4 = interior_pages[3] if len(interior_pages) > 3 else p2
+
+    return {
+        "preview_1": [f for f in dict.fromkeys([cover_front]) if f and f.exists()],
+        "preview_2": [f for f in dict.fromkeys([p1, p2]) if f and f.exists()],
+        "preview_3": [f for f in dict.fromkeys([p1]) if f and f.exists()],
+        "preview_4": [f for f in dict.fromkeys([p1, p2, p3, p4]) if f and f.exists()],
+        "preview_5": [f for f in dict.fromkeys([cover_front]) if f and f.exists()],
+    }
+
+
 def cmd_preview_parallel(cfg: dict) -> None:
     """Mở nhiều tab Gemini và sinh 5 ảnh Preview Marketing song song."""
     import asyncio
@@ -580,35 +626,7 @@ def cmd_preview_parallel(cfg: dict) -> None:
     preview_dir.mkdir(parents=True, exist_ok=True)
     
     title = cfg["book"].get("title", "Coloring Book")
-    
-    proc_dir = P["processed_dir"]
-    cover_front_raw = (proc_dir / "cover_front.png") if (proc_dir / "cover_front.png").exists() else (raw_dir / "cover_front.png")
-    cover_front = cover_front_raw
-    if cover_front_raw.exists():
-        try:
-            cover_front = imaging.render_titled_cover(
-                cover_front_raw, proc_dir / "cover_front_titled.png",
-                title, cfg["book"].get("subtitle", ""), cfg["book"].get("author", "")
-            )
-        except Exception:
-            cover_front = cover_front_raw
-
-    interior_pages = sorted(list(proc_dir.glob("page_*.png")))
-    if not interior_pages:
-        interior_pages = sorted(list(raw_dir.glob("page_*.png")))
-
-    p1 = interior_pages[0] if len(interior_pages) > 0 else None
-    p2 = interior_pages[1] if len(interior_pages) > 1 else p1
-    p3 = interior_pages[2] if len(interior_pages) > 2 else p1
-    p4 = interior_pages[3] if len(interior_pages) > 3 else p2
-    
-    attachments_map = {
-        "preview_1": [f for f in dict.fromkeys([cover_front]) if f and f.exists()],
-        "preview_2": [f for f in dict.fromkeys([p1, p2]) if f and f.exists()],
-        "preview_3": [f for f in dict.fromkeys([p1]) if f and f.exists()],
-        "preview_4": [f for f in dict.fromkeys([p1, p2, p3, p4]) if f and f.exists()],
-        "preview_5": [f for f in dict.fromkeys([cover_front]) if f and f.exists()],
-    }
+    attachments_map = get_preview_attachments_map(cfg)
 
     templates = cfg.get("prompts", {}).get("previews", {})
     if not templates:
@@ -661,35 +679,7 @@ def cmd_preview(cfg: dict) -> None:
     preview_dir.mkdir(parents=True, exist_ok=True)
     
     title = cfg["book"].get("title", "Coloring Book")
-    
-    proc_dir = P["processed_dir"]
-    cover_front_raw = (proc_dir / "cover_front.png") if (proc_dir / "cover_front.png").exists() else (raw_dir / "cover_front.png")
-    cover_front = cover_front_raw
-    if cover_front_raw.exists():
-        try:
-            cover_front = imaging.render_titled_cover(
-                cover_front_raw, proc_dir / "cover_front_titled.png",
-                title, cfg["book"].get("subtitle", ""), cfg["book"].get("author", "")
-            )
-        except Exception:
-            cover_front = cover_front_raw
-
-    interior_pages = sorted(list(proc_dir.glob("page_*.png")))
-    if not interior_pages:
-        interior_pages = sorted(list(raw_dir.glob("page_*.png")))
-
-    p1 = interior_pages[0] if len(interior_pages) > 0 else None
-    p2 = interior_pages[1] if len(interior_pages) > 1 else p1
-    p3 = interior_pages[2] if len(interior_pages) > 2 else p1
-    p4 = interior_pages[3] if len(interior_pages) > 3 else p2
-    
-    attachments_map = {
-        "preview_1": [f for f in dict.fromkeys([cover_front]) if f and f.exists()],
-        "preview_2": [f for f in dict.fromkeys([p1, p2]) if f and f.exists()],
-        "preview_3": [f for f in dict.fromkeys([p1]) if f and f.exists()],
-        "preview_4": [f for f in dict.fromkeys([p1, p2, p3, p4]) if f and f.exists()],
-        "preview_5": [f for f in dict.fromkeys([cover_front]) if f and f.exists()],
-    }
+    attachments_map = get_preview_attachments_map(cfg)
 
     templates = cfg.get("prompts", {}).get("previews", {})
     if not templates:

@@ -833,7 +833,10 @@ def get_preview_details():
     templates = cfg.get("prompts", {}).get("previews", {})
     
     preview_dir = P.get("preview_dir") or (P["raw_dir"].parent / "04_previews")
-    
+    raw_dir = P["raw_dir"]
+    proc_dir = P["processed_dir"]
+    attachments_map = book_main.get_preview_attachments_map(cfg)
+
     items = []
     for idx in range(1, 6):
         key = f"preview_{idx}"
@@ -843,6 +846,27 @@ def get_preview_details():
         raw_prompt = templates.get(key, f"Mockup preview {idx}")
         prompt = raw_prompt.format(title=title)
         
+        att_files = attachments_map.get(key, [])
+        att_list = []
+        for att_path in att_files:
+            if att_path and att_path.exists():
+                folder_name = "02_processed" if "02_processed" in str(att_path) or proc_dir in att_path.parents else "01_raw"
+                att_fname = att_path.name
+                
+                if "cover" in att_fname.lower():
+                    label = "Ảnh bìa trước (Front Cover)"
+                elif "page_" in att_fname.lower():
+                    p_num = att_fname.lower().replace("page_", "").split(".")[0]
+                    label = f"Trang ruột #{p_num}"
+                else:
+                    label = att_fname
+                    
+                att_list.append({
+                    "filename": att_fname,
+                    "label": label,
+                    "url": f"/api/images/{slug}/{folder_name}/{att_fname}?v={int(att_path.stat().st_mtime)}"
+                })
+
         items.append({
             "key": key,
             "filename": fname,
@@ -850,6 +874,7 @@ def get_preview_details():
             "has_file": has_file,
             "url": f"/api/images/{slug}/04_previews/{fname}?v={int(fpath.stat().st_mtime)}" if has_file else None,
             "prompt": prompt,
+            "attachments": att_list,
             "size_kb": round(fpath.stat().st_size / 1024, 1) if has_file else 0
         })
         
@@ -874,34 +899,8 @@ def regenerate_preview_single(payload: dict):
         templates = cfg.get("prompts", {}).get("previews", {})
         custom_prompt = templates.get(key, f"Coloring book mockup {key}").format(title=title)
         
-    # Lấy các ảnh thực tế cần đính kèm (ưu tiên ảnh đã qua xử lý trong 02_processed)
-    proc_dir = P["processed_dir"]
-    cover_front_raw = (proc_dir / "cover_front.png") if (proc_dir / "cover_front.png").exists() else (raw_dir / "cover_front.png")
-    cover_front = cover_front_raw
-    if cover_front_raw.exists():
-        try:
-            cover_front = book_main.imaging.render_titled_cover(
-                cover_front_raw, proc_dir / "cover_front_titled.png",
-                title, cfg.get("book", {}).get("subtitle", ""), cfg.get("book", {}).get("author", "")
-            )
-        except Exception:
-            cover_front = cover_front_raw
-
-    interior_pages = sorted(list(proc_dir.glob("page_*.png")))
-    if not interior_pages:
-        interior_pages = sorted(list(raw_dir.glob("page_*.png")))
-    p1 = interior_pages[0] if len(interior_pages) > 0 else None
-    p2 = interior_pages[1] if len(interior_pages) > 1 else p1
-    p3 = interior_pages[2] if len(interior_pages) > 2 else p1
-    p4 = interior_pages[3] if len(interior_pages) > 3 else p2
-    
-    attachments_map = {
-        "preview_1": [f for f in dict.fromkeys([cover_front]) if f and f.exists()],
-        "preview_2": [f for f in dict.fromkeys([p1, p2]) if f and f.exists()],
-        "preview_3": [f for f in dict.fromkeys([p1]) if f and f.exists()],
-        "preview_4": [f for f in dict.fromkeys([p1, p2, p3, p4]) if f and f.exists()],
-        "preview_5": [f for f in dict.fromkeys([cover_front]) if f and f.exists()],
-    }
+    # Lấy các ảnh thực tế cần đính kèm (dùng helper thống nhất)
+    attachments_map = book_main.get_preview_attachments_map(cfg)
     attach = attachments_map.get(key, [])
     dest = preview_dir / f"{key}.png"
     

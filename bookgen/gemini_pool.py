@@ -911,24 +911,75 @@ class GeminiPool:
 
     async def _attach_images(self, page: Page, file_paths: list[Path]) -> bool:
         """Đính kèm danh sách ảnh (bìa, trang ruột) vào ô chat Gemini."""
-        valid_paths = [str(Path(p).resolve()) for p in file_paths if p and Path(p).exists()]
+        valid_paths = [Path(p).resolve() for p in file_paths if p and Path(p).exists()]
         if not valid_paths:
             return False
+        
+        wait_ms = max(4_000, len(valid_paths) * 2_500)
+
+        # 1. ƯU TIÊN HÀNG ĐẦU: Dán (Paste) ảnh trực tiếp qua Clipboard / DataTransfer (không bật popup, cực nhanh)
         try:
-            wait_ms = max(4_000, len(valid_paths) * 2_500)
+            file_payloads = []
+            for p in valid_paths:
+                data_b64 = base64.b64encode(p.read_bytes()).decode("utf-8")
+                mime = "image/png" if p.suffix.lower() == ".png" else "image/jpeg"
+                file_payloads.append({
+                    "base64": data_b64,
+                    "mime": mime,
+                    "name": p.name
+                })
+            
+            js_paste = """
+            async (payloads) => {
+                const editor = document.querySelector('rich-textarea div[contenteditable="true"]') 
+                            || document.querySelector('div[contenteditable="true"]') 
+                            || document.querySelector('textarea') 
+                            || document.activeElement;
+                if (!editor) return false;
+                
+                editor.focus();
+                const dt = new DataTransfer();
+                for (const item of payloads) {
+                    const bstr = atob(item.base64);
+                    const u8arr = new Uint8Array(bstr.length);
+                    for (let i = 0; i < bstr.length; i++) {
+                        u8arr[i] = bstr.charCodeAt(i);
+                    }
+                    const file = new File([u8arr], item.name, { type: item.mime });
+                    dt.items.add(file);
+                }
+                
+                const pasteEvent = new ClipboardEvent('paste', {
+                    bubbles: true,
+                    cancelable: true,
+                    clipboardData: dt
+                });
+                editor.dispatchEvent(pasteEvent);
+                return true;
+            }
+            """
+            pasted = await page.evaluate(js_paste, file_payloads)
+            if pasted:
+                await page.wait_for_timeout(wait_ms)
+                log.info("[tab] Đã dán (Paste) %d ảnh thực tế trực tiếp qua Clipboard (chờ %dms).", len(valid_paths), wait_ms)
+                return True
+        except Exception as e_paste:
+            log.debug("Dán ảnh Clipboard lỗi: %s, chuyển sang set_input_files", e_paste)
 
-            # 1. Thử set_input_files trực tiếp lên input[type="file"] (nhanh & chính xác nhất)
-            try:
-                inp = page.locator('input[type="file"]').first
-                if await inp.count() > 0:
-                    await inp.set_input_files(valid_paths, timeout=4_000)
-                    await page.wait_for_timeout(wait_ms)
-                    log.info("[tab] Đã đính kèm %d ảnh thực tế trực tiếp (chờ %dms).", len(valid_paths), wait_ms)
-                    return True
-            except Exception as e1:
-                log.debug("Trực tiếp set_input_files thất bại: %s, chuyển sang nút Upload", e1)
+        # 2. Thử set_input_files trực tiếp lên input[type="file"]
+        str_paths = [str(p) for p in valid_paths]
+        try:
+            inp = page.locator('input[type="file"]').first
+            if await inp.count() > 0:
+                await inp.set_input_files(str_paths, timeout=4_000)
+                await page.wait_for_timeout(wait_ms)
+                log.info("[tab] Đã đính kèm %d ảnh thực tế qua input[type=file] (chờ %dms).", len(valid_paths), wait_ms)
+                return True
+        except Exception as e1:
+            log.debug("Trực tiếp set_input_files thất bại: %s, chuyển sang nút Upload", e1)
 
-            # 2. Dự phòng: Mở menu Upload và chọn Tải tệp lên
+        # 3. Dự phòng: Mở menu Upload và chọn Tải tệp lên (Lọc bỏ Google Workspace & Google Drive để không bị dính popup)
+        try:
             plus_btn = page.locator(
                 'button[aria-label*="tải" i], button[aria-label*="upload" i], '
                 'button[aria-label*="thêm" i], button[aria-label*="đính kèm" i], '
@@ -940,24 +991,23 @@ class GeminiPool:
                 await page.wait_for_timeout(500)
                 
                 upload_item = page.locator(
-                    'div[role="menuitem"]:has-text("tải"), div[role="menuitem"]:has-text("upload"), '
-                    'button:has-text("Tải tệp"), button:has-text("Upload"), [aria-label*="tải tệp" i]'
-                ).first
+                    'div[role="menuitem"]:has-text("Tải tệp"), div[role="menuitem"]:has-text("Upload"), '
+                    'div[role="menuitem"]:has-text("tải lên"), button:has-text("Tải tệp"), button:has-text("Upload")'
+                ).filter(has_not_text="Workspace").filter(has_not_text="Drive").first
                 
                 if await upload_item.is_visible():
                     async with page.expect_file_chooser(timeout=4_000) as fc_info:
                         await upload_item.click()
                     file_chooser = await fc_info.value
-                    await file_chooser.set_files(valid_paths)
+                    await file_chooser.set_files(str_paths)
                     await page.wait_for_timeout(wait_ms)
                     log.info("[tab] Đã đính kèm %d ảnh qua menu Upload (chờ %dms).", len(valid_paths), wait_ms)
                     return True
+        except Exception as e2:
+            log.debug("Upload qua menu thất bại: %s", e2)
 
-            log.warning("Không tìm thấy nút hoặc ô đính kèm ảnh.")
-            return False
-        except Exception as e:  # noqa: BLE001
-            log.warning("Không đính kèm được ảnh mẫu: %s", e)
-            return False
+        log.warning("Không tìm thấy nút hoặc ô đính kèm ảnh.")
+        return False
 
     async def _one_job(self, page: Page, idx: int, prompt: str, dest: Path,
                        same_chat: bool = False, attach_files: list[Path] | None = None) -> bool:
