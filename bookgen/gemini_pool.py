@@ -18,16 +18,60 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
+import os
 import random
 import re
 import time
 from pathlib import Path
 
-from playwright.async_api import (
-    Page,
-    TimeoutError as PWTimeout,
-    async_playwright,
-)
+# --------------------------------------------------- chọn engine trình duyệt
+#
+# patchright là bản Playwright đã vá các dấu vết CDP. Điểm đáng giá nhất: nó
+# KHÔNG gọi Runtime.enable. Playwright bản gốc bật domain này trên mọi page để
+# lấy sự kiện Runtime.executionContextCreated (không có thì page.evaluate
+# không biết chạy vào context nào), và một số site dò đúng chỗ đó - tạo một
+# Error, cài getter lên .stack, ném đi: Runtime đang bật thì trình duyệt phải
+# tuần tự hoá object cho CDP nên getter kích hoạt, trang biết có debugger.
+#
+# API giống hệt Playwright nên đổi qua lại chỉ là đổi import.
+#
+# Chọn bằng BIẾN MÔI TRƯỜNG chứ không qua config.yaml, vì import xảy ra trước
+# khi config kịp được đọc:
+#     set BOOKGEN_BROWSER_ENGINE=playwright   -> ép dùng bản gốc (để A/B)
+#     set BOOKGEN_BROWSER_ENGINE=patchright   -> ép dùng bản vá, thiếu thì báo lỗi
+# Bỏ trống: dùng patchright nếu có, không có thì lùi êm về playwright.
+
+# Tách "engine được yêu cầu" khỏi "engine thực sự nạp được": gộp chung một
+# biến thì lúc ép playwright, nhánh patchright bị bỏ qua mà nhánh dự phòng
+# cũng bị bỏ qua luôn (biến đã có giá trị) -> không import gì cả.
+_ENGINE_REQUESTED = os.environ.get("BOOKGEN_BROWSER_ENGINE", "").strip().lower()
+BROWSER_ENGINE = ""
+
+if _ENGINE_REQUESTED != "playwright":
+    try:
+        from patchright.async_api import (
+            Page,
+            TimeoutError as PWTimeout,
+            async_playwright,
+        )
+        BROWSER_ENGINE = "patchright"
+    except ImportError:
+        if _ENGINE_REQUESTED == "patchright":
+            raise RuntimeError(
+                "BOOKGEN_BROWSER_ENGINE=patchright nhưng chưa cài. "
+                "Chạy `pip install patchright`."
+            ) from None
+
+if not BROWSER_ENGINE:
+    # LƯU Ý: chỉ import MỘT engine. patchright là fork riêng nên
+    # TimeoutError của nó KHÔNG phải TimeoutError của playwright - trộn hai
+    # bên là các nhánh `except PWTimeout` lặng lẽ trượt.
+    from playwright.async_api import (
+        Page,
+        TimeoutError as PWTimeout,
+        async_playwright,
+    )
+    BROWSER_ENGINE = "playwright"
 
 from bookgen.gemini_driver import (
     MIN_ART_PX,
@@ -313,7 +357,8 @@ class GeminiPool:
             if ctx.pages:
                 await self._ensure_logged_in(ctx.pages[0])
                 
-        log.info("Đã mở %d phiên Gemini từ %d tài khoản.", len(self.pages), len(self.contexts))
+        log.info("Đã mở %d phiên Gemini từ %d tài khoản (engine: %s).",
+                 len(self.pages), len(self.contexts), BROWSER_ENGINE)
         return self
 
     async def __aexit__(self, *exc):
@@ -365,14 +410,19 @@ class GeminiPool:
         return loc
 
     async def _prepare(self, page: Page) -> Page:
-        """Cài init script, gắn bộ bắt ảnh, mở sẵn trang Gemini."""
+        """Gắn bộ bắt ảnh, mở sẵn trang Gemini."""
         catcher = ImageCatcher()
         self.catchers[page] = catcher
         page.on("response",
                 lambda r: asyncio.create_task(catcher.on_response(r)))
-        await page.add_init_script(
-            "Object.defineProperty(navigator,'webdriver',{get:()=>undefined});"
-        )
+
+        # KHÔNG vá navigator.webdriver bằng init script nữa.
+        #
+        # Cờ --disable-blink-features=AutomationControlled đã tắt cờ này ngay
+        # ở tầng engine, nên miếng vá JS vừa thừa vừa phản tác dụng: nó để lại
+        # một property descriptor bất thường trên navigator mà Chrome thật
+        # không có - dò cái đó còn dễ hơn dò navigator.webdriver.
+
         await page.goto(self.url, wait_until="domcontentloaded", timeout=90_000)
         await page.wait_for_timeout(1_500)
         return page
@@ -1022,6 +1072,22 @@ class GeminiPool:
             check_cancel()
             await self.throttle.acquire()
             try:
+                # Mỗi ảnh một hội thoại riêng.
+                #
+                # same_chat vốn được truyền vào nhưng trước đây không dùng ở
+                # đâu, nên mọi ảnh dồn chung một hội thoại. Gemini xử lý lại
+                # toàn bộ ngữ cảnh ở mỗi lượt, nên chat càng dài thì mỗi ảnh
+                # càng tốn thời gian và càng dễ bị nhiễu bởi ảnh vẽ trước đó.
+                # (Đây KHÔNG phải nguyên nhân vụ tab treo - cái đó là do tab
+                # nền không được render, đã chữa bằng headless. Giữ chat ngắn
+                # chỉ là vệ sinh cần thiết.)
+                #
+                # Ngoại lệ duy nhất là bước nối tiếp trong chuỗi: bìa sau cần
+                # nhìn thấy bìa trước để vẽ cho khớp. Lúc retry cũng KHÔNG mở
+                # chat mới nếu same_chat, vì mở là mất luôn ngữ cảnh bìa trước.
+                if not same_chat:
+                    await self._new_chat(page)
+
                 catcher = self.catchers.get(page)
                 if catcher:
                     eff_ignore = None if "preview" in dest.stem else attach_files
@@ -1030,6 +1096,12 @@ class GeminiPool:
                 if attach_files:
                     await self._attach_images(page, attach_files)
                     await page.wait_for_timeout(1_000)
+
+                # Chụp danh sách ảnh đang có TRƯỚC khi gửi, để đường dự phòng
+                # DOM bên dưới biết đâu là ảnh mới. Thiếu dòng này thì tới đó là
+                # NameError -> mọi ảnh không bắt được qua mạng đều chạy đủ 3
+                # lượt retry rồi mới chịu bỏ, càng giống hệ thống bị treo.
+                before = set(await self._image_urls(page))
 
                 await self._send_prompt(page, prompt)
 

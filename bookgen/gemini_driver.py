@@ -14,28 +14,50 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import os
 import random
 import re
 import time
 from pathlib import Path
 
-try:
-    from playwright.sync_api import (
-        Page,
-        TimeoutError as PWTimeout,
-        sync_playwright,
-    )
-except ImportError:  # backend: api không cần Playwright
-    Page = object  # type: ignore[assignment,misc]
+# Chọn engine giống hệt gemini_pool - xem chú thích đầy đủ ở đó. Luồng preview
+# đơn lẻ chạy qua driver sync này, nên phải đổi cả hai chỗ; để lệch một bên là
+# stealth chỉ có nửa vời.
+BROWSER_ENGINE = os.environ.get("BOOKGEN_BROWSER_ENGINE", "").strip().lower()
+sync_playwright = None  # type: ignore[assignment]
 
-    class PWTimeout(Exception):  # type: ignore[no-redef]
-        pass
-
-    def sync_playwright():  # type: ignore[misc]
-        raise RuntimeError(
-            "Chưa cài Playwright. Chạy `pip install playwright && playwright install chrome`, "
-            "hoặc dùng backend: api trong config.yaml."
+if BROWSER_ENGINE != "playwright":
+    try:
+        from patchright.sync_api import (
+            Page,
+            TimeoutError as PWTimeout,
+            sync_playwright,
         )
+        BROWSER_ENGINE = "patchright"
+    except ImportError:
+        BROWSER_ENGINE = ""
+
+if sync_playwright is None:
+    try:
+        from playwright.sync_api import (
+            Page,
+            TimeoutError as PWTimeout,
+            sync_playwright,
+        )
+        BROWSER_ENGINE = "playwright"
+    except ImportError:  # backend: api không cần Playwright
+        BROWSER_ENGINE = "none"
+        Page = object  # type: ignore[assignment,misc]
+
+        class PWTimeout(Exception):  # type: ignore[no-redef]
+            pass
+
+        def sync_playwright():  # type: ignore[misc]
+            raise RuntimeError(
+                "Chưa cài Playwright. Chạy `pip install patchright` "
+                "(hoặc `pip install playwright && playwright install chrome`), "
+                "hoặc dùng backend: api trong config.yaml."
+            )
 
 log = logging.getLogger(__name__)
 
@@ -440,10 +462,11 @@ class GeminiDriver:
         self.catcher = ImageCatcher()
         self.page.on("response", self.catcher.on_response)
         
-        # Ẩn navigator.webdriver
-        self.page.add_init_script(
-            "Object.defineProperty(navigator,'webdriver',{get:()=>undefined});"
-        )
+        # KHÔNG vá navigator.webdriver bằng init script: cờ
+        # --disable-blink-features=AutomationControlled đã tắt nó ở tầng
+        # engine, nên miếng vá JS chỉ để lại một property descriptor bất
+        # thường trên navigator - dò cái đó còn dễ hơn dò navigator.webdriver.
+        log.info("Khởi động trình duyệt (engine: %s).", BROWSER_ENGINE)
         self.page.goto(self.url, wait_until="domcontentloaded", timeout=90_000)
         self._ensure_logged_in()
         return self

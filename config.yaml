@@ -1,8 +1,8 @@
 book:
-  title: dragon
+  title: Dragon
   subtitle: ''
   author: ''
-  num_images: 5
+  num_images: 50
   blank_verso: true
   front_matter_pages: 0
 print:
@@ -212,12 +212,56 @@ prompts:
     Pure artwork illustration only. Vertical portrait orientation, aspect ratio 8.5:11,
     maximum resolution.'
 subjects:
-- A friendly baby dragon sits inside a cracked eggshell surrounded by flowers.
-- A little dragon roasts a marshmallow over its own tiny flame at night.
-- A smiling dragon flies happily among soft fluffy clouds and a bright rainbow.
-- A cute dragon wearing a crown sleeps peacefully on a pile of shiny treasure.
-- A playful dragon waters a garden of oversized magical mushrooms with a watering
-  can.
+- A baby dragon hatching from a smooth oval egg.
+- A friendly dragon wearing a party hat with balloons.
+- A happy dragon sleeping curled up on a pile of gold coins.
+- A cute dragon sipping a hot beverage from a mug.
+- A small dragon blowing a tiny heart-shaped smoke ring.
+- A joyful dragon playing hide and seek behind a big mushroom.
+- A dragon wearing a crown and sitting on a simple stone throne.
+- A playful dragon splashing happily in a shallow pond.
+- A dragon floating gently while holding onto three helium balloons.
+- A cheerful dragon wearing chef hats while baking a cupcake.
+- A dragon sitting under a tall tree reading a picture book.
+- A smiling dragon wearing oversized glasses.
+- A dragon sitting on a soft cloud high in the sky.
+- A dragon wearing rain boots under a big umbrella.
+- A friendly dragon building a large sandcastle on the beach.
+- A dragon juggling three round apples.
+- A cute dragon wearing a cozy knitted scarf in the winter.
+- A dragon watering a small flower with a classic watering can.
+- A dragon wearing a superhero cape standing proudly.
+- A little dragon hugging a giant teddy bear.
+- A dragon resting inside a hollow wooden log.
+- A dragon eating a large ice cream cone.
+- A happy dragon swinging on a wooden tree swing.
+- A dragon wearing a pirate hat holding a simple treasure map.
+- A cute dragon chasing a colorful butterfly through a meadow.
+- A dragon sitting next to a tiny roaring campfire.
+- A dragon blowing bubbles with a plastic wand.
+- A dragon wearing a winter beanie while building a snowman.
+- A friendly dragon looking at its own reflection in a calm lake.
+- A dragon holding a painted Easter egg.
+- A smiling dragon peeking out from behind a large sunflower.
+- A dragon wearing a nightcap and holding a small lantern.
+- A dragon flying a diamond-shaped kite on a windy day.
+- A cheerful dragon sitting in a field of blooming daisies.
+- A dragon balancing a beach ball on its nose.
+- A small dragon resting inside a large wooden crate.
+- A dragon wearing snazzy sunglasses on a sunny day.
+- A happy dragon sliding down a smooth rainbow.
+- A dragon wearing headphones while listening to music.
+- A dragon holding a bright yellow star in its paws.
+- A dragon wearing a backpack and walking down a simple path.
+- A little dragon sitting on top of a giant pumpkin.
+- A dragon blowing out a single candle on a birthday cake.
+- A friendly dragon riding on a simple wooden rocking horse.
+- A dragon sitting peacefully in a hammock tied between two palm trees.
+- A dragon painting a picture on a small wooden easel.
+- A dragon wearing a snorkel mask in a bubble-filled bathtub.
+- A cute dragon holding an open umbrella covered in raindrops.
+- A dragon happily eating a large slice of watermelon.
+- A dragon tucked into a cozy bed with a star-patterned blanket.
 cover_text:
   back_blurb: '
 
@@ -232,7 +276,7 @@ api:
   - 2
   - 5
 browser:
-  headless: false
+  headless: true
   gemini_url: https://gemini.google.com/app
   generation_timeout: 240
   recycle_tab_every: 5
@@ -247,7 +291,7 @@ browser:
   profiles:
   - ./.chrome-account1
   - ./.chrome-account2
-  concurrency_per_profile: 2
+  concurrency_per_profile: 1
 paths:
   raw_dir: output/01_raw
   processed_dir: output/02_processed
