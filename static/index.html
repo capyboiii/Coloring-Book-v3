@@ -358,6 +358,40 @@
             </select>
           </div>
 
+          <!-- ===== Hiệu năng phiên Chrome (chỉ có tác dụng khi backend = web) ===== -->
+          <div id="browser-perf-group" style="border-top: 1px solid var(--border-color); margin-top: 1.2rem; padding-top: 1.2rem;">
+            <div style="font-weight: 600; margin-bottom: 0.9rem;">🧠 Hiệu năng &amp; Phiên Chrome</div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Số tab song song / tài khoản</label>
+                <input type="number" id="browser-concurrency" min="1" max="6" onchange="saveConfigFromUI()">
+              </div>
+              <div class="form-group">
+                <label>Tái tạo tab sau mỗi N ảnh</label>
+                <input type="number" id="browser-recycle-every" min="0" max="50" onchange="saveConfigFromUI()">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Chờ vẽ xong 1 ảnh (giây)</label>
+                <input type="number" id="browser-generation-timeout" min="30" max="900" step="10" onchange="saveConfigFromUI()">
+              </div>
+              <div class="form-group">
+                <label>Đồng hồ canh treo tab (giây)</label>
+                <input type="number" id="browser-stall-timeout" min="30" max="1800" step="10" onchange="saveConfigFromUI()">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Extension MonkeyX gửi prompt (để trống = tắt, dùng Playwright)</label>
+              <input type="text" id="browser-extension-dir" placeholder="C:/Users/.../monkeyx_1" onchange="saveConfigFromUI()">
+            </div>
+
+            <div id="browser-perf-hint" style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.5;"></div>
+          </div>
+
           <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 1.5rem;">
             <button class="btn btn-success btn-block" style="font-size: 1rem; padding: 14px; box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);" onclick="runTaskCommand('all')">
               🚀 CHẠY TOÀN BỘ (GEN -> PROCESS -> BUILD PDF)

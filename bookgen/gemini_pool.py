@@ -99,6 +99,40 @@ class Throttle:
 
 # --------------------------------------------------------------- pool
 
+_UA_CACHE: str | None = None
+
+
+async def real_user_agent(pw) -> str | None:
+    """User-Agent của Chrome ở chế độ hiện, dùng để vá cho chế độ ẩn.
+
+    Chrome chạy headless tự khai báo "HeadlessChrome/151.0.0.0" thay vì
+    "Chrome/151.0.0.0". Đo trên máy này thì ĐÓ LÀ KHÁC BIỆT DUY NHẤT giữa hai chế
+    độ - GPU (ANGLE/D3D11), tốc độ dựng DOM, fps, media query pointer/hover và cả
+    Client Hints brands đều y hệt nhau. Nhưng Gemini đọc chuỗi đó và trả về trải
+    nghiệm khác: DOM dựng chậm/khác đi, hay chèn "I encountered an error", ô nhập
+    mount muộn nên _find hết giờ.
+
+    Lấy chuỗi thật từ chính binary Chrome đang dùng rồi bỏ chữ "Headless", thay vì
+    ghi cứng - ghi cứng là mỗi lần Chrome lên phiên bản mới lại sai.
+    """
+    global _UA_CACHE
+    if _UA_CACHE:
+        return _UA_CACHE
+    try:
+        browser = await pw.chromium.launch(headless=True, channel="chrome")
+        try:
+            page = await browser.new_page()
+            ua = await page.evaluate("() => navigator.userAgent")
+        finally:
+            await browser.close()
+        _UA_CACHE = ua.replace("HeadlessChrome", "Chrome")
+        return _UA_CACHE
+    except Exception as e:  # noqa: BLE001
+        log.warning("Không lấy được User-Agent thật (%s) - chạy ẩn với UA mặc "
+                    "định, Gemini có thể trả lời khác đi.", e)
+        return None
+
+
 class QuotaExhausted(RuntimeError):
     """Tài khoản đã hết hạn mức tạo ảnh trong ngày.
 
@@ -240,9 +274,39 @@ class GeminiPool:
         self.max_retries = b.get("max_retries", 3)
         self.workers_per_profile = max(1, int(b.get("concurrency_per_profile", b.get("concurrency", 2))))
         self.workers = self.workers_per_profile * len(self.profile_dirs)
+
+        # Extension MonkeyX.
+        #
+        # ĐÃ THỬ VÀ THẤT BẠI: nạp bằng --load-extension. Chrome 137+ vô hiệu hoá
+        # công tắc dòng lệnh này; đo trên Chrome 151 thì extension không hề vào
+        # extensions.settings, kể cả khi thêm --enable-unsafe-extension-debugging
+        # hay --disable-features=DisableLoadExtensionCommandLineSwitch.
+        #
+        # Vì vậy MonkeyX phải được cài TAY một lần vào từng profile bằng "Load
+        # unpacked" (chạy setup_extension.bat). Chrome không copy file vào profile
+        # mà chỉ ghi ĐƯỜNG DẪN tuyệt đối vào Preferences -> đừng đổi chỗ thư mục
+        # extension, đổi là ID đổi và công tắc "Allow user scripts" reset.
+        #
+        # Ở đây chỉ còn một việc: KHÔNG được truyền --disable-extensions, vì cờ đó
+        # tắt luôn cả extension đã cài tay.
+        ext = b.get("extension_dir") or ""
+        self.extension_dir = Path(ext).resolve() if ext else None
+        if self.extension_dir and not (self.extension_dir / "manifest.json").exists():
+            log.warning("browser.extension_dir không có manifest.json: %s -> bỏ qua.",
+                        self.extension_dir)
+            self.extension_dir = None
         
         self.recycle_every = max(0, int(b.get("recycle_tab_every", 5)))
-        self.stall_timeout = float(b.get("stall_timeout", 120))
+        # Đồng hồ canh PHẢI rộng hơn thời gian vẽ một ảnh, nếu không nó chém ngang
+        # ảnh đang vẽ hoàn toàn bình thường ("đang gen tự nhiên tắt"). Chốt ở đây
+        # chứ không ở UI, vì còn đường sửa tay config.yaml và đường chạy CLI.
+        self.stall_timeout = float(b.get("stall_timeout", 360))
+        floor = self.timeout + 60
+        if self.stall_timeout < floor:
+            log.warning("stall_timeout=%.0fs nhỏ hơn generation_timeout=%.0fs "
+                        "-> nâng lên %.0fs để không chém ngang ảnh đang vẽ.",
+                        self.stall_timeout, self.timeout, floor)
+            self.stall_timeout = floor
         self.max_requeue = int(b.get("max_requeue", 2))
         self.max_nudges = int(b.get("max_nudges", 2))
         self.nudge_prompt = (cfg.get("prompts", {}).get("nudge")
@@ -262,17 +326,41 @@ class GeminiPool:
         self._pw = await async_playwright().start()
         from bookgen.gemini_driver import get_unique_profile_dir
         
+        from bookgen.gemini_driver import is_profile_locked
+
+        # Chỉ cần khi chạy ẩn; chế độ hiện vốn đã có UA đúng.
+        ua = await real_user_agent(self._pw) if self.headless else None
+        if ua:
+            log.info("Chạy ẩn với User-Agent của Chrome thường: %s", ua)
+
         for p_dir in self.profile_dirs:
+            locked = is_profile_locked(p_dir)
             actual_dir = get_unique_profile_dir(p_dir)
+            if locked:
+                # Hay gặp nhất: cửa sổ Chrome do nút "Mở Chrome" trên dashboard
+                # bật lên (POST /api/gemini/launch-chrome) vẫn còn mở.
+                log.warning("Profile %s đang bị một Chrome khác chiếm giữ "
+                            "-> dùng bản sao %s. Đóng cửa sổ Chrome đó để chạy "
+                            "thẳng trên profile gốc.", p_dir.name, actual_dir.name)
+            else:
+                log.info("Profile dùng cho phiên này: %s", actual_dir.name)
             launch_args = [
                 "--disable-blink-features=AutomationControlled",
                 "--no-default-browser-check",
                 "--no-first-run",
-                "--disable-extensions",
                 "--disable-dev-shm-usage",
-                "--js-flags=--max-old-space-size=512",
             ]
-            
+            # BO "--js-flags=--max-old-space-size=512": tran heap V8 512MB sinh ra
+            # de chan da leo RAM, nhung recycle_tab_every=1 xu ly viec do triet de
+            # hon (dong han tab -> tra bo nho ve OS). Giu ca hai thi tran thap lai
+            # thanh thu de lam trang treo giua luc render anh.
+            # Playwright TU NHET "--disable-extensions" vao moi lan khoi dong
+            # (danh sach mac dinh trong driver, coreBundle.js). Xoa co do khoi
+            # launch_args la vo nghia - phai bao Playwright bo qua chinh no.
+            # Do thuc te: khong co dong nay thi chrome://extensions RONG TRON,
+            # MonkeyX khong nap, userscript khong bao gio chay.
+            ignore_default = ["--disable-extensions"] if self.extension_dir else []
+
             ctx = None
             for retry in range(10):
                 try:
@@ -282,10 +370,22 @@ class GeminiPool:
                         channel="chrome",
                         viewport={"width": 1440, "height": 960},
                         args=launch_args,
+                        ignore_default_args=ignore_default,
+                        user_agent=ua,
                     )
                     break
                 except Exception as e:
-                    if ("ProcessSingleton" in str(e) or "already in use" in str(e)) and retry < 9:
+                    # Lưới an toàn cho trường hợp is_profile_locked() nhìn sót:
+                    # Chrome bị mở đè lên profile đang chạy sẽ bàn giao cho
+                    # instance cũ rồi thoát exitCode=21, Playwright báo lại thành
+                    # TargetClosedError - chuỗi này không chứa "ProcessSingleton"
+                    # nên bản trước không retry mà chết luôn.
+                    msg = str(e)
+                    retryable = ("ProcessSingleton" in msg
+                                 or "already in use" in msg
+                                 or "exitCode=21" in msg
+                                 or "Target page, context or browser has been closed" in msg)
+                    if retryable and retry < 9:
                         actual_dir = p_dir.parent / f"{p_dir.name}-run{retry+1}"
                         actual_dir.mkdir(parents=True, exist_ok=True)
                         for lock_name in ["SingletonLock", "SingletonCookie", "SingletonSocket"]:
@@ -359,8 +459,25 @@ class GeminiPool:
         Bản cũ chờ lần lượt từng selector và chia nhỏ timeout, nên selector nào
         không khớp cũng ngốn trọn phần thời gian của nó. Gộp bằng dấu phẩy thì
         Playwright kiểm tra song song, khớp cái nào xong ngay cái đó.
+
+        ĐỪNG quay lại dùng .first: lúc Gemini vừa mount SPA (hay gặp khi
+        recycle_tab_every=1 nên mọi việc đều khởi đầu trên tab mới) có NHIỀU phần
+        tử khớp cùng lúc - editor cũ chưa gỡ, editor mới chưa hiện. .first vớ
+        phải cái không bao giờ visible rồi ngồi chờ hết timeout, trong khi ô nhập
+        thật nằm ở match khác. Dấu hiệu nhận biết trong log: "locator resolved to
+        visible <div ...>" mà vẫn Timeout 30000ms exceeded.
+
+        Cũng ĐỪNG tự quét bằng loc.all() rồi trả về phần tử tìm được: all() trả
+        về locator dạng nth(i), tức buộc theo VỊ TRÍ chứ không theo phần tử. Kiểm
+        tra visible lúc tìm là đúng, nhưng tới lúc click thì Gemini đã tráo vai -
+        nth(0) giờ trỏ vào editor cũ đang ẩn và treo trọn 30s. Dấu hiệu trong log:
+        "Locator.click: Timeout 30000ms exceeded ... waiting for locator(...).first"
+        (Playwright in nth(0) ra thành .first).
+
+        Cách đúng: để bộ lọc 'visible=true' nằm TRONG selector, nhờ vậy nó được
+        giải lại ở mỗi thao tác và luôn trúng phần tử đang hiển thị.
         """
-        loc = page.locator(", ".join(selectors)).first
+        loc = page.locator(f'{", ".join(selectors)} >> visible=true').first
         await loc.wait_for(state="visible", timeout=timeout)
         return loc
 
@@ -374,7 +491,35 @@ class GeminiPool:
             "Object.defineProperty(navigator,'webdriver',{get:()=>undefined});"
         )
         await page.goto(self.url, wait_until="domcontentloaded", timeout=90_000)
-        await page.wait_for_timeout(1_500)
+        # domcontentloaded chỉ nói HTML đã tải xong; Gemini là SPA Angular nên ô
+        # nhập mount muộn hơn nhiều. Chờ mù 1.5s là đủ khi tab được dùng lại nhiều
+        # lần, nhưng với recycle_tab_every=1 thì MỌI việc đều khởi đầu trên tab
+        # vừa mở -> phần nạp SPA còn thiếu bị đẩy sang cho _find của việc kế tiếp
+        # gánh, và nó chỉ có 30s nên báo timeout.
+        #
+        # Chờ ở ĐÂY còn rẻ hơn: _prepare/_recycle chạy ngoài đồng hồ canh
+        # stall_timeout, nên thời gian nạp trang không ăn vào ngân sách của việc.
+        try:
+            await self._find(page, SELECTORS["prompt_box"], timeout=60_000)
+        except Exception as e:  # noqa: BLE001
+            log.warning("Tab mới chưa thấy ô nhập sau 60s (%s) - chạy tiếp, "
+                        "_send_prompt sẽ thử lại.", e)
+
+        # Chờ userscript sẵn sàng NGAY TẠI ĐÂY, không để _send_via_extension gánh.
+        # MonkeyX gỡ sạch rồi mới đăng ký lại mỗi lần service worker khởi động
+        # (syncAll: unregister -> register), nên có một khoảng trống lúc Chrome
+        # vừa bật; tab nào nạp Gemini trúng khoảng đó thì không có script và cả
+        # ảnh đó phải lùi về đường Playwright. Chờ ở _prepare không tốn ngân sách
+        # của việc vì nó chạy ngoài đồng hồ canh stall_timeout.
+        if self.extension_dir:
+            try:
+                await page.wait_for_function(
+                    "() => document.documentElement.dataset.mxReady === '1'",
+                    timeout=20_000)
+            except PWTimeout:
+                log.warning("Tab mới: userscript MonkeyX chưa sẵn sàng sau 20s "
+                            "-> ảnh đầu trên tab này sẽ dùng đường Playwright.")
+        await page.wait_for_timeout(400)
         return page
 
     async def _recycle(self, idx: int) -> Page:
@@ -396,6 +541,28 @@ class GeminiPool:
         log.info("[tab %d] đã tái tạo để giải phóng RAM.", idx)
         return new
 
+    async def _ensure_fresh_chat(self, page: Page) -> None:
+        """Đảm bảo tab đang ở một cuộc trò chuyện TRỐNG trước khi gửi prompt mới.
+
+        Bản trước _one_job không hề mở chat mới - _new_chat chỉ được gọi trong
+        ask_text. Hậu quả: mọi ảnh trên một tab đều rơi vào cùng một cuộc trò
+        chuyện. Tab 1 tệ nhất vì ask_text dùng nó để hỏi danh sách chủ đề, nên
+        prompt vẽ ảnh nối vào một thread đang trò chuyện -> Gemini đáp lại bằng
+        LỜI thay vì vẽ ("chỉ trả lời bằng chữ, nhắc lại"), rồi hỏng cả loạt.
+        recycle_tab_every=1 vô tình che lỗi này: tab mới thì chat cũng mới, nên
+        chỉ những tab kẹt trong vòng thử lại mới lộ ra.
+
+        Kiểm tra trước rồi mới bấm: tab vừa tái tạo đã trống sẵn, gọi _new_chat
+        vô ích có thể rơi vào nhánh dự phòng goto và nạp lại cả SPA lần nữa.
+        """
+        try:
+            n = await page.locator(", ".join(SELECTORS["response_container"])).count()
+        except Exception:                      # không đọc được -> cứ mở mới cho chắc
+            n = 1
+        if n == 0:
+            return
+        await self._new_chat(page)
+
     async def _new_chat(self, page: Page) -> None:
         """Mở hội thoại mới. Ưu tiên bấm nút thay vì goto - goto nạp lại cả SPA,
         chậm hơn nhiều và cũng chẳng giải phóng bộ nhớ."""
@@ -406,9 +573,15 @@ class GeminiPool:
             await self._find(page, SELECTORS["prompt_box"], timeout=8_000)
             return
         except (PWTimeout, Exception) as e:  # noqa: BLE001
-            log.debug("Không bấm được nút chat mới (%s), quay về goto.", e)
+            log.info("Không bấm được nút chat mới (%s) -> nạp lại cả trang, "
+                     "mất thêm khoảng 20s.", e)
         await page.goto(self.url, wait_until="domcontentloaded")
-        await page.wait_for_timeout(2_500)
+        # Cùng lý do như trong _prepare: chờ ô nhập thật, không đếm giờ mù.
+        try:
+            await self._find(page, SELECTORS["prompt_box"], timeout=45_000)
+        except Exception as e:  # noqa: BLE001
+            log.warning("Chat mới chưa thấy ô nhập sau 45s (%s).", e)
+        await page.wait_for_timeout(400)
 
     async def _wake_editor(self, page: Page, box) -> None:
         try:
@@ -419,9 +592,105 @@ class GeminiPool:
         except Exception:
             pass
 
+    async def _wait_started(self, page: Page, box) -> bool:
+        """Gửi thành công = nút Stop hiện ra HOẶC ô nhập trống đi."""
+        stop = page.locator(", ".join(SELECTORS["stop_button"])).first
+        for _ in range(16):                          # tối đa ~8 giây
+            try:
+                if await stop.is_visible():
+                    return True
+            except Exception:
+                pass
+            try:
+                if len((await box.inner_text()).strip()) < 10:
+                    return True
+            except Exception:
+                return True
+            await page.wait_for_timeout(500)
+        return False
+
+    async def _send_via_extension(self, page: Page, text: str, box) -> bool:
+        """Giao prompt cho userscript MonkeyX gõ và bấm gửi.
+
+        Vì sao không để Playwright tự làm: đường cũ đặt el.innerText = txt, chỉ
+        sửa DOM chứ không đi qua pipeline soạn thảo, nên Quill của Gemini không
+        cập nhật model nội bộ. Userscript dùng execCommand('insertText') - đúng
+        đường mà bàn phím thật đi qua.
+
+        Trả False nếu extension vắng mặt hoặc báo lỗi TRƯỚC khi bấm; lúc đó
+        _send_prompt quay về đường Playwright cũ. Userscript chỉ ghi 'error' khi
+        chưa bấm, nên nhánh dự phòng không bao giờ thành cú bấm thứ hai.
+        """
+        try:
+            # 15s chứ không phải 5s: userscript chạy ở document-idle, mà với
+            # recycle_tab_every=1 thì mọi việc đều bắt đầu trên tab vừa mở - dưới
+            # headless, SPA nạp chậm nên 5s hay hụt, và hụt là mất luôn đường
+            # extension cho cả ảnh đó.
+            await page.wait_for_function(
+                "() => document.documentElement.dataset.mxReady === '1'",
+                timeout=15_000)
+        except PWTimeout:
+            log.warning("Userscript MonkeyX không có mặt trên tab này "
+                        "-> dùng đường Playwright.")
+            return False
+
+        await page.evaluate("""(txt) => {
+            const r = document.documentElement;
+            delete r.dataset.mxStatus;
+            delete r.dataset.mxError;
+            const old = document.getElementById('__mx_job');
+            if (old) old.remove();
+            const n = document.createElement('div');
+            n.id = '__mx_job';
+            n.style.display = 'none';
+            n.textContent = txt;
+            r.appendChild(n);
+        }""", text)
+
+        try:
+            await page.wait_for_function(
+                "() => ['clicked','error']"
+                ".includes(document.documentElement.dataset.mxStatus || '')",
+                timeout=40_000)
+        except PWTimeout:
+            log.warning("Userscript không phản hồi sau 40s -> dùng đường Playwright.")
+            return False
+
+        status, err = await page.evaluate(
+            "() => [document.documentElement.dataset.mxStatus,"
+            "       document.documentElement.dataset.mxError || '']")
+        if status != "clicked":
+            log.warning("Userscript báo lỗi (%s) -> dùng đường Playwright.", err)
+            return False
+
+        log.info("Userscript đã gõ & gửi prompt (%d ký tự).", len(text))
+
+        # ĐÃ BẤM RỒI THÌ TUYỆT ĐỐI KHÔNG TRẢ False.
+        #
+        # Bản trước trả thẳng _wait_started(...). Khi nó không xác nhận được
+        # (nút Stop chưa kịp hiện, ô nhập chưa kịp trống - hay gặp trên tab chậm
+        # ở chế độ ẩn), _send_prompt hiểu là "chưa gửi" rồi chạy trọn đường
+        # Playwright: evaluate + _wake_editor + _click_send với đủ vòng dự phòng
+        # Control+Enter và Enter. Hậu quả kép:
+        #   - GỬI LẠI prompt lần hai vào đúng chat đang sinh ảnh
+        #   - mỗi bước dự phòng lại chờ started() nên _send_prompt kẹt hàng phút
+        # Đo trên log: userscript bấm lúc 00:47:00, tới 00:49:18 mới thoát.
+        #
+        # Không xác nhận được thì cứ để _capture_image phán xử; hỏng thật thì
+        # vòng thử lại của _one_job sẽ mở chat mới sạch và làm lại từ đầu.
+        if not await self._wait_started(page, box):
+            log.warning("Userscript đã bấm gửi nhưng chưa thấy dấu hiệu bắt đầu "
+                        "sinh ảnh - vẫn chờ tiếp, KHÔNG gửi lại để tránh bấm "
+                        "trúng nút Stop.")
+        return True
+
     async def _send_prompt(self, page: Page, text: str) -> None:
         text = flatten(text)
         box = await self._find(page, SELECTORS["prompt_box"], timeout=30_000)
+
+        if self.extension_dir and await self._send_via_extension(page, text, box):
+            return
+
         try:
             await box.evaluate("""(el, txt) => {
                 el.innerText = txt;
@@ -446,23 +715,8 @@ class GeminiPool:
         # vẽ -> chat hiện "Bạn đã dừng câu trả lời này", không có ảnh nào.
         # Vì vậy: bấm ĐÚNG MỘT LẦN, và bỏ qua mọi nút có nhãn Stop/Dừng.
         # ================================================================
-        stop = page.locator(", ".join(SELECTORS["stop_button"])).first
-
         async def started() -> bool:
-            """Gửi thành công = nút Stop hiện ra HOẶC ô nhập trống đi."""
-            for _ in range(16):                      # tối đa ~8 giây
-                try:
-                    if await stop.is_visible():
-                        return True
-                except Exception:
-                    pass
-                try:
-                    if len((await box.inner_text()).strip()) < 10:
-                        return True
-                except Exception:
-                    return True
-                await page.wait_for_timeout(500)
-            return False
+            return await self._wait_started(page, box)
 
         send = page.locator(", ".join(SELECTORS["send_button"]))
         deadline = time.time() + 8
@@ -1022,6 +1276,14 @@ class GeminiPool:
             check_cancel()
             await self.throttle.acquire()
             try:
+                # Mở chat mới TRƯỚC khi gắn bộ bắt ảnh, để không nhặt nhầm ảnh
+                # còn sót của lượt trước. same_chat=True là chuỗi hai bìa - phải
+                # ở nguyên trong chat đang mở thì bìa sau mới thấy bìa trước.
+                log.info("[tab %d] %s: bắt đầu (lần %d/%d).",
+                         idx, dest.stem, attempt, self.max_retries)
+                if not same_chat:
+                    await self._ensure_fresh_chat(page)
+
                 catcher = self.catchers.get(page)
                 if catcher:
                     eff_ignore = None if "preview" in dest.stem else attach_files
@@ -1031,7 +1293,18 @@ class GeminiPool:
                     await self._attach_images(page, attach_files)
                     await page.wait_for_timeout(1_000)
 
+                # Chụp danh sách ảnh ĐANG có trước khi gửi, để _wait_for_image
+                # phân biệt được ảnh mới với ảnh cũ còn trên trang.
+                #
+                # Biến này vốn bị THIẾU HẲN: dòng dưới gọi _wait_for_image(page,
+                # before, ...) nhưng không chỗ nào gán 'before', nên cả đường dự
+                # phòng DOM nổ NameError ngay câu đầu và chưa từng chạy được lần
+                # nào - kể cả nhánh bấm nút tải xuống để lấy file GỐC.
+                before = set(await self._image_urls(page))
+
                 await self._send_prompt(page, prompt)
+                log.info("[tab %d] %s: đã gửi, chờ ảnh (tối đa %.0fs).",
+                         idx, dest.stem, self.timeout)
 
                 # QUAN TRỌNG: Ngay sau khi gửi prompt, xóa sạch toàn bộ ảnh upload/paste lỡ bị catcher bắt trước đó!
                 if catcher:
@@ -1066,7 +1339,9 @@ class GeminiPool:
                         catcher.disarm()
                     if dest.exists():
                         dest.unlink()
-                    log.debug("Không bắt được ảnh qua mạng, thử đường DOM.")
+                    log.warning("[tab %d] %s: hết %.0fs chờ mà không bắt được ảnh "
+                                "ở tầng mạng -> thử đường DOM.",
+                                idx, dest.stem, self.timeout)
 
                 # Tới đây nghĩa là đã chờ hết generation_timeout ở bước bắt
                 # mạng rồi. Nếu ảnh có thật thì nó phải đã nằm sẵn trong DOM,
@@ -1149,10 +1424,42 @@ class GeminiPool:
         Dạng chuỗi dùng khi các ảnh phải khớp nhau (bìa trước + bìa sau).
         on_done(key, ok) được gọi sau mỗi ảnh.
         """
-        queue: asyncio.Queue = asyncio.Queue()
-        for j in jobs:
-            queue.put_nowait((j, 0))          # (việc, số lần đã xếp lại)
+        # MỖI TAB MỘT HÀNG ĐỢI RIÊNG, chia sẵn theo vòng tròn.
+        #
+        # Bản trước dùng một hàng đợi chung, tab nào rảnh trước thì bốc tiếp. Cách
+        # đó tổng thời gian ngắn hơn, nhưng số ảnh giữa các tab lệch rất xa: tab
+        # chạy trơn ăn gần hết việc, tab bị Gemini cho xếp hàng thì làm được vài
+        # cái. Chia sẵn thì mỗi tab nhận đúng len(jobs)/N việc, chênh nhau tối đa 1.
+        #
+        # ĐÁNH ĐỔI phải biết: không còn "tab rảnh làm hộ" nữa. Tab chậm giữ nguyên
+        # phần của nó, các tab khác xong sớm sẽ ngồi không chờ. Tổng thời gian
+        # chạy bằng thời gian của tab CHẬM NHẤT.
+        n_workers = len(self.pages)
+        queues: list[asyncio.Queue] = [asyncio.Queue() for _ in range(n_workers)]
+        for i, j in enumerate(jobs):
+            queues[i % n_workers].put_nowait((j, 0))   # (việc, số lần đã xếp lại)
         results: dict[str, bool] = {}
+        done_by_tab: dict[int, int] = {i: 0 for i in range(1, n_workers + 1)}
+
+        def handoff(from_idx: int, extra=None) -> None:
+            """Dồn việc của tab hết hạn mức sang các tab thuộc tài khoản khác.
+
+            Chia đều là để cân tải, không phải để đánh mất việc: tài khoản nào
+            cạn quota thì phần của nó BẮT BUỘC phải chuyển đi, chấp nhận lệch.
+            """
+            spare = [i for i in range(1, n_workers + 1)
+                     if self.pages[i - 1].context not in self.exhausted_contexts]
+            pending = [extra] if extra is not None else []
+            q = queues[from_idx - 1]
+            while not q.empty():
+                pending.append(q.get_nowait())
+                q.task_done()
+            if not spare or not pending:
+                return
+            for k, it in enumerate(pending):
+                queues[spare[k % len(spare)] - 1].put_nowait(it)
+            log.info("Chuyển %d việc của tab %d sang các tab %s.",
+                     len(pending), from_idx, spare)
 
         async def run_steps(idx: int, steps: list) -> None:
             page = self.pages[idx - 1]        # có thể đã bị thay bởi _recycle
@@ -1174,6 +1481,7 @@ class GeminiPool:
         async def worker(idx: int):
             nonlocal busy
             since_recycle = 0
+            q = queues[idx - 1]               # hàng đợi RIÊNG của tab này
             while True:
                 page_context = self.pages[idx - 1].context
                 if page_context in self.exhausted_contexts:
@@ -1183,7 +1491,7 @@ class GeminiPool:
                     return
 
                 try:
-                    item, tries = queue.get_nowait()
+                    item, tries = q.get_nowait()
                 except asyncio.QueueEmpty:
                     # Hàng đợi rỗng CHƯA chắc là xong: một tab khác có thể đang
                     # treo và sắp xếp việc của nó trở lại. Chỉ thoát khi không
@@ -1211,9 +1519,11 @@ class GeminiPool:
                     except QuotaExhausted as e:
                         log.error("[tab %d] %s", idx, e)
                         self.exhausted_contexts.add(page_context)
-                        
-                        queue.put_nowait((item, tries))
-                        queue.task_done()
+
+                        # Tài khoản này cạn -> đẩy CẢ phần còn lại của tab sang
+                        # tab khác, không chỉ mỗi việc đang dở.
+                        handoff(idx, (item, tries))
+                        q.task_done()
                         if len(self.exhausted_contexts) == len(self.contexts):
                             self.quota_hit = True
                             log.error("Tất cả tài khoản đều hết hạn mức. Dừng hệ thống.")
@@ -1222,7 +1532,7 @@ class GeminiPool:
                         return
                     finally:
                         if page_context not in self.exhausted_contexts:
-                            queue.task_done()
+                            q.task_done()
 
                     if stalled:
                         # Tab coi như hỏng: đóng hẳn, mở tab mới sạch hoàn toàn.
@@ -1234,7 +1544,7 @@ class GeminiPool:
                         if tries < self.max_requeue:
                             # Xếp lại CUỐI hàng đợi: tab nào rảnh trước thì làm,
                             # không nhất thiết phải là tab vừa treo.
-                            queue.put_nowait((item, tries + 1))
+                            q.put_nowait((item, tries + 1))
                             log.info("Xếp lại %s vào hàng đợi (lần %d/%d).",
                                      names, tries + 1, self.max_requeue)
                         else:
@@ -1247,10 +1557,18 @@ class GeminiPool:
                         continue
 
                     # Chỉ tái tạo SAU khi ảnh đã tải xong, không giữa chừng.
+                    #
+                    # ĐỪNG chuyển việc cộng/tái tạo này vào trong run_steps: hai
+                    # bìa là MỘT việc gồm 2 bước chạy nối tiếp trong cùng một chat
+                    # (build_jobs gộp chúng lại) để bìa sau nhìn thấy bìa trước mà
+                    # khớp tông màu. Tái tạo giữa hai bước là đóng mất chat đó, bìa
+                    # sau sẽ vẽ một mình và lệch hẳn phong cách. Cộng theo cả việc
+                    # (len(steps)) nên recycle_tab_every=1 vẫn an toàn cho bìa.
+                    done_by_tab[idx] += len(steps)
                     since_recycle += len(steps)
                     if self.recycle_every and since_recycle >= self.recycle_every:
                         since_recycle = 0
-                        if not queue.empty():
+                        if not q.empty():
                             try:
                                 await self._recycle(idx)
                             except Exception as e:  # noqa: BLE001
@@ -1261,5 +1579,7 @@ class GeminiPool:
                 finally:
                     busy -= 1
 
-        await asyncio.gather(*(worker(i) for i in range(1, len(self.pages) + 1)))
+        await asyncio.gather(*(worker(i) for i in range(1, n_workers + 1)))
+        log.info("Số ảnh mỗi tab: %s",
+                 " | ".join(f"tab {i}: {c}" for i, c in sorted(done_by_tab.items())))
         return results

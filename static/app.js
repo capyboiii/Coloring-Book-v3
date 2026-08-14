@@ -147,6 +147,16 @@ function syncConfigToUI() {
   }
   document.getElementById('process-pure-bw').value = cfg.process?.pure_bw ? "true" : "false";
 
+  // Hiệu năng & phiên Chrome
+  const b = cfg.browser || {};
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  setVal('browser-concurrency', b.concurrency_per_profile ?? 2);
+  setVal('browser-recycle-every', b.recycle_tab_every ?? 5);
+  setVal('browser-generation-timeout', b.generation_timeout ?? 240);
+  setVal('browser-stall-timeout', b.stall_timeout ?? 360);
+  setVal('browser-extension-dir', b.extension_dir ?? "");
+  updateBrowserPerfHint();
+
   // Sync Subjects List (Textarea)
   const subjects = cfg.subjects;
   document.getElementById('subjects-list-textarea').value = (Array.isArray(subjects) && subjects.length > 0) ? subjects.join("\n") : "";
@@ -205,11 +215,51 @@ function updateSpecsSummary() {
   document.getElementById('calc-cover-size').textContent = `${specs.cover_size_in || ''} (${specs.cover_px_300dpi || ''})`;
 }
 
+function numOr(id, def) {
+  const el = document.getElementById(id);
+  const n = parseInt(el?.value, 10);
+  return Number.isFinite(n) ? n : def;
+}
+
+// Nhắc ngay trên UI hai cái bẫy đã từng cắn: đồng hồ canh ngắn hơn thời gian vẽ,
+// và số tab song song quá cao so với hạn mức (quota tính theo TÀI KHOẢN, không
+// theo tab - bắn nhiều tab cùng lúc là ăn "I encountered an error").
+function updateBrowserPerfHint() {
+  const el = document.getElementById('browser-perf-hint');
+  if (!el) return;
+  const gen = numOr('browser-generation-timeout', 240);
+  const stall = numOr('browser-stall-timeout', 360);
+  const recycle = numOr('browser-recycle-every', 5);
+  const conc = numOr('browser-concurrency', 2);
+  const ext = (document.getElementById('browser-extension-dir')?.value || "").trim();
+
+  const notes = [];
+  if (stall <= gen) {
+    notes.push(`⚠️ Đồng hồ canh (${stall}s) không lớn hơn thời gian vẽ (${gen}s) → ảnh đang vẽ bình thường vẫn bị chém. Sẽ tự nâng lên ${gen + 60}s khi lưu.`);
+  }
+  if (recycle === 1) {
+    notes.push("Mỗi ảnh một phiên sạch: RAM về đáy sau từng ảnh, đổi lại mỗi ảnh tốn thêm ~5-10s nạp lại trang.");
+  } else if (recycle === 0) {
+    notes.push("⚠️ Bằng 0 = không bao giờ tái tạo tab. RAM sẽ leo dần suốt cả cuốn.");
+  }
+  if (conc > 2) {
+    notes.push(`⚠️ ${conc} tab/tài khoản: hạn mức Gemini tính theo tài khoản chứ không theo tab, bắn nhiều dễ ăn lỗi "I encountered an error".`);
+  }
+  notes.push(ext
+    ? "Extension: BẬT — userscript MonkeyX gõ prompt và bấm gửi; hỏng thì tự lùi về Playwright."
+    : "Extension: TẮT — Playwright tự gõ prompt và bấm gửi.");
+  notes.push("Hai bìa luôn vẽ nối tiếp trong cùng một phiên, không bị tái tạo tab chen giữa.");
+
+  el.innerHTML = notes.map(n => `• ${n}`).join("<br>");
+}
+
 async function saveConfigFromUI() {
   const paperKey = document.getElementById('paper-type-select').value;
   const paper_thick = PAPER_THICKNESS[paperKey] || 0.002252;
   const marginVal = parseFloat(document.getElementById('safety-margin-select').value);
   const borderVal = document.getElementById('interior-border-select').value === "true";
+  const genTimeout = numOr('browser-generation-timeout', 240);
+  const stallTimeout = numOr('browser-stall-timeout', 360);
 
   const payload = {
     print: {
@@ -233,7 +283,14 @@ async function saveConfigFromUI() {
       back_blurb: document.getElementById('cover-back-blurb').value
     },
     browser: {
-      headless: document.getElementById('browser-headless-select').value === "true"
+      headless: document.getElementById('browser-headless-select').value === "true",
+      concurrency_per_profile: numOr('browser-concurrency', 2),
+      recycle_tab_every: numOr('browser-recycle-every', 5),
+      generation_timeout: genTimeout,
+      // stall_timeout PHẢI lớn hơn generation_timeout, nếu không đồng hồ canh sẽ
+      // chém ngang ảnh đang vẽ bình thường (đúng lỗi "đang gen tự nhiên tắt").
+      stall_timeout: Math.max(stallTimeout, genTimeout + 60),
+      extension_dir: (document.getElementById('browser-extension-dir')?.value || "").trim()
     },
     backend: document.getElementById('backend-type').value,
     process: {
@@ -251,6 +308,11 @@ async function saveConfigFromUI() {
     state.lulu_specs = data.lulu_specs;
     state.config = {...state.config, ...payload};
     updateSpecsSummary();
+
+    // Hiện lại giá trị đã được chuẩn hoá (stall_timeout có thể vừa bị nâng lên)
+    const stallEl = document.getElementById('browser-stall-timeout');
+    if (stallEl) stallEl.value = payload.browser.stall_timeout;
+    updateBrowserPerfHint();
   } catch (err) {
     console.error("Error saving config:", err);
   }

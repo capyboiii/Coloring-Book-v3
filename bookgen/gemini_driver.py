@@ -14,6 +14,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import os
 import random
 import re
 import time
@@ -310,7 +311,14 @@ def clone_profile_cookies(source_dir: Path, target_dir: Path) -> None:
         dst_default = target_dir / "Default"
         if src_default.exists():
             dst_default.mkdir(parents=True, exist_ok=True)
-            for item_name in ["Cookies", "Network", "Local Storage", "Preferences", "Secure Preferences", "Session Storage"]:
+            # "Local Extension Settings" = chrome.storage.local cua extension,
+            # tuc la noi MonkeyX cat userscript (key mx_scripts). Thieu no thi
+            # ban sao van co MonkeyX (dang ky nam trong Secure Preferences) nhung
+            # KHONG co script nao -> _send_via_extension lang le quay ve duong
+            # Playwright cu ma khong ai biet vi sao.
+            for item_name in ["Cookies", "Network", "Local Storage", "Preferences",
+                              "Secure Preferences", "Session Storage",
+                              "Local Extension Settings"]:
                 s = src_default / item_name
                 d = dst_default / item_name
                 if s.exists():
@@ -326,7 +334,37 @@ def clone_profile_cookies(source_dir: Path, target_dir: Path) -> None:
 
 
 def is_profile_locked(profile_dir: Path) -> bool:
-    """Kiểm tra xem profile Chrome có đang bị chiếm giữ bởi tiến trình Chrome khác không."""
+    """Kiểm tra xem profile Chrome có đang bị chiếm giữ bởi tiến trình Chrome khác không.
+
+    CẨN THẬN - hai hệ điều hành khoá bằng hai cách khác hẳn nhau:
+
+      Linux/macOS : symlink 'SingletonLock'
+      Windows     : file 'lockfile' được Chrome GIỮ MỞ suốt phiên
+
+    Bản trước chỉ tìm 'SingletonLock' nên trên Windows LUÔN trả về False. Hậu quả:
+    get_unique_profile_dir() không bao giờ nhân bản, Playwright mở Chrome đè lên
+    profile đang chạy, Chrome bàn giao cho instance cũ rồi tự thoát với
+    exitCode=21 -> TargetClosedError, cả tác vụ chết ngay từ lúc khởi động.
+
+    Lưu ý: trên Windows file 'lockfile' VẪN NẰM LẠI sau khi Chrome đóng, nên chỉ
+    kiểm tra sự tồn tại là sai. Phải thử khoá thật một byte: Chrome còn giữ thì
+    thao tác này thua.
+    """
+    if os.name == "nt":
+        lock_file = profile_dir / "lockfile"
+        if not lock_file.exists():
+            return False
+        try:
+            import msvcrt
+            with open(lock_file, "r+b") as f:
+                msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+                msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+            return False
+        except OSError:
+            return True
+        except Exception:          # msvcrt thiếu -> thà chậm còn hơn hỏng
+            return False
+
     lock_file = profile_dir / "SingletonLock"
     if not lock_file.exists():
         return False

@@ -1,8 +1,8 @@
 book:
-  title: dragon
+  title: Cute Dino
   subtitle: ''
   author: ''
-  num_images: 5
+  num_images: 50
   blank_verso: true
   front_matter_pages: 0
 print:
@@ -82,33 +82,82 @@ prompts:
   back_cover: 'THIS IS THE BACK COVER (REAR COVER OF THE BOOK). DO NOT WRITE OR DRAW
     ANY TITLE TEXT.
 
+
     Generate the matching BACK COVER for the children''s coloring book.
 
+
     CRITICAL RULE - NO TITLE TEXT: Unlike the front cover, this BACK COVER must have
+
     ABSOLUTELY ZERO WORDS, ZERO TITLE TEXT, ZERO LETTERS, and ZERO HEADINGS. Do NOT
-    repeat or render the book title on this back cover image. Pure background illustration
-    artwork only.
+
+    repeat or render the book title on this back cover image. Pure illustration artwork
+    only.
+
 
     MATCHING ART STYLE & COLOUR: MUST use EXACTLY the same art style, colour palette
+
     ({style}), line weight, and character design as the front cover to form a seamless
+
     matching set.
 
-    CREATIVE & DYNAMIC BACK COVER COMPOSITION OPTIONS: Create a complementary scene
-    or composition that feels distinct from the front cover: - STORY CONTINUATION
-    LAYOUT: A charming continuation scene (e.g. characters resting at sunset, waving
-    goodbye, sleeping cozy under stars, or playing with secondary theme elements).
-    - CORNER / BOTTOM VIGNETTE LAYOUT: A cute mini-scene featuring 1-2 secondary characters
-    or objects placed in the bottom or lower corner with decorative elements framing
-    the edges. - PASTEL PATTERN & FRAME LAYOUT: A subtle, whimsical background pattern
-    (cloud, star, flower, or paw motifs) with a soft, clean central area.
 
-    TEXT & BARCODE BLURB AREA: Keep the middle/upper central area visually soft, clean,
-    and uncluttered so text blurb and ISBN barcode can be placed cleanly.
+    COMPLETE EDGE-TO-EDGE ARTWORK - THIS IS THE MOST IMPORTANT RULE: The illustration
 
-    RULES: ABSOLUTELY NO TEXT of any kind: NO title, NO title text, NO letters, NO
-    words, NO numbers, NO logos, NO signatures, or watermarks anywhere in the image.
-    Pure artwork illustration only. Vertical portrait orientation, aspect ratio 8.5:11,
-    maximum resolution. '
+    must fill the ENTIRE canvas completely, corner to corner, with an even level of
+
+    finish everywhere. Every square inch must be fully drawn and fully coloured.
+
+
+    STRICTLY FORBIDDEN - do NOT produce any of the following: NO white glow, NO bright
+
+    haze, NO blank white patch, NO empty unpainted area, NO washed-out region, NO
+    faded
+
+    or blurred zone, NO soft spotlight, NO vignette, NO radial gradient burst, NO
+
+    reserved blank space of any kind. There must be NO area that looks unfinished,
+
+    overexposed, or deliberately left empty. If a region has few objects, it must
+    still
+
+    be fully illustrated with background detail such as wallpaper pattern, sky, foliage
+
+    or floor, drawn and coloured at the same quality as the rest.
+
+
+    COMPOSITION: Create a complementary scene that feels distinct from the front cover
+    -
+
+    a charming continuation of the story. Good options: the characters resting at
+    sunset,
+
+    waving goodbye, sleeping cosily under stars, or playing with secondary theme elements.
+
+    Spread interest evenly across the whole image rather than concentrating everything
+    in
+
+    one spot.
+
+
+    BOTTOM-RIGHT CORNER: A small rectangular barcode label will later be pasted over
+    the
+
+    bottom-right corner. Keep the main characters and the most important details OUT
+    of
+
+    that corner, but still draw and colour it completely with ordinary background
+    scenery.
+
+    Do NOT leave it blank and do NOT lighten it.
+
+
+    RULES: ABSOLUTELY NO TEXT of any kind: NO title, NO letters, NO words, NO numbers,
+
+    NO logos, NO signatures, no watermarks anywhere in the image. Pure artwork
+
+    illustration only. Vertical portrait orientation, aspect ratio 8.5:11, maximum
+
+    resolution.'
   previews:
     preview_1: 'Generate a high-resolution professional 3D product mockup photograph
       of a paperback coloring book standing on a solid white background with a realistic
@@ -211,13 +260,7 @@ prompts:
     words, NO numbers, NO logos, NO signatures, or watermarks anywhere in the image.
     Pure artwork illustration only. Vertical portrait orientation, aspect ratio 8.5:11,
     maximum resolution.'
-subjects:
-- A friendly baby dragon sits inside a cracked eggshell surrounded by flowers.
-- A little dragon roasts a marshmallow over its own tiny flame at night.
-- A smiling dragon flies happily among soft fluffy clouds and a bright rainbow.
-- A cute dragon wearing a crown sleeps peacefully on a pile of shiny treasure.
-- A playful dragon waters a garden of oversized magical mushrooms with a watering
-  can.
+subjects: []
 cover_text:
   back_blurb: '
 
@@ -232,11 +275,11 @@ api:
   - 2
   - 5
 browser:
-  headless: false
+  headless: true
   gemini_url: https://gemini.google.com/app
   generation_timeout: 240
-  recycle_tab_every: 5
-  stall_timeout: 120
+  recycle_tab_every: 1
+  stall_timeout: 360
   max_requeue: 2
   delay_between_prompts:
   - 3
@@ -247,10 +290,11 @@ browser:
   profiles:
   - ./.chrome-account1
   - ./.chrome-account2
-  concurrency_per_profile: 2
+  concurrency_per_profile: 1
+  extension_dir: C:/Users/Admin/Downloads/monkeyx_1
 paths:
   raw_dir: output/01_raw
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: dragon
+_book: cute-dino
