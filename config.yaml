@@ -233,21 +233,24 @@ api:
   - 5
 browser:
   headless: false
+  use_cdp: true
+  cdp_port: 9333
+  auto_launch_cdp: true
   gemini_url: https://gemini.google.com/app
   generation_timeout: 240
   recycle_tab_every: 5
-  stall_timeout: 120
+  stall_timeout: 300
   max_requeue: 2
   delay_between_prompts:
-  - 3
-  - 7
+  - 2
+  - 4
   typing_delay_ms: 1
   max_retries: 3
   model_hint: ''
   profiles:
   - ./.chrome-account1
   - ./.chrome-account2
-  concurrency_per_profile: 2
+  concurrency_per_profile: 1
 paths:
   raw_dir: output/01_raw
   processed_dir: output/02_processed

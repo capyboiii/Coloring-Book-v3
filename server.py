@@ -61,7 +61,7 @@ def find_chrome_exe() -> str | None:
             return p
     return None
 
-def check_port_open(host="127.0.0.1", port=9222) -> bool:
+def check_port_open(host="127.0.0.1", port=9333) -> bool:
     import socket
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.settimeout(1.0)
@@ -489,23 +489,41 @@ def update_gemini_api_key(payload: dict):
     }
 
 
+@app.get("/api/gemini/cdp-status")
+def get_cdp_status():
+    config_file = ROOT / "config.yaml"
+    cfg = book_main.load_cfg(config_file)
+    browser = cfg.get("browser", {})
+    cdp_port = int(browser.get("cdp_port", 9333))
+    use_cdp = bool(browser.get("use_cdp", False))
+    is_open = check_port_open("127.0.0.1", cdp_port)
+    return {
+        "use_cdp": use_cdp,
+        "cdp_port": cdp_port,
+        "is_open": is_open,
+        "status": "connected" if is_open else "disconnected"
+    }
+
+
 @app.post("/api/gemini/launch-chrome")
 def launch_chrome(payload: dict = {}):
     chrome_path = find_chrome_exe()
     if not chrome_path:
         raise HTTPException(status_code=500, detail="Không tìm thấy chrome.exe trên máy tính này")
 
+    config_file = ROOT / "config.yaml"
+    cfg = book_main.load_cfg(config_file)
+    browser = cfg.get("browser", {})
+    cdp_port = int(browser.get("cdp_port", 9333))
+
     profile_path = payload.get("profile_path")
     if not profile_path:
-        config_file = ROOT / "config.yaml"
-        cfg = book_main.load_cfg(config_file)
-        browser = cfg.get("browser", {})
         profiles = browser.get("profiles", [])
         if not profiles and "user_data_dir" in browser:
             profiles = [browser["user_data_dir"]]
         
         if not profiles:
-            profile_path = str((ROOT / ".chrome-profile").resolve())
+            profile_path = str((ROOT / ".chrome-cdp-profile").resolve())
         else:
             profile_path = str(Path(profiles[0]).resolve())
 
@@ -514,6 +532,7 @@ def launch_chrome(payload: dict = {}):
 
     cmd = [
         chrome_path,
+        f"--remote-debugging-port={cdp_port}",
         f"--user-data-dir={profile_dir.resolve()}",
         "https://gemini.google.com/app"
     ]
@@ -523,7 +542,7 @@ def launch_chrome(payload: dict = {}):
         subprocess.Popen(cmd)
         return {
             "status": "success",
-            "message": f"Đã mở cửa sổ Chrome cho {profile_dir.name}. Vui lòng đăng nhập Google!"
+            "message": f"Đã mở cửa sổ Chrome (cổng CDP {cdp_port}) cho {profile_dir.name}. Vui lòng đăng nhập Google!"
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Không thể khởi chạy Chrome: {str(e)}")

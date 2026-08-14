@@ -225,6 +225,10 @@ class GeminiPool:
     def __init__(self, cfg: dict):
         b = cfg["browser"]
         self.url = b["gemini_url"]
+        self.use_cdp = bool(b.get("use_cdp", False))
+        self.cdp_port = int(b.get("cdp_port", 9333))
+        self.cdp_url = b.get("cdp_url", f"http://127.0.0.1:{self.cdp_port}")
+        self.auto_launch_cdp = bool(b.get("auto_launch_cdp", True))
         
         profiles = b.get("profiles", [])
         if not profiles and "user_data_dir" in b:
@@ -239,16 +243,17 @@ class GeminiPool:
         self.typing_delay = int(b.get("typing_delay_ms", 1))
         self.max_retries = b.get("max_retries", 3)
         self.workers_per_profile = max(1, int(b.get("concurrency_per_profile", b.get("concurrency", 2))))
-        self.workers = self.workers_per_profile * len(self.profile_dirs)
+        self.workers = 1 if self.use_cdp else (self.workers_per_profile * len(self.profile_dirs))
         
         self.recycle_every = max(0, int(b.get("recycle_tab_every", 5)))
-        self.stall_timeout = float(b.get("stall_timeout", 120))
+        self.stall_timeout = float(b.get("stall_timeout", 300))
         self.max_requeue = int(b.get("max_requeue", 2))
         self.max_nudges = int(b.get("max_nudges", 2))
         self.nudge_prompt = (cfg.get("prompts", {}).get("nudge")
                              or "Generate the image now. Output only the image, "
                                 "with no explanation and no text in your reply.")
         self._pw = None
+        self.browser = None
         self.contexts = []
         self.pages: list[Page] = []
         self.catchers: dict[Page, ImageCatcher] = {}
@@ -260,6 +265,51 @@ class GeminiPool:
 
     async def __aenter__(self) -> "GeminiPool":
         self._pw = await async_playwright().start()
+
+        if self.use_cdp:
+            from bookgen.gemini_driver import check_cdp_port_open, launch_cdp_chrome
+            cdp_available = check_cdp_port_open(self.cdp_port)
+            if not cdp_available and self.auto_launch_cdp:
+                log.info("Chưa thấy Chrome mở ở cổng CDP %d, đang tự động khởi chạy...", self.cdp_port)
+                p_dir = self.profile_dirs[0] if self.profile_dirs else Path("./.chrome-cdp-profile")
+                launch_cdp_chrome(self.cdp_port, p_dir)
+                for _ in range(10):
+                    await asyncio.sleep(1.0)
+                    if check_cdp_port_open(self.cdp_port):
+                        cdp_available = True
+                        break
+
+            if cdp_available:
+                try:
+                    self.browser = await self._pw.chromium.connect_over_cdp(
+                        self.cdp_url, timeout=20_000
+                    )
+                    ctx = self.browser.contexts[0] if self.browser.contexts else await self.browser.new_context()
+                    self.contexts = [ctx]
+
+                    gemini_pages = [p for p in ctx.pages if "gemini.google.com" in (p.url or "")]
+                    if gemini_pages:
+                        self.pages.append(gemini_pages[0])
+                    else:
+                        p0 = ctx.pages[0] if ctx.pages else await ctx.new_page()
+                        self.pages.append(p0)
+
+                    for _ in range(self.workers - len(self.pages)):
+                        self.pages.append(await ctx.new_page())
+
+                    for p in self.pages:
+                        await self._prepare(p)
+
+                    if self.pages:
+                        await self._ensure_logged_in(self.pages[0])
+
+                    log.info("✓ Đã kết nối thành công vào Chrome thật qua CDP (%s) với %d tab.", self.cdp_url, len(self.pages))
+                    return self
+                except Exception as e:
+                    log.warning("Không thể kết nối CDP (%s): %s -> Chuyển sang mở Chrome profile độc lập.", self.cdp_url, e)
+            else:
+                log.info("Cổng CDP %d chưa mở -> Tự động khởi chạy Chrome profile trực tiếp.", self.cdp_port)
+
         from bookgen.gemini_driver import get_unique_profile_dir
         
         for p_dir in self.profile_dirs:
@@ -318,8 +368,9 @@ class GeminiPool:
 
     async def __aexit__(self, *exc):
         try:
-            for ctx in self.contexts:
-                await ctx.close()
+            if not self.use_cdp:
+                for ctx in self.contexts:
+                    await ctx.close()
         finally:
             if self._pw:
                 await self._pw.stop()
@@ -365,16 +416,26 @@ class GeminiPool:
         return loc
 
     async def _prepare(self, page: Page) -> Page:
-        """Cài init script, gắn bộ bắt ảnh, mở sẵn trang Gemini."""
+        """Cài init script, gắn bộ bắt ảnh, mở sẵn trang Gemini nếu chưa mở."""
         catcher = ImageCatcher()
         self.catchers[page] = catcher
         page.on("response",
                 lambda r: asyncio.create_task(catcher.on_response(r)))
-        await page.add_init_script(
-            "Object.defineProperty(navigator,'webdriver',{get:()=>undefined});"
-        )
-        await page.goto(self.url, wait_until="domcontentloaded", timeout=90_000)
-        await page.wait_for_timeout(1_500)
+        try:
+            await page.add_init_script(
+                "Object.defineProperty(navigator,'webdriver',{get:()=>undefined});"
+            )
+        except Exception:
+            pass
+
+        curr_url = page.url or ""
+        if "gemini.google.com" not in curr_url:
+            try:
+                await page.goto(self.url, wait_until="domcontentloaded", timeout=90_000)
+            except Exception as e:
+                if "ERR_ABORTED" not in str(e):
+                    log.debug("Goto gemini lỗi: %s", e)
+        await page.wait_for_timeout(1_000)
         return page
 
     async def _recycle(self, idx: int) -> Page:
@@ -407,8 +468,11 @@ class GeminiPool:
             return
         except (PWTimeout, Exception) as e:  # noqa: BLE001
             log.debug("Không bấm được nút chat mới (%s), quay về goto.", e)
-        await page.goto(self.url, wait_until="domcontentloaded")
-        await page.wait_for_timeout(2_500)
+        try:
+            await page.goto(self.url, wait_until="domcontentloaded")
+            await page.wait_for_timeout(2_000)
+        except Exception:
+            pass
 
     async def _wake_editor(self, page: Page, box) -> None:
         try:
@@ -420,84 +484,77 @@ class GeminiPool:
             pass
 
     async def _send_prompt(self, page: Page, text: str) -> None:
-        text = flatten(text)
-        box = await self._find(page, SELECTORS["prompt_box"], timeout=30_000)
         try:
-            await box.evaluate("""(el, txt) => {
-                el.innerText = txt;
-                el.dispatchEvent(new Event('input', {bubbles: true}));
-                el.dispatchEvent(new Event('change', {bubbles: true}));
-            }""", text)
-            await self._wake_editor(page, box)
+            await page.bring_to_front()
         except Exception:
-            await box.click()
-            await box.fill(text)
-            await self._wake_editor(page, box)
+            pass
 
+        box = await self._find(page, SELECTORS["prompt_box"], timeout=30_000)
+        await box.click()
+        await page.wait_for_timeout(200)
+
+        # Xóa văn bản cũ nếu có
+        await page.keyboard.press("Control+A")
+        await page.keyboard.press("Backspace")
+        await page.wait_for_timeout(100)
+
+        # Gõ văn bản native (Playwright hardware key events - vượt qua TrustedHTML của Gemini)
+        await page.keyboard.type(text, delay=1)
         await page.wait_for_timeout(300)
+
+        # Gửi prompt bằng cách nhấn phím Enter (giống 100% người dùng thật)
+        await page.keyboard.press("Enter")
+        await page.wait_for_timeout(500)
+
+        # Nếu Enter chưa kích hoạt, thử bấm nút Send an toàn (tránh nút Stop)
         if not await self._click_send(page, box):
-            raise RuntimeError("Không bấm được nút Send.")
+            # Nhấn lại Enter lần 2 nếu cần
+            try:
+                await page.keyboard.press("Enter")
+            except Exception:
+                pass
 
     async def _click_send(self, page: Page, box) -> bool:
-        # ===================== ĐỌC KỸ TRƯỚC KHI SỬA =====================
-        # Trong giao diện Gemini, nút Send và nút Stop LÀ CÙNG MỘT NÚT, chỉ đổi
-        # aria-label sau khi gửi. Bản trước bấm trong vòng lặp: cú bấm đầu gửi
-        # prompt, cú bấm thứ hai rơi trúng nút Stop và HUỶ luôn câu trả lời đang
-        # vẽ -> chat hiện "Bạn đã dừng câu trả lời này", không có ảnh nào.
-        # Vì vậy: bấm ĐÚNG MỘT LẦN, và bỏ qua mọi nút có nhãn Stop/Dừng.
-        # ================================================================
         stop = page.locator(", ".join(SELECTORS["stop_button"])).first
 
         async def started() -> bool:
             """Gửi thành công = nút Stop hiện ra HOẶC ô nhập trống đi."""
-            for _ in range(16):                      # tối đa ~8 giây
+            for _ in range(16):
                 try:
                     if await stop.is_visible():
                         return True
                 except Exception:
                     pass
                 try:
-                    if len((await box.inner_text()).strip()) < 10:
+                    txt = (await box.inner_text()).strip()
+                    if len(txt) < 10:
                         return True
                 except Exception:
                     return True
-                await page.wait_for_timeout(500)
+                await page.wait_for_timeout(300)
             return False
 
+        if await started():
+            return True
+
         send = page.locator(", ".join(SELECTORS["send_button"]))
-        deadline = time.time() + 8
+        deadline = time.time() + 5
         while time.time() < deadline:
             for b in await send.all():
                 try:
                     if not (await b.is_visible() and await b.is_enabled()):
                         continue
                     aria = ((await b.get_attribute("aria-label")) or "").lower()
-                    if "stop" in aria or "dừng" in aria:
-                        continue                     # tuyệt đối không bấm
-                    await b.click(timeout=5_000)
+                    if "stop" in aria or "dừng" in aria or "ngừng" in aria:
+                        continue  # TUYỆT ĐỐI không bấm nút Stop/Ngừng
+                    await b.click(timeout=2_000)
                     if await started():
                         return True
                 except Exception:
                     continue
-            await page.wait_for_timeout(300)
+            await page.wait_for_timeout(200)
 
-        # Dự phòng 1: Gửi bằng tổ hợp phím Control + Enter (Phím tắt chính thức của Gemini)
-        try:
-            await box.focus()
-            await page.keyboard.press("Control+Enter")
-            if await started():
-                return True
-        except Exception:
-            pass
-
-        # Dự phòng 2: Gửi bằng phím Enter
-        try:
-            await box.click()
-            await page.keyboard.press("End")
-            await page.keyboard.press("Enter")
-            return await started()
-        except Exception:
-            return False
+        return await started()
 
     async def _wait_for_generation(self, page: Page) -> None:
         """Chờ nút Stop hiện rồi tắt.
@@ -761,7 +818,7 @@ class GeminiPool:
         deadline = time.time() + self.timeout
         first_seen_at = None
         text_done_at = None
-        settle = 6.0
+        settle = 1.0
 
         while time.time() < deadline:
             if catcher.images:
@@ -818,12 +875,14 @@ class GeminiPool:
             "kiểm tra mức sử dụng",
         )
         try:
-            body = (await page.inner_text("body")).lower()
+            resp_loc = page.locator("model-response, message-content, div[role='alert']").last
+            if await resp_loc.is_visible():
+                txt = (await resp_loc.inner_text()).lower()
+                for n in needles:
+                    if n in txt:
+                        return n
         except Exception:
-            return ""
-        for n in needles:
-            if n in body:
-                return n
+            pass
         return ""
 
     async def _page_error_text(self, page: Page) -> str:
@@ -831,12 +890,14 @@ class GeminiPool:
         needles = ("encountered an error", "something went wrong",
                    "hard time", "dừng câu trả lời", "đã xảy ra lỗi")
         try:
-            body = (await page.inner_text("body")).lower()
+            resp_loc = page.locator("model-response, message-content, div[role='alert']").last
+            if await resp_loc.is_visible():
+                txt = (await resp_loc.inner_text()).lower()
+                for n in needles:
+                    if n in txt:
+                        return n
         except Exception:
-            return ""
-        for n in needles:
-            if n in body:
-                return n
+            pass
         return ""
 
     async def _wait_for_image(self, page: Page, before: set[str],

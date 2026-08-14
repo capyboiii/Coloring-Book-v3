@@ -43,10 +43,12 @@ log = logging.getLogger(__name__)
 # Nhiều selector cho mỗi mục đích -> thử lần lượt cho tới khi thấy.
 SELECTORS = {
     "prompt_box": [
-        'div.ql-editor[contenteditable="true"]',
         'rich-textarea div[contenteditable="true"]',
+        'div.ql-editor[contenteditable="true"]',
         'div[role="textbox"][contenteditable="true"]',
+        'div[contenteditable="true"]',
         'textarea[aria-label*="prompt" i]',
+        'textarea',
     ],
     "send_button": [
         'button[aria-label*="Send" i]',
@@ -379,12 +381,73 @@ def is_user_signed_in(page: Page) -> bool:
     return True
 
 
+def find_chrome_exe() -> str | None:
+    import os
+    paths = [
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
+        os.path.expandvars(r"%PROGRAMFILES%\Google\Chrome\Application\chrome.exe"),
+        os.path.expandvars(r"%PROGRAMFILES(X86)%\Google\Chrome\Application\chrome.exe"),
+    ]
+    for p in paths:
+        if os.path.exists(p):
+            return p
+    return None
+
+
+def check_cdp_port_open(port: int = 9333, host: str = "127.0.0.1") -> bool:
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(1.0)
+    try:
+        s.connect((host, port))
+        s.close()
+        return True
+    except Exception:
+        return False
+
+
+def launch_cdp_chrome(port: int = 9333, profile_dir: Path | None = None) -> bool:
+    import os
+    import subprocess
+    chrome_path = find_chrome_exe()
+    if not chrome_path:
+        log.error("Không tìm thấy chrome.exe trên máy.")
+        return False
+    if profile_dir is None:
+        local_app = os.environ.get("LOCALAPPDATA", "")
+        real_profile = Path(local_app) / "Google" / "Chrome" / "User Data" if local_app else None
+        if real_profile and real_profile.exists():
+            profile_dir = real_profile
+        else:
+            profile_dir = Path("./.chrome-cdp-profile").resolve()
+            profile_dir.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        chrome_path,
+        f"--remote-debugging-port={port}",
+        f"--user-data-dir={profile_dir.resolve()}",
+        "https://gemini.google.com/app",
+    ]
+    try:
+        subprocess.Popen(cmd)
+        return True
+    except Exception as e:
+        log.error("Không thể khởi chạy Chrome CDP: %s", e)
+        return False
+
+
 class GeminiDriver:
     """Điều khiển một trình duyệt duy nhất thông qua Playwright."""
 
     def __init__(self, cfg: dict):
         b = cfg.get("browser", {})
         self.url = b.get("gemini_url", "https://gemini.google.com/app")
+        self.use_cdp = bool(b.get("use_cdp", False))
+        self.cdp_port = int(b.get("cdp_port", 9333))
+        self.cdp_url = b.get("cdp_url", f"http://127.0.0.1:{self.cdp_port}")
+        self.auto_launch_cdp = bool(b.get("auto_launch_cdp", True))
+        
         profiles = b.get("profiles", [])
         if not profiles and "user_data_dir" in b:
             profiles = [b["user_data_dir"]]
@@ -397,14 +460,48 @@ class GeminiDriver:
         self.delay_range = b.get("delay_between_prompts", [8, 20])
         self.max_retries = b.get("max_retries", 3)
         self._pw = None
+        self.browser = None
         self._ctx = None
         self.page: Page | None = None
 
     # ---------- lifecycle ----------
 
     def __enter__(self) -> "GeminiDriver":
-        actual_dir = get_unique_profile_dir(self.user_data_dir)
         self._pw = sync_playwright().start()
+
+        if self.use_cdp:
+            if not check_cdp_port_open(self.cdp_port) and self.auto_launch_cdp:
+                log.info("Chưa thấy Chrome mở ở cổng CDP %d, đang tự động khởi chạy...", self.cdp_port)
+                launch_cdp_chrome(self.cdp_port, self.user_data_dir)
+                for _ in range(15):
+                    time.sleep(1.0)
+                    if check_cdp_port_open(self.cdp_port):
+                        break
+
+            try:
+                self.browser = self._pw.chromium.connect_over_cdp(self.cdp_url, timeout=20_000)
+            except Exception as e:
+                raise RuntimeError(
+                    f"Không thể kết nối Chrome qua CDP ({self.cdp_url}): {e}\n"
+                    f"Vui lòng chạy start_chrome.bat hoặc bấm nút Mở Chrome trên Dashboard."
+                ) from e
+
+            self._ctx = self.browser.contexts[0] if self.browser.contexts else self.browser.new_context()
+            gemini_pages = [p for p in self._ctx.pages if "gemini.google.com" in (p.url or "")]
+            if gemini_pages:
+                self.page = gemini_pages[0]
+            else:
+                self.page = self._ctx.pages[0] if self._ctx.pages else self._ctx.new_page()
+                self.page.goto(self.url, wait_until="domcontentloaded", timeout=90_000)
+
+            self.page.bring_to_front()
+            self.catcher = ImageCatcher()
+            self.page.on("response", self.catcher.on_response)
+            self._ensure_logged_in()
+            log.info("✓ Đã kết nối thành công vào Chrome thật qua CDP (%s).", self.cdp_url)
+            return self
+
+        actual_dir = get_unique_profile_dir(self.user_data_dir)
         launch_args = [
             "--disable-blink-features=AutomationControlled",
             "--no-default-browser-check",
@@ -450,7 +547,7 @@ class GeminiDriver:
 
     def __exit__(self, *exc):
         try:
-            if self._ctx:
+            if not self.use_cdp and self._ctx:
                 self._ctx.close()
         finally:
             if self._pw:

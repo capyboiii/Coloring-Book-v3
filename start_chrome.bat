@@ -11,18 +11,8 @@ REM    4. GIU CUA SO DO MO, mo terminal khac va chay:
 REM         python test_gemini.py --cdp
 REM ============================================================
 
-set PORT=9222
+set PORT=9333
 set PROFILE=%~dp0.chrome-cdp-profile
-
-tasklist /FI "IMAGENAME eq chrome.exe" 2>NUL | find /I "chrome.exe" >NUL
-if not errorlevel 1 (
-    echo.
-    echo  [!] Chrome dang chay. Dong het cua so Chrome roi chay lai.
-    echo      Neu van loi: Task Manager -^> ket thuc het tien trinh chrome.exe
-    echo.
-    pause
-    exit /b 1
-)
 
 set CHROME=
 if exist "C:\Program Files\Google\Chrome\Application\chrome.exe" set "CHROME=C:\Program Files\Google\Chrome\Application\chrome.exe"
@@ -35,7 +25,7 @@ if "%CHROME%"=="" (
     exit /b 1
 )
 
-echo Mo Chrome tren cong %PORT% ...
+echo Dang mo Chrome tren cong Debug %PORT% ...
 start "" "%CHROME%" --remote-debugging-port=%PORT% --user-data-dir="%PROFILE%" "https://gemini.google.com/app"
 
 echo.

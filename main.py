@@ -242,7 +242,7 @@ def cmd_generate(cfg: dict) -> None:
         profiles = [b["user_data_dir"]]
     workers = int(b.get("concurrency_per_profile", b.get("concurrency", 1))) * max(1, len(profiles))
     
-    if backend == "web" and workers > 1:
+    if backend == "web" and (workers > 1 or b.get("use_cdp")):
         return cmd_generate_parallel(cfg)
 
     P = paths_of(cfg)

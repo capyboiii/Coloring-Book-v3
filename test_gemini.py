@@ -350,7 +350,7 @@ def find(page, selectors, timeout=10_000):
     raise PWTimeout(f"Không selector nào khớp: {selectors}")
 
 
-CDP_PORT = 9222
+CDP_PORT = 9333
 
 
 def open_browser(pw, headless=False):
@@ -372,13 +372,17 @@ def open_browser(pw, headless=False):
 
 def attach_cdp(pw):
     """
-    Chế độ khuyến nghị: gắn vào Chrome THẬT đang chạy ở cổng 9222.
-    Chrome do bạn tự mở (start_chrome.bat) nên Gemini coi như phiên bình thường.
+    Chế độ khuyến nghị: gắn vào Chrome THẬT đang chạy ở cổng 9333.
+    Lợi ích:
+      - Dùng profile thật -> Gemini không chặn, không bắt đăng nhập lại.
+      - Bạn nhìn thấy trực tiếp những gì script làm.
+      - Chạy ổn định nhất, không bị trang trắng.
     """
+    url = f"http://127.0.0.1:{CDP_PORT}"
     try:
-        browser = pw.chromium.connect_over_cdp(f"http://127.0.0.1:{CDP_PORT}", timeout=15_000)
+        browser = pw.chromium.connect_over_cdp(url, timeout=5_000)
     except Exception as e:
-        print("\n✗ Không kết nối được Chrome ở cổng 9222.")
+        print(f"\n✗ Không kết nối được Chrome ở cổng {CDP_PORT}.")
         print("  Hãy: đóng hết Chrome -> double-click start_chrome.bat -> để cửa sổ đó MỞ")
         print(f"  (chi tiết: {e})")
         sys.exit(1)
