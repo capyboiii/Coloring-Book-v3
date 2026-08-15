@@ -33,6 +33,110 @@ PT = 72.0  # 1 inch = 72 points
 
 # ------------------------------------------------------------------ helpers
 
+# --------------------------------------------------------------- loại đóng sách
+#
+# LỀ BAO CỦA BÌA KHÔNG PHẢI BLEED CỦA RUỘT. Bìa mềm chỉ cần 0.125" tràn lề, còn
+# bìa cứng phải chừa 0.875" để gập vào mặt trong tấm bìa các-tông. Lấy nhầm là
+# nhà in trả file ngay.
+#
+#   wrap      : lề bao FILE BÌA tính từ mép trim, mỗi cạnh
+#   spine     : "calc"   = page_count * paper_thickness
+#               "none"   = không có gáy
+#               "manual" = nhà in cấp số (bìa cứng còn tính cả độ dày bìa các-tông,
+#                          không suy ra được từ số trang) -> lấy print.spine_width
+BINDINGS: dict[str, dict] = {
+    "perfect":   {"label": "Bìa mềm, gáy keo (Perfect Bound)",
+                  "wrap": 0.125, "spine": "calc",   "min_pages": 32},
+    "coil":      {"label": "Bìa mềm, gáy xoắn (Coil)",
+                  "wrap": 0.125, "spine": "none",   "min_pages": 2},
+    "saddle":    {"label": "Bìa mềm, đóng ghim (Saddle Stitch)",
+                  "wrap": 0.125, "spine": "none",   "min_pages": 4},
+    "hardcover": {"label": "Bìa cứng (Case Wrap)",
+                  "wrap": 0.875, "spine": "manual", "min_pages": 24},
+    "linen":     {"label": "Bìa cứng, bìa vải lanh (Linen)",
+                  "wrap": 0.875, "spine": "manual", "min_pages": 24},
+}
+
+
+def binding_spec(binding: str) -> dict:
+    return BINDINGS.get((binding or "perfect").lower(), BINDINGS["perfect"])
+
+
+def cover_text_safe_pct(p: dict) -> int:
+    """% mép ảnh bìa mà CHỮ tuyệt đối không được lấn vào, tính theo loại đóng.
+
+    Ảnh Gemini bị kéo lấp đầy cả ô trim + lề bao, nên phần bị nuốt phụ thuộc lề
+    bao - mà lề bao lại khác nhau một trời một vực:
+
+        bìa mềm  wrap 0.125" -> chữ phải cách mép ngoài  7.2%
+        bìa cứng wrap 0.875" -> chữ phải cách mép ngoài 14.7%
+
+    Viết chết 10% trong prompt là đúng cho bìa mềm nhưng THIẾU cho bìa cứng: tiêu
+    đề nằm lọt vào phần gập và mất chữ. Vì vậy con số này phải do code tính rồi
+    nhét vào prompt, không để người dùng tự nhớ.
+
+    Lấy cạnh ngặt nhất, làm tròn lên, cộng 2 điểm đệm vì model chỉ ước lượng chứ
+    không đo được chính xác.
+    """
+    import math
+
+    spec = binding_spec(p.get("binding", "perfect"))
+    wrap = float(spec["wrap"])
+    safety = float(p.get("safety_margin", 0.5))
+    trim_w = float(p["trim_width"])
+    trim_h = float(p["trim_height"])
+
+    panel_w = trim_w + wrap
+    panel_h = trim_h + wrap * 2
+    worst = max((wrap + safety) / panel_h, (wrap + safety) / panel_w) * 100
+    return int(math.ceil(worst)) + 2
+
+
+def cover_geometry(p: dict, page_count: int) -> dict:
+    """Kích thước file bìa theo ĐÚNG loại đóng sách đã chọn.
+
+    Kiểm chứng bằng chính trang tải lên của Lulu: trim 8.5x11, bìa vải lanh,
+    gáy 0.5 -> đòi 19.25 x 12.75. Với wrap 0.875 thì
+        ngang = 8.5*2 + 0.5 + 0.875*2 = 19.25
+        dọc   = 11    +       0.875*2 = 12.75
+    """
+    spec = binding_spec(p.get("binding", "perfect"))
+    trim_w = float(p["trim_width"])
+    trim_h = float(p["trim_height"])
+    wrap = float(spec["wrap"])
+
+    mode = spec["spine"]
+    manual = p.get("spine_width")
+    if mode == "none":
+        spine = 0.0
+    elif mode == "manual":
+        spine = float(manual) if manual else 0.0
+        if not spine:
+            # DỪNG HẲN chứ không đoán. Bản trước tạm tính theo số trang rồi chỉ ghi
+            # cảnh báo - kết quả là file vẫn dựng ra nhưng LUÔN bị nhà in trả về, và
+            # cảnh báo thì trôi mất giữa hàng trăm dòng log. Đo thật: 8.5x11 bìa cứng,
+            # gáy tự tính 0.222" -> file rộng 18.972" trong khi Lulu đòi 19.25".
+            guess = spine_width(page_count, float(p.get("paper_thickness", 0.002252)))
+            raise ValueError(
+                f"Bìa '{spec['label']}' bắt buộc phải có độ rộng gáy do nhà in cấp, "
+                f"nhưng print.spine_width đang để trống.\n"
+                f"Gáy bìa cứng KHÔNG suy ra được từ số trang vì còn cộng độ dày bìa "
+                f"các-tông và bản lề (tính theo số trang chỉ ra {guess:.4f}\").\n"
+                f"Hãy mở trang tải lên của nhà in, chép đúng con số 'Độ rộng gáy' và "
+                f"nhập vào ô 'Độ rộng gáy do nhà in cấp' trên dashboard.")
+    else:
+        spine = (float(manual) if manual not in (None, "")
+                 else spine_width(page_count, float(p.get("paper_thickness", 0.002252))))
+
+    return {
+        "spec": spec,
+        "wrap": wrap,
+        "spine": spine,
+        "total_w": trim_w * 2 + spine + wrap * 2,
+        "total_h": trim_h + wrap * 2,
+    }
+
+
 def spine_width(page_count: int, thickness: float = 0.002252) -> float:
     """Độ rộng gáy (inch). Chuẩn Lulu Paperback: page_count * thickness."""
     if page_count <= 0:
@@ -179,7 +283,7 @@ def build_interior(
     # Lulu bìa keo (perfect bound) yêu cầu tối thiểu 32 trang. Sách ít hình sẽ
     # bị đệm rất nhiều trang trắng ở cuối - đó KHÔNG phải bug, nhưng phải nói
     # rõ cho người dùng biết thay vì lặng lẽ nhét vào.
-    default_min = 32 if p.get("binding", "perfect") == "perfect" else 2
+    default_min = binding_spec(p.get("binding", "perfect"))["min_pages"]
     min_pages = int(p.get("min_pages", default_min))
 
     content_pages = pages
@@ -229,25 +333,25 @@ def build_cover(
     b = cfg["book"]
     ct = cfg.get("cover_text", {})
 
-    trim_w, trim_h, bleed = p["trim_width"], p["trim_height"], p["bleed"]
-    binding = p.get("binding", "perfect")
-    
-    if "spine_width" in p and p["spine_width"] is not None:
-        spine = float(p["spine_width"])
-    elif binding in ["coil", "saddle"]:
-        spine = 0.0
-    else:
-        spine = spine_width(page_count, p["paper_thickness"])
+    trim_w, trim_h = p["trim_width"], p["trim_height"]
 
-    total_w = (trim_w * 2 + spine + bleed * 2) * PT
-    total_h = (trim_h + bleed * 2) * PT
+    # Mọi kích thước bìa tra từ BINDINGS theo loại đóng sách - xem chú thích ở
+    # đầu file. print.bleed KHÔNG dùng ở đây: đó là bleed của ruột.
+    geo = cover_geometry(p, page_count)
+    wrap, spine = geo["wrap"], geo["spine"]
+
+    total_w = geo["total_w"] * PT
+    total_h = geo["total_h"] * PT
+    log.info("Bìa [%s]: %.3f x %.3f in (trim %.2fx%.2f, gáy %.4f, lề bao %.3f).",
+             geo["spec"]["label"], geo["total_w"], geo["total_h"],
+             trim_w, trim_h, spine, wrap)
 
     out_pdf.parent.mkdir(parents=True, exist_ok=True)
     c = canvas.Canvas(str(out_pdf), pagesize=(total_w, total_h))
     c.setTitle(f"{b['title']} - Cover")
     font = _register_font()
 
-    bl = bleed * PT
+    bl = wrap * PT
     tw = trim_w * PT
     th = trim_h * PT
     sp = spine * PT
@@ -307,7 +411,9 @@ def build_cover(
         bw, bh = 3.622 * PT, 1.26 * PT
         margin = 0.5 * PT
         bxx = (bl + tw) - margin - bw
-        byy = margin
+        # Đo từ mép TRIM chứ không từ mép tài liệu: với bìa cứng, wrap dày 0.875"
+        # nên byy = margin sẽ đặt mã vạch nằm lọt trong phần gập và bị mất hẳn.
+        byy = bl + margin
         c.setFillColor(white)
         c.setStrokeColor(HexColor("#CCCCCC"))
         c.rect(bxx, byy, bw, bh, stroke=1, fill=1)

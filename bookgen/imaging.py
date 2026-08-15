@@ -12,6 +12,43 @@ log = logging.getLogger(__name__)
 Image.MAX_IMAGE_PIXELS = None
 
 
+def upscale_to_min(path: Path, min_long_edge: int = 2000) -> Path:
+    """Phóng ảnh lên cho cạnh dài đạt tối thiểu min_long_edge, ghi đè tại chỗ.
+
+    Dùng cho ảnh preview marketing: Gemini trả về khoảng 800px, trong khi sàn
+    thương mại điện tử cần cạnh dài từ 1600px trở lên thì mới bật được chức năng
+    phóng to khi khách rê chuột.
+
+    NÓI RÕ GIỚI HẠN: phóng to KHÔNG tạo thêm chi tiết. Việc này chỉ giúp ảnh đạt
+    ngưỡng kỹ thuật của sàn và trông đỡ vỡ khi hiển thị lớn, chứ không làm ảnh
+    nét hơn bản gốc. Nguồn gốc vấn đề vẫn là Gemini trả ảnh nhỏ.
+
+    Ảnh đã đủ lớn thì giữ nguyên, không đụng vào.
+    """
+    try:
+        with Image.open(path) as im:
+            im.load()
+            w, h = im.size
+            long_edge = max(w, h)
+            if long_edge >= min_long_edge:
+                return path
+
+            scale = min_long_edge / long_edge
+            new_size = (max(1, round(w * scale)), max(1, round(h * scale)))
+            if im.mode not in ("RGB", "L"):
+                im = im.convert("RGB")
+            big = im.resize(new_size, Image.LANCZOS)
+            # LANCZOS phóng xong hay bị mềm; unsharp nhẹ lấy lại cảm giác sắc nét.
+            big = big.filter(ImageFilter.UnsharpMask(radius=2, percent=90,
+                                                     threshold=3))
+        big.save(path, "PNG", dpi=(300, 300), optimize=True)
+        log.info("Nâng %s: %dx%d -> %dx%d (phóng %.1f lần).",
+                 path.name, w, h, new_size[0], new_size[1], scale)
+    except Exception as e:  # noqa: BLE001
+        log.warning("Không nâng được độ phân giải %s: %s", path.name, e)
+    return path
+
+
 def crop_white_margins(img: Image.Image, padding_px: int = 10) -> Image.Image:
     """Tự động xén bỏ các lề trắng thừa xung quanh hình vẽ nét để nét vẽ mở rộng chạm sát viền."""
     try:

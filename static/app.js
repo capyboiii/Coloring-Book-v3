@@ -126,6 +126,9 @@ function syncConfigToUI() {
 
   // Sync Binding Dropdown
   document.getElementById('binding-type-select').value = print.binding || "perfect";
+  const spineEl = document.getElementById('spine-width');
+  if (spineEl) spineEl.value = print.spine_width ?? 0;
+  updateBindingHint();
 
   // Sync Safety Margin Dropdown
   const marginEl = document.getElementById('safety-margin-select');
@@ -215,6 +218,49 @@ function updateSpecsSummary() {
   document.getElementById('calc-cover-size').textContent = `${specs.cover_size_in || ''} (${specs.cover_px_300dpi || ''})`;
 }
 
+// Bảng này PHẢI khớp BINDINGS trong bookgen/pdf_builder.py.
+// Lề bao của bìa không phải bleed của ruột: bìa mềm 0.125", bìa cứng 0.875"
+// (phần dư để gập vào mặt trong tấm bìa các-tông).
+const BINDINGS = {
+  perfect:   { label: "Bìa mềm, gáy keo",       wrap: 0.125, spine: "calc",   minPages: 32 },
+  coil:      { label: "Bìa mềm, gáy xoắn",      wrap: 0.125, spine: "none",   minPages: 2  },
+  saddle:    { label: "Bìa mềm, đóng ghim",     wrap: 0.125, spine: "none",   minPages: 4  },
+  hardcover: { label: "Bìa cứng (Case Wrap)",   wrap: 0.875, spine: "manual", minPages: 24 },
+  linen:     { label: "Bìa cứng, bìa vải lanh", wrap: 0.875, spine: "manual", minPages: 24 },
+};
+
+function updateBindingHint() {
+  const el = document.getElementById('binding-hint');
+  if (!el) return;
+  const key = document.getElementById('binding-type-select')?.value || "perfect";
+  const spec = BINDINGS[key] || BINDINGS.perfect;
+  const tw = parseFloat(document.getElementById('trim-width')?.value) || 8.5;
+  const th = parseFloat(document.getElementById('trim-height')?.value) || 11;
+  const manual = parseFloat(document.getElementById('spine-width')?.value) || 0;
+
+  const grp = document.getElementById('spine-width-group');
+  if (grp) grp.style.display = (spec.spine === "manual") ? "" : "none";
+
+  let spine = 0, spineNote = "gáy 0 (loại này không có gáy)";
+  if (spec.spine === "manual") {
+    spine = manual;
+    spineNote = manual
+      ? `gáy ${manual}" (bạn nhập)`
+      : `⚠️ CHƯA nhập độ rộng gáy — bìa cứng thì nhà in phải cấp số này, tính theo số trang sẽ SAI vì còn độ dày bìa các-tông`;
+  } else if (spec.spine === "calc") {
+    spine = manual || 0;
+    spineNote = manual ? `gáy ${manual}" (bạn nhập, đè lên số tự tính)`
+                       : "gáy tự tính theo số trang khi dựng PDF";
+  }
+
+  const w = (tw * 2 + spine + spec.wrap * 2).toFixed(3);
+  const h = (th + spec.wrap * 2).toFixed(3);
+  el.innerHTML =
+    `• ${spec.label} — lề bao bìa <b>${spec.wrap}"</b> mỗi cạnh, tối thiểu ${spec.minPages} trang<br>` +
+    `• ${spineNote}<br>` +
+    `• Kích thước file bìa sẽ dựng: <b>${w}" × ${h}"</b> — phải khớp đúng con số nhà in yêu cầu`;
+}
+
 function numOr(id, def) {
   const el = document.getElementById(id);
   const n = parseInt(el?.value, 10);
@@ -267,6 +313,7 @@ async function saveConfigFromUI() {
       trim_height: parseFloat(document.getElementById('trim-height').value),
       paper_thickness: paper_thick,
       binding: document.getElementById('binding-type-select').value,
+      spine_width: parseFloat(document.getElementById('spine-width')?.value) || 0,
       safety_margin: marginVal,
       full_bleed_interior: (marginVal <= 0),
       interior_border: borderVal
@@ -313,6 +360,7 @@ async function saveConfigFromUI() {
     const stallEl = document.getElementById('browser-stall-timeout');
     if (stallEl) stallEl.value = payload.browser.stall_timeout;
     updateBrowserPerfHint();
+    updateBindingHint();
   } catch (err) {
     console.error("Error saving config:", err);
   }

@@ -1,8 +1,8 @@
 book:
-  title: Cute Dino
+  title: cute dog
   subtitle: ''
   author: ''
-  num_images: 50
+  num_images: 5
   blank_verso: true
   front_matter_pages: 0
 print:
@@ -13,10 +13,10 @@ print:
   gutter: 0.375
   dpi: 300
   paper_thickness: 0.002252
-  binding: perfect
+  binding: hardcover
   min_pages: 32
   cover_wrap: 0.25
-  spine_width: 0.0
+  spine_width: 0.5
   full_bleed_interior: false
   interior_border: true
   interior_border_width: 1.5
@@ -53,30 +53,46 @@ prompts:
     sun yellow, soft coral, sky blue, mint green, cozy lavender, warm cream) filled
     with soft gradient shading. - NO photorealism, NO harsh 3D glossy plastic renders,
     NO dark gritty shadows. '
-  front_cover: 'A vibrant, eye-catching, high-quality full-colour FRONT COVER illustration
-    for a children''s coloring book.
-
-    BOOK TITLE TEXT: Prominently render and display the book title text "{title}"
-    in large, beautiful, colorful, readable typography at the top of the cover, perfectly
-    integrated into the illustration artwork style.
-
-    COMPOSITION & LAYOUT (CREATIVE & DYNAMIC): Create an engaging, beautifully balanced
-    composition suited to the theme. You may choose one of the following dynamic compositions:
-    - SCENIC STORYBOOK LAYOUT: 1-3 adorable main characters interacting playfully
-    in a rich, detailed environment (such as a cozy room, magical meadow, underwater
-    world, or fantasy landscape) with distinct foreground, midground, and background
-    depth. - EMBLEM / VIGNETTE LAYOUT: Main character framed nicely inside a central
-    decorative arch, ribbon, or circular vignette with surrounding thematic elements
-    (stars, flowers, leaves, toys). - FULL-PAGE ACTION / PLAY SCENE: Characters engaging
-    in a joyful, dynamic activity with colorful props and environment details filling
-    the scene naturally.
-
-    ART STYLE & QUALITY: {style}
-
-    RULES: Render ONLY the specified book title text "{title}". Do NOT add any extra
-    random scrambled letters or watermarks. Vertical portrait orientation, aspect
-    ratio 8.5:11, maximum resolution, crisp details, professional book publishing
-    quality. '
+  front_cover: "A vibrant, eye-catching, high-quality full-colour FRONT COVER illustration\
+    \ for a\nchildren's coloring book.\n\nPRINT SAFETY - READ THIS FIRST, IT OVERRIDES\
+    \ EVERYTHING ELSE BELOW:\nThis image will be physically printed and then trimmed\
+    \ by a cutting machine. The outer\nedge of the image gets sliced off and thrown\
+    \ away, so anything placed near an edge is\ndestroyed.\n- The ARTWORK must fill\
+    \ the whole canvas, edge to edge, corner to corner, with no\n  white frame and\
+    \ no empty margin. Losing a little artwork at the edges is fine and\n  expected.\n\
+    - ALL TEXT is the opposite. Every letter of the title, and any other lettering,\
+    \ must\n  stay well inside a central safe box: NOTHING written may come closer\
+    \ than {safe_pct} percent\n  of the image size to ANY edge - not the top, not\
+    \ the bottom, not the left, not the\n  right. Treat that outer {safe_pct} percent\
+    \ band of the image on all four sides as a forbidden strip\n  where letters must\
+    \ never appear.\n- Do NOT let any letter touch, cross, or even come close to an\
+    \ edge. Do NOT run the\n  title off the side of the image. Do NOT crop or clip\
+    \ any letter.\n- Leave clearly visible breathing space between the title and the\
+    \ top edge. The title\n  belongs in the upper area of the cover, but comfortably\
+    \ BELOW the top forbidden\n  strip, not pushed up against the top of the image.\n\
+    \nBOOK TITLE TEXT: Prominently render and display the book title text \"{title}\"\
+    \ in large,\nbeautiful, colorful, readable typography in the upper portion of\
+    \ the cover, perfectly\nintegrated into the illustration artwork style, and fully\
+    \ inside the safe box described\nabove. Spell the title EXACTLY as written, letter\
+    \ for letter. If the title is long,\nbreak it onto two or three shorter centred\
+    \ lines and reduce the letter size rather than\nletting it stretch toward the\
+    \ edges.\n\nCOMPOSITION & LAYOUT (CREATIVE & DYNAMIC): Create an engaging, beautifully\
+    \ balanced\ncomposition suited to the theme. You may choose one of the following\
+    \ dynamic compositions:\n- SCENIC STORYBOOK LAYOUT: 1-3 adorable main characters\
+    \ interacting playfully in a rich,\ndetailed environment (such as a cozy room,\
+    \ magical meadow, underwater world, or fantasy\nlandscape) with distinct foreground,\
+    \ midground, and background depth. - EMBLEM /\nVIGNETTE LAYOUT: Main character\
+    \ framed nicely inside a central decorative arch, ribbon,\nor circular vignette\
+    \ with surrounding thematic elements (stars, flowers, leaves, toys).\n- FULL-PAGE\
+    \ ACTION / PLAY SCENE: Characters engaging in a joyful, dynamic activity with\n\
+    colorful props and environment details filling the scene naturally.\nKeep the\
+    \ main characters and any focal detail inside the same central safe box, so the\n\
+    trimming machine cannot cut a face or a head in half.\n\nART STYLE & QUALITY:\
+    \ {style}\n\nRULES: Render ONLY the specified book title text \"{title}\". Do\
+    \ NOT add any extra random\nscrambled letters, misspelled words, captions, author\
+    \ names, publisher marks or\nwatermarks. Vertical portrait orientation, aspect\
+    \ ratio 8.625:11.25, maximum resolution,\ncrisp details, professional book publishing\
+    \ quality."
   nudge: 'Generate the image now. Output only the image itself, with no explanation
     and no text in your reply. '
   back_cover: 'THIS IS THE BACK COVER (REAR COVER OF THE BOOK). DO NOT WRITE OR DRAW
@@ -159,13 +175,66 @@ prompts:
 
     resolution.'
   previews:
-    preview_1: 'Generate a high-resolution professional 3D product mockup photograph
-      of a paperback coloring book standing on a solid white background with a realistic
-      soft shadow. I have ATTACHED the exact image file of the FRONT COVER. Render
-      this ATTACHED cover image directly and accurately onto the front cover of the
-      3D paperback book mockup. CRITICAL REQUIREMENT: Do NOT invent or generate any
-      new illustrations or new text. Reproduce the attached front cover image with
-      100% exact visual fidelity. Clean minimalist ecommerce product mockup.'
+    preview_1: 'Generate a professional ecommerce product mockup photograph of a physical
+      paperback
+
+      coloring book, photographed as a real object.
+
+
+      THE BOOK AS AN OBJECT - this is the point of the image: Show a real paperback
+      book
+
+      standing upright on a pure white seamless background. Photograph it front-facing
+      but
+
+      turned slightly, roughly 15 degrees, so that the thickness of the book and the
+      stacked
+
+      page edges are clearly visible along one side. Add a soft realistic contact
+      shadow on
+
+      the ground beneath the book. Soft even studio lighting, gentle highlight on
+      the glossy
+
+      cover stock.
+
+
+      FRAMING - equally important: The book must occupy only about 65 percent of the
+      frame,
+
+      centred, with generous clean white empty space on all four sides. Do NOT let
+      the cover
+
+      artwork bleed to the edges of the image. The final image is a photo OF a book
+      sitting
+
+      in white space, not a flat picture of a cover.
+
+
+      THE COVER ARTWORK: I have ATTACHED the front cover image. Print that attached
+      artwork
+
+      onto the front cover of the book in the photograph. Keep the same illustration,
+      the
+
+      same characters, the same colours and the same title wording. Do NOT add, remove,
+
+      reword or redraw any text, and do NOT invent extra illustrations, logos or watermarks.
+
+
+      PERSPECTIVE IS EXPECTED: Because the book is a solid object seen at an angle,
+      the cover
+
+      artwork MUST be foreshortened, slightly tilted and wrapped over the book''s
+      thickness.
+
+      This perspective distortion is correct and wanted. Do NOT output the attached
+      image
+
+      flat, unrotated or filling the whole canvas - that is a failed result.
+
+
+      Clean minimalist white-background product shot, sharp focus, high resolution.'
     preview_2: 'Generate a realistic photograph of an open paperback coloring book
       laying flat on a warm wooden table next to colored pencils and a cup of tea.
       I have ATTACHED the exact image files of the INTERIOR COLORING PAGES. Render
@@ -260,7 +329,12 @@ prompts:
     words, NO numbers, NO logos, NO signatures, or watermarks anywhere in the image.
     Pure artwork illustration only. Vertical portrait orientation, aspect ratio 8.5:11,
     maximum resolution.'
-subjects: []
+subjects:
+- A happy puppy splashing inside a bubble bath with a yellow rubber duck.
+- A fluffy dog wearing a party hat next to a birthday cake with one candle.
+- A cute puppy sleeping curled up inside a basket with a small teddy bear.
+- A playful dog chasing a fluttering butterfly in a field of sunflowers.
+- A little puppy digging in the sand at the beach next to a simple sandcastle.
 cover_text:
   back_blurb: '
 
@@ -297,4 +371,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: cute-dino
+_book: cute-dog

@@ -112,6 +112,8 @@ LULU_PRESETS = {
         {"id": "perfect", "name": "Perfect Bound (Bìa keo paperback)", "min_pages": 32, "desc": "Lulu yêu cầu tối thiểu 32 trang"},
         {"id": "coil", "name": "Coil Bound (Gáy xoắn nhựa)", "min_pages": 8, "desc": "Dễ lật mở 360 độ"},
         {"id": "saddle", "name": "Saddle Stitch (Ghim giữa)", "min_pages": 4, "desc": "Phù hợp sách ngắn dưới 48 trang"},
+        {"id": "hardcover", "name": "Sách bìa cứng (Case Wrap)", "min_pages": 24, "desc": "Lề bao 0.875\" - độ rộng gáy do nhà in cấp"},
+        {"id": "linen", "name": "Sách bìa cứng, bìa vải lanh (Linen)", "min_pages": 24, "desc": "Lề bao 0.875\" - độ rộng gáy do nhà in cấp"},
     ]
 }
 
@@ -142,22 +144,21 @@ def calculate_lulu_specs(cfg: dict) -> dict:
     if final_pages % 2 != 0:
         final_pages += 1
 
-    binding = p.get("binding", "perfect")
-    # Tính độ rộng gáy (Spine Width)
-    if "spine_width" in p and p["spine_width"] is not None:
-        spine_in = float(p["spine_width"])
-    elif binding in ["coil", "saddle"]:
-        spine_in = 0.0
-    else:
-        spine_in = final_pages * paper_thick
-    
     # Kích thước interior file (bao gồm bleed)
     interior_w_in = trim_w + (2 * bleed)
     interior_h_in = trim_h + (2 * bleed)
-    
-    # Kích thước full cover file (Back + Spine + Front + Bleed)
-    cover_w_in = (trim_w * 2) + spine_in + (2 * bleed)
-    cover_h_in = trim_h + (2 * bleed)
+
+    # Kích thước bìa: hỏi ĐÚNG hàm mà build_cover dùng, đừng tính lại ở đây.
+    # Bản trước tự tính bằng bleed nên dashboard báo 17.25x11.25 trong khi file
+    # thật là 19.25x12.75 - người dùng tin vào con số sai rồi bị nhà in trả về.
+    try:
+        geo = pdf_builder.cover_geometry(p, final_pages)
+        spine_in, cover_w_in, cover_h_in = geo["spine"], geo["total_w"], geo["total_h"]
+        cover_note = geo["spec"]["label"]
+    except Exception as e:  # thiếu độ rộng gáy bìa cứng -> báo thẳng lên UI
+        spine_in = float(p.get("spine_width") or 0)
+        cover_w_in = cover_h_in = 0.0
+        cover_note = str(e).splitlines()[0]
 
     return {
         "calculated_pages": final_pages,
@@ -165,8 +166,11 @@ def calculate_lulu_specs(cfg: dict) -> dict:
         "spine_width_mm": round(spine_in * 25.4, 2),
         "interior_size_in": f"{round(interior_w_in, 3)} x {round(interior_h_in, 3)}",
         "interior_px_300dpi": f"{int(interior_w_in * 300)} x {int(interior_h_in * 300)}",
-        "cover_size_in": f"{round(cover_w_in, 3)} x {round(cover_h_in, 3)}",
-        "cover_px_300dpi": f"{int(cover_w_in * 300)} x {int(cover_h_in * 300)}",
+        "cover_size_in": (f"{round(cover_w_in, 3)} x {round(cover_h_in, 3)}"
+                          if cover_w_in else "—"),
+        "cover_px_300dpi": (f"{int(cover_w_in * 300)} x {int(cover_h_in * 300)}"
+                            if cover_w_in else "—"),
+        "cover_note": cover_note,
         "lulu_compatible": final_pages >= min_pages and final_pages % 2 == 0,
     }
 
@@ -913,12 +917,12 @@ def regenerate_preview_single(payload: dict):
     dest = preview_dir / f"{key}.png"
     
     with single_gen_lock:
-        with book_main.make_driver(cfg) as g:
-            from bookgen.cancel import reset_cancel
-            reset_cancel()
-            ok = g.generate_image(custom_prompt, dest, attach_files=attach)
-            if not ok:
-                raise HTTPException(status_code=500, detail=f"Không sinh được {key}")
+        from bookgen.cancel import reset_cancel
+        reset_cancel()
+        ok = book_main.generate_single(cfg, key, custom_prompt, dest, attach)
+        if not ok:
+            raise HTTPException(status_code=500, detail=f"Không sinh được {key}")
+        book_main.finalize_preview(cfg, dest)
             
     slug = cfg.get("_book") or book_main.get_current_book() or "default"
     mtime = int(dest.stat().st_mtime) if dest.exists() else 0
@@ -1234,7 +1238,7 @@ def regenerate_inspector_image_single(payload: dict):
                 yaml.dump(cfg, f, allow_unicode=True, sort_keys=False)
         else:
             style = cfg.get("prompts", {}).get("cover_style", "")
-            prompt = cfg.get("prompts", {}).get("front_cover_custom") or cfg["prompts"]["front_cover"].format(title=title, style=style)
+            prompt = cfg.get("prompts", {}).get("front_cover_custom") or cfg["prompts"]["front_cover"].format(title=title, style=style, safe_pct=book_main.cover_safe_pct(cfg))
 
     elif key == "cover_back":
         if custom_prompt:
@@ -1244,7 +1248,7 @@ def regenerate_inspector_image_single(payload: dict):
                 yaml.dump(cfg, f, allow_unicode=True, sort_keys=False)
         else:
             style = cfg.get("prompts", {}).get("cover_style", "")
-            prompt = cfg.get("prompts", {}).get("back_cover_custom") or cfg["prompts"]["back_cover"].format(title=title, style=style)
+            prompt = cfg.get("prompts", {}).get("back_cover_custom") or cfg["prompts"]["back_cover"].format(title=title, style=style, safe_pct=book_main.cover_safe_pct(cfg))
 
     attach = []
     if key == "cover_back":
@@ -1257,13 +1261,11 @@ def regenerate_inspector_image_single(payload: dict):
     # Giữ nguyên file cũ cho tới khi sinh xong file mới thành công, không xóa sớm
 
     with single_gen_lock:
-        driver = book_main.make_driver(cfg)
-        with driver as g:
-            from bookgen.cancel import reset_cancel
-            reset_cancel()
-            ok = g.generate_image(prompt, dest, attach_files=attach)
-            if not ok:
-                raise HTTPException(status_code=500, detail="Gemini sinh ảnh thất bại. Kiểm tra kết nối / API Key / Chrome.")
+        from bookgen.cancel import reset_cancel
+        reset_cancel()
+        ok = book_main.generate_single(cfg, key, prompt, dest, attach)
+        if not ok:
+            raise HTTPException(status_code=500, detail="Gemini sinh ảnh thất bại. Kiểm tra kết nối / API Key / Chrome.")
             
     state = book_main.load_state(P["state_file"])
     if key not in state.get("done", []):

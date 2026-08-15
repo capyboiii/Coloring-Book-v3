@@ -122,6 +122,71 @@ def make_driver(cfg: dict):
     return GeminiApiDriver(cfg)
 
 
+def cover_safe_pct(cfg: dict) -> int:
+    """% mép bìa cấm đặt chữ, nhét vào prompt qua placeholder {safe_pct}.
+
+    Phụ thuộc loại đóng sách: bìa mềm ~10%, bìa cứng ~17% vì lề bao dày hơn hẳn.
+    Để người dùng tự nhớ con số này là chắc chắn mất chữ tiêu đề.
+    """
+    try:
+        from bookgen.pdf_builder import cover_text_safe_pct
+        return cover_text_safe_pct(cfg.get("print") or {})
+    except Exception as e:  # noqa: BLE001
+        log.debug("Không tính được safe_pct (%s), dùng 12.", e)
+        return 12
+
+
+def finalize_preview(cfg: dict, dest: Path) -> None:
+    """Nâng ảnh preview lên mức đạt chuẩn sàn TMĐT, ngay sau khi sinh xong.
+
+    Làm ở CODE chứ không nhờ prompt: bảo Gemini "high resolution" không có tác
+    dụng - nó vẫn trả khoảng 800px. Ở đây thì kích thước ra là chắc chắn.
+    """
+    if not dest.exists():
+        return
+    from bookgen import imaging
+    min_px = int((cfg.get("print") or {}).get("preview_min_px", 2000))
+    if min_px > 0:
+        imaging.upscale_to_min(dest, min_px)
+
+
+def generate_single(cfg: dict, key: str, prompt: str, dest: Path,
+                    attach: list[Path] | None = None) -> bool:
+    """Sinh MỘT ảnh cho các nút bấm trên UI (Inspector, Preview).
+
+    Vì sao đi qua GeminiPool thay vì GeminiDriver: mọi bản vá cho luồng web đều
+    nằm ở gemini_pool.py - nạp extension MonkeyX (ignore_default_args), User-Agent
+    cho chế độ ẩn, _find bám phần tử đang hiển thị, mở chat mới trước mỗi ảnh,
+    gửi prompt bằng userscript. GeminiDriver không có cái nào, nên nút trên UI
+    chạy trên một luồng cũ đã lạc hậu hẳn so với luồng chạy cả cuốn.
+
+    Ép 1 tài khoản x 1 tab: một ảnh thì không cần mở cả pool.
+    """
+    backend = (cfg.get("backend") or "api").lower()
+    if backend != "web":
+        with make_driver(cfg) as g:          # backend API: giữ nguyên đường cũ
+            return bool(g.generate_image(prompt, dest, attach_files=attach or []))
+
+    import asyncio
+    import copy
+
+    from bookgen.gemini_pool import GeminiPool
+
+    one = copy.deepcopy(cfg)
+    b = one.setdefault("browser", {})
+    b["concurrency_per_profile"] = 1
+    profiles = b.get("profiles") or ([b["user_data_dir"]] if "user_data_dir" in b else [])
+    if profiles:
+        b["profiles"] = profiles[:1]
+
+    async def run() -> bool:
+        async with GeminiPool(one) as pool:
+            res = await pool.run_jobs([(key, prompt, dest, list(attach or []))])
+            return bool(res.get(key))
+
+    return asyncio.run(run())
+
+
 def subjects_prompt(cfg: dict, subjects: list[str], need: int) -> str:
     return (
         f'I am making a children\'s coloring book titled "{cfg["book"]["title"]}" '
@@ -153,13 +218,15 @@ def build_jobs(cfg: dict, subjects: list[str], raw: Path, state: dict) -> list:
 
     title = cfg["book"]["title"]
     style = cfg["prompts"].get("cover_style", "")
+    safe_pct = cover_safe_pct(cfg)
     covers = []
     for key, tpl in [("cover_front", cfg["prompts"]["front_cover"]),
                      ("cover_back", cfg["prompts"]["back_cover"])]:
         dest = raw / f"{key}.png"
         if key in state["done"] and dest.exists():
             continue
-        covers.append((key, tpl.format(title=title, style=style), dest))
+        covers.append((key, tpl.format(title=title, style=style,
+                                       safe_pct=safe_pct), dest))
 
     if len(covers) == 2:
         jobs.append(covers)          # chuỗi: cùng chat, cùng tab
@@ -297,7 +364,9 @@ def cmd_generate(cfg: dict) -> None:
                 log.info("Bỏ qua (đã có): %s", key)
                 continue
             log.info("Đang tạo %s...", key)
-            if g.generate_image(tpl.format(title=cfg["book"]["title"]), dest):
+            if g.generate_image(tpl.format(title=cfg["book"]["title"],
+                                           style=cfg["prompts"].get("cover_style", ""),
+                                           safe_pct=cover_safe_pct(cfg)), dest):
                 state["done"].append(key)
                 save_state(P["state_file"], state)
             g._sleep_jitter()
@@ -683,6 +752,7 @@ def cmd_preview_parallel(cfg: dict) -> None:
             log.info("🖼️ Bắt đầu sinh SONG SONG 5 ảnh Preview Marketing trên %d tab...", pool.workers)
             def on_done(key: str, ok: bool) -> None:
                 if ok:
+                    finalize_preview(cfg, preview_dir / f"{key}.png")
                     print(f"  ✓ {key}.png")
                 else:
                     print(f"  ✗ {key} thất bại")
@@ -740,6 +810,7 @@ def cmd_preview(cfg: dict) -> None:
             
             log.info("[%d/5] Đang tạo %s (đính kèm %d ảnh thật)...", idx, key, len(attach))
             if g.generate_image(prompt, dest, attach_files=attach):
+                finalize_preview(cfg, dest)
                 log.info("[%d/5] ✓ Hoàn thành %s!", idx, key)
             else:
                 log.error("[%d/5] ✗ Thất bại khi tạo %s.", idx, key)
