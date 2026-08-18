@@ -89,6 +89,11 @@ def verify_gemini_api_key(api_key: str) -> tuple[bool, str]:
     except Exception as e:
         return False, f"Lỗi kết nối: {str(e)}"
 
+# THÔNG SỐ IN LÀ DÙNG CHUNG, CHỈ ĐỘ RỘNG GÁY LÀ THEO TỪNG CUỐN.
+# Gáy phụ thuộc số trang của chính cuốn đó và do nhà in cấp. Mọi khoá print khác
+# mà lọt vào state.json sẽ đóng băng theo cuốn và làm sửa cấu hình chung vô hiệu.
+PER_BOOK_PRINT = ("spine_width",)
+
 # Active log listeners for SSE
 tasks_logs: Dict[str, queue.Queue] = {}
 single_gen_lock = threading.Lock()
@@ -116,6 +121,23 @@ LULU_PRESETS = {
         {"id": "linen", "name": "Sách bìa cứng, bìa vải lanh (Linen)", "min_pages": 24, "desc": "Lề bao 0.875\" - độ rộng gáy do nhà in cấp"},
     ]
 }
+
+
+def book_title(cfg: dict) -> str:
+    """Tiêu đề của cuốn ĐANG CHỌN, lấy từ state.json trước.
+
+    config.yaml chỉ giữ tiêu đề của lần đồng bộ gần nhất. Endpoint nào đọc thẳng
+    cfg["book"]["title"] sẽ dựng prompt bìa bằng tên cuốn KHÁC - đúng lỗi "sinh
+    lại bìa sách rồng mà ra Forest Spirits".
+    """
+    try:
+        st = book_main.load_state(book_main.paths_of(cfg)["state_file"])
+        t = st.get("title") or (st.get("book") or {}).get("title")
+        if t:
+            return t
+    except Exception:
+        pass
+    return cfg.get("book", {}).get("title", "")
 
 
 def calculate_lulu_specs(cfg: dict) -> dict:
@@ -225,8 +247,6 @@ def sync_book_config(slug: str) -> dict:
     #
     # Độ rộng gáy thì ngược lại - nó phụ thuộc số trang của CHÍNH cuốn đó và do
     # nhà in cấp, nên bắt buộc phải giữ riêng.
-    PER_BOOK_PRINT = ("spine_width",)
-
     cfg_print = DEFAULT_PRINT.copy()
     if isinstance(cfg.get("print"), dict):
         cfg_print.update(cfg["print"])
@@ -342,7 +362,11 @@ def update_config(data: dict):
         if "cover_text" in data:
             state["cover_text"] = data["cover_text"]
         if "print" in data:
-            state["print"] = data["print"]
+            # CHỈ khoá theo-cuốn. Ghi cả khối print vào state là tự dựng lại cái
+            # bẫy đóng băng: cuốn cũ giữ thông số in riêng, sửa cấu hình chung
+            # không lan tới nó nữa.
+            state["print"] = {k: data["print"][k] for k in PER_BOOK_PRINT
+                              if data["print"].get(k) is not None}
         if "subjects" in data:
             state["subjects"] = data["subjects"]
         if "backend" in data:
@@ -961,12 +985,26 @@ def get_raw_inspector_details():
     state = book_main.load_state(P["state_file"])
     reviews = state.get("image_reviews", {})
     subjects = state.get("subjects") or cfg.get("subjects", [])
-    num_images = int(cfg.get("book", {}).get("num_images", 30))
-    
+
+    # SỐ TRANG LẤY TỪ STATE CỦA CUỐN ĐANG CHỌN, không lấy từ config.yaml.
+    # config.yaml giữ giá trị của lần đồng bộ gần nhất; cuốn 48 trang mà config
+    # còn 24 thì Inspector giấu mất 24 ảnh, không sinh lại được ảnh nào trong đó.
+    num_images = int(state.get("num_images")
+                     or cfg.get("book", {}).get("num_images", 30))
+
     raw_files = {}
     if P["raw_dir"].exists():
         for f in P["raw_dir"].glob("*.png"):
             raw_files[f.stem] = f
+
+    # ĐỪNG GIẤU ẢNH ĐÃ CÓ: nếu trên đĩa còn page_ lớn hơn num_images thì mở rộng
+    # danh sách cho đủ, thà thừa ô trống còn hơn thiếu ảnh thật.
+    for stem in raw_files:
+        if stem.startswith("page_"):
+            try:
+                num_images = max(num_images, int(stem.split("_")[1]))
+            except (IndexError, ValueError):
+                pass
 
     proc_files = set()
     if P["processed_dir"].exists():
@@ -1002,7 +1040,7 @@ def get_raw_inspector_details():
         })
         
     # Covers
-    title = cfg.get("book", {}).get("title", "")
+    title = book_title(cfg)
     style = cfg.get("prompts", {}).get("cover_style", "")
     for key, title_label in [("cover_front", "Bìa trước (Front Cover)"), ("cover_back", "Bìa sau (Back Cover)")]:
         fname = f"{key}.png"
@@ -1098,10 +1136,31 @@ def update_inspector_subject(payload: dict):
         except ValueError:
             pass
     elif key in ("cover_front", "cover_back"):
-        # Theo TUNG CUON. Luu toan cuc thi moi cuon sau deu dinh prompt cua cuon
-        # dau tien, kem ca tieu de cu da nuong cung vao text.
+        # Theo TỪNG CUỐN. Lưu toàn cục thì mọi cuốn sau đều dính prompt của cuốn
+        # đầu tiên, kèm cả tiêu đề cũ đã nướng cứng vào text.
         tpl_key = "front_cover" if key == "cover_front" else "back_cover"
-        state.setdefault("prompts", {})[f"{tpl_key}_custom"] = subject
+
+        # CHỈ LƯU KHI NGƯỜI DÙNG THẬT SỰ SỬA.
+        #
+        # Inspector hiển thị prompt ĐÃ THAY CHỖ (tiêu đề, chủ đề đã ghép vào
+        # text). Bản trước lưu thẳng những gì hiện trên ô nhập, nên chỉ cần mở
+        # Inspector rồi bấm lưu là bản chụp đó đông cứng lại - kể cả khi người
+        # dùng không gõ gì. Tiêu đề của cuốn đang xem lúc đó bị khoá vào prompt,
+        # và cuốn khác sinh lại bìa vẫn ra tên cũ.
+        try:
+            default = cfg["prompts"][tpl_key].format(
+                title=cfg.get("book", {}).get("title", ""),
+                style=cfg.get("prompts", {}).get("cover_style", ""),
+                safe_pct=book_main.cover_safe_pct(cfg),
+                **book_main.cover_prompt_extras(cfg))
+        except Exception:
+            default = None
+
+        prompts = state.setdefault("prompts", {})
+        if default is not None and " ".join(subject.split()) == " ".join(default.split()):
+            prompts.pop(f"{tpl_key}_custom", None)      # giống mẫu -> không phải tuỳ chỉnh
+        else:
+            prompts[f"{tpl_key}_custom"] = subject
         book_main.save_state(P["state_file"], state)
             
     return {"status": "success", "key": key, "subject": subject}
@@ -1226,7 +1285,7 @@ def regenerate_inspector_image_single(payload: dict):
     P["raw_dir"].mkdir(parents=True, exist_ok=True)
     dest = P["raw_dir"] / f"{key}.png"
     
-    title = cfg.get("book", {}).get("title", "")
+    title = book_title(cfg)
     
     if key.startswith("page_"):
         try:

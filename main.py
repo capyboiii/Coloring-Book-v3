@@ -170,14 +170,22 @@ def cover_prompt_extras(cfg: dict) -> dict:
     if not subs:
         subs = [str(s).strip() for s in (cfg.get("subjects") or []) if str(s).strip()]
 
+    # GIEO HẠT THEO TÊN CUỐN, không dùng random toàn cục.
+    #
+    # Mỗi cuốn vẫn ra một bố cục khác nhau, nhưng CÙNG một cuốn thì lần nào cũng
+    # ra y hệt. Cần tính tất định vì hai lý do: prompt hiện trong Inspector không
+    # còn nhảy loạn mỗi lần tải lại trang, và hệ thống mới so sánh được "người
+    # dùng có thật sự sửa prompt không" - trước đây so kiểu gì cũng lệch nên lần
+    # nào bấm lưu cũng đóng băng một bản chụp.
+    rnd = random.Random(cfg.get("_book") or get_current_book() or
+                        cfg.get("book", {}).get("title", ""))
+
     if subs:
-        pick = subs[:8]
-        if len(subs) > 8:
-            pick = random.sample(subs, 8)
+        pick = subs[:8] if len(subs) <= 8 else rnd.sample(subs, 8)
         hint = " ".join(f"- {s}" for s in pick)
     else:
         hint = f"- scenes about {cfg.get('book', {}).get('title', 'the book subject')}"
-    return {"subject_hint": hint, "cover_layout": random.choice(COVER_LAYOUTS)}
+    return {"subject_hint": hint, "cover_layout": rnd.choice(COVER_LAYOUTS)}
 
 
 def cover_safe_pct(cfg: dict) -> int:

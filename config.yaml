@@ -1,8 +1,8 @@
 book:
-  title: Forest Spirits Coloring Book - Animal Mandalas for Mindfulness and Relaxation
+  title: cute dragon
   subtitle: ''
   author: ''
-  num_images: 48
+  num_images: 24
   blank_verso: true
   front_matter_pages: 0
   matter_pages: true
@@ -17,7 +17,7 @@ print:
   binding: perfect
   min_pages: 32
   cover_wrap: 0.25
-  spine_width: 0.29
+  spine_width: 0.182
   full_bleed_interior: false
   interior_border: true
   interior_border_width: 1.5
@@ -54,119 +54,109 @@ prompts:
     sun yellow, soft coral, sky blue, mint green, cozy lavender, warm cream) filled
     with soft gradient shading. - NO photorealism, NO harsh 3D glossy plastic renders,
     NO dark gritty shadows. '
-  front_cover: 'A vibrant, eye-catching, high-quality full-colour FRONT COVER illustration
-    for a
-
-    children''s coloring book.
+  front_cover: 'A vibrant, full-colour FRONT COVER illustration for a children''s
+    coloring book.
 
 
-    WHAT THIS BOOK IS ABOUT - build the cover from THIS, not from your own defaults.
-    These
-
-    are real scenes taken from inside the book:
+    THIS BOOK''S SUBJECT - build the cover only from this:
 
     {subject_hint}
 
-
-    CAST RULE - STRICT: every character, creature and object on this cover must belong
-    to
-
-    the subject of this book as shown in the scenes above and in the title "{title}".
-    Do NOT
-
-    invent extra characters just to fill the picture. In particular, do NOT add a
+    Every character, creature and object must belong to that subject. Do NOT add a
     fox, a
 
-    rabbit, a bear, a squirrel, a deer, an owl or any other generic storybook animal
-    unless
+    rabbit, a bear, a squirrel, a deer or an owl unless it genuinely belongs. If one
+    character
 
-    that animal is genuinely part of this book''s subject. If one hero character is
-    not
+    cannot fill the cover, show MORE OF THE SAME subject in different poses and sizes,
+    never a
 
-    enough to fill the cover, show MORE OF THE SAME subject in different poses, sizes
-    and
+    different species. Do NOT fall back on a generic green forest or flower meadow
+    unless the
 
-    expressions - never a different species.
-
-
-    SETTING RULE - STRICT: the background must come from this book''s own world, taken
-    from
-
-    the scenes listed above. Do NOT default to a green forest, a woodland clearing,
-    a flower
-
-    meadow or rolling hills unless those scenes actually appear in the list above.
-    Choose the
-
-    environment that genuinely fits this book, and make it specific and characterful.
+    scenes above are actually set there.
 
 
-    LAYOUT FOR THIS COVER - use this one, do not substitute another:
-
-    {cover_layout}
+    LAYOUT: {cover_layout}
 
 
-    BOOK TITLE TEXT: Prominently render and display the book title text "{title}"
-    in large,
+    ONE UNBROKEN PICTURE - THIS IS THE MOST IMPORTANT RULE. The cover is a single
+    scene in a
 
-    beautiful, colorful, readable typography in the upper part of the cover, perfectly
+    single view, drawn at full strength from the top edge to the bottom edge and from
+    side to
 
-    integrated into the illustration artwork style. Spell the title EXACTLY as written,
-
-    letter for letter. If the title is long, break it onto two or three shorter centred
-
-    lines and make the letters smaller, rather than letting the words stretch out
-    wide.
-
-
-    TITLE PLACEMENT: Give the title generous breathing room. It should sit comfortably
-
-    within the middle of the cover, framed by artwork on every side, with a clear
-    cushion of
-
-    illustration above it and below it. Never push the lettering out towards the edge
-    of the
-
-    picture, and never let a letter run off the side.
-
-
-    Keep the main characters and their faces well inside the picture, comfortably
-    away from
-
-    the outer edge. Background scenery and small decorative details should carry on
-    right to
-
-    the edges so the artwork fills the whole canvas with no white frame and no empty
-    margin.
-
-
-    ART STYLE & QUALITY: {style}
-
-
-    THIS IS A FINISHED PIECE OF ARTWORK, NOT A DIAGRAM. Draw ONLY the illustration
+    side. There is NO band, stripe, gap, seam, empty strip or white area anywhere,
     and the
 
-    book title. Absolutely do NOT draw any of the following: no guide lines, no dashed
-    or
+    cover is NEVER split into an upper scene and a lower scene. Behind the title the
+    scenery
 
-    dotted lines, no crop marks, no rulers, no measurement marks, no coloured bands
-    or strips
+    keeps exactly the same colours, brightness and density of detail as everywhere
+    else: if
 
-    along any edge, no rectangles or boxes outlining regions of the page, no labels,
-    no
+    the letters were hidden, that area would look like a completely ordinary part
+    of the
 
-    captions, no annotations, no instructions, no notes to the printer, no barcode,
-    no ISBN,
-
-    no price, no publisher logo, no author name, no watermark, and no words of any
-    kind other
-
-    than the book title "{title}" itself.
+    picture.
 
 
-    Vertical portrait orientation, aspect ratio 8.625:11.25, maximum resolution, crisp
+    TITLE "{title}" - spell it EXACTLY, letter for letter. Draw it as a real object
+    living
 
-    details, professional book publishing quality.'
+    inside this scene, not as text laid on top: the same bold black hand-drawn outline,
+    the
+
+    same coloured-pencil shading and the same palette as the artwork; leaves, vines,
+    flowers
+
+    or small motifs weaving behind some letters and in front of others; scenery passing
+    behind
+
+    them. Place the title in the upper part of the cover, with a clear band of illustration
+
+    ABOVE it at least as tall as one line of the lettering, so artwork is always the
+    first
+
+    thing at the top. Never let a letter touch or come near any edge. If the title
+    is long,
+
+    break it into two or three shorter centred lines.
+
+
+    KEEP IT READABLE THE RIGHT WAY: give the letters a thick dark outline and strong
+    solid
+
+    colour so they stand out against a fully detailed background, the way hand-painted
+
+    lettering reads on a mural. NEVER whiten, fade, blur, lighten, empty or simplify
+    anything
+
+    behind or around the words, in ANY shape - no white patch, no cloud, no oval,
+    no halo, no
+
+    glow, no mist, no panel, no banner, no box, no drop shadow.
+
+
+    Main characters and their faces stay well inside the picture; background detail
+    runs out to
+
+    all four edges with no white frame and no empty margin.
+
+
+    ART STYLE: {style}
+
+
+    Draw ONLY the illustration and the title. No guide lines, no dashed lines, no
+    crop marks,
+
+    no rulers, no labels, no captions, no annotations, no barcode, no ISBN, no price,
+    no logo,
+
+    no author name, no watermark, and no words of any kind other than "{title}".
+
+
+    Vertical portrait orientation, aspect ratio 8.625:11.25, maximum resolution.'
   nudge: 'Generate the image now. Output only the image itself, with no explanation
     and no text in your reply. '
   back_cover: 'THIS IS THE BACK COVER (REAR COVER OF THE BOOK).
@@ -344,7 +334,31 @@ prompts:
       on the front cover. CRITICAL REQUIREMENT: Render the attached cover image with
       100% exact visual fidelity. Do NOT generate or modify any artwork or text on
       the book cover. Keep the cover design identical to the attached image.'
-subjects: []
+subjects:
+- A cute baby dragon roasting a marshmallow over a tiny campfire.
+- A little dragon splashing happily in a bubbly bathtub with a rubber duck.
+- A smiling dragon wearing a party hat and holding a colorful balloon.
+- A chubby dragon sleeping curled up on a soft, fluffy cloud.
+- A playful dragon chasing a fluttering butterfly in a flower garden.
+- A tiny dragon wearing an oversized chef hat while mixing cake batter in a bowl.
+- A cheerful dragon building a big sandcastle on a sunny beach.
+- A cute dragon wearing a warm scarf and catching falling snowflakes on its tongue.
+- A friendly dragon watering potted flowers with a small watering can.
+- A happy dragon sitting under an apple tree and munching on a big red apple.
+- A baby dragon riding a wooden rocking horse with a wide grin.
+- A curious dragon looking at a snail resting on a giant mushroom.
+- A sweet dragon hugging a plush teddy bear tightly before bedtime.
+- A joyful dragon swinging high on a tire swing tied to an old tree branch.
+- A little dragon wearing snorkeling goggles and waving at a goldfish.
+- A baby dragon proudly flying a diamond-shaped kite on a windy hill.
+- A cozy dragon wearing round glasses and reading a large fairy tale book.
+- A happy dragon licking a towering ice cream cone with three scoops.
+- A tiny dragon blowing shiny soap bubbles through a bubble wand.
+- A mischievous dragon popping out of a large wrapped gift box.
+- A friendly dragon sharing an umbrella with a little green frog in the rain.
+- A baby dragon sitting comfortably inside a giant cracked eggshell.
+- A cute dragon wearing roller skates and wobbling with outstretched wings.
+- A sleepy dragon wrapped in a blanket watching twinkling stars from a window.
 cover_text:
   back_blurb: '
 
@@ -381,4 +395,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: forest-spirits-coloring-book-animal-mandalas-for-mindfulness
+_book: cute-dragon
