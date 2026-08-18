@@ -44,22 +44,48 @@ PT = 72.0  # 1 inch = 72 points
 #               "none"   = không có gáy
 #               "manual" = nhà in cấp số (bìa cứng còn tính cả độ dày bìa các-tông,
 #                          không suy ra được từ số trang) -> lấy print.spine_width
+# overhang: BÌA CỨNG CÓ KHỔ RIÊNG, LỚN HƠN RUỘT. Tấm các-tông nhô ra 0.25" ở ba
+#           cạnh ngoài, nên "trim của bìa" = trim ruột + 0.25 ngang và + 0.5 dọc.
+#           Bìa mềm thì bìa và ruột cùng khổ nên overhang = 0.
+# safety  : chữ phải cách đường gấp/trim bao nhiêu (đo từ mép trim của bìa).
+#
+# Số bìa cứng lấy từ template Lulu thật (8.5x11, 54 trang):
+#     TOTAL 19 x 12.75 | BOOK TRIM 8.75 x 11.5 | WRAP 0.625 | SAFETY 0.625
 BINDINGS: dict[str, dict] = {
     "perfect":   {"label": "Bìa mềm, gáy keo (Perfect Bound)",
-                  "wrap": 0.125, "spine": "calc",   "min_pages": 32},
+                  "wrap": 0.125, "overhang_w": 0.0,  "overhang_h": 0.0,
+                  "safety": 0.5,   "spine": "calc",   "min_pages": 32},
     "coil":      {"label": "Bìa mềm, gáy xoắn (Coil)",
-                  "wrap": 0.125, "spine": "none",   "min_pages": 2},
+                  "wrap": 0.125, "overhang_w": 0.0,  "overhang_h": 0.0,
+                  "safety": 0.5,   "spine": "none",   "min_pages": 2},
     "saddle":    {"label": "Bìa mềm, đóng ghim (Saddle Stitch)",
-                  "wrap": 0.125, "spine": "none",   "min_pages": 4},
+                  "wrap": 0.125, "overhang_w": 0.0,  "overhang_h": 0.0,
+                  "safety": 0.5,   "spine": "none",   "min_pages": 4},
     "hardcover": {"label": "Bìa cứng (Case Wrap)",
-                  "wrap": 0.875, "spine": "manual", "min_pages": 24},
+                  "wrap": 0.625, "overhang_w": 0.25, "overhang_h": 0.5,
+                  "safety": 0.625, "spine": "manual", "min_pages": 24},
     "linen":     {"label": "Bìa cứng, bìa vải lanh (Linen)",
-                  "wrap": 0.875, "spine": "manual", "min_pages": 24},
+                  "wrap": 0.625, "overhang_w": 0.25, "overhang_h": 0.5,
+                  "safety": 0.625, "spine": "manual", "min_pages": 24},
 }
 
 
 def binding_spec(binding: str) -> dict:
     return BINDINGS.get((binding or "perfect").lower(), BINDINGS["perfect"])
+
+
+def cover_trim(p: dict) -> tuple[float, float]:
+    """Khổ TRIM CỦA BÌA - khác khổ trim của ruột khi là bìa cứng.
+
+    Đây là chỗ tôi từng sai: mô hình cũ lấy trim ruột 8.5x11 rồi bù lại bằng lề
+    bao 0.875". Tổng kích thước tài liệu ra ĐÚNG (vì 0.25 nhô ra + 0.625 wrap =
+    0.875), nên Lulu vẫn nhận file - nhưng mọi ranh giới BÊN TRONG đều lệch 0.25":
+    vùng nhìn thấy bắt đầu ở 0.625 chứ không phải 0.875. Vì thế dải lấp nhân tạo
+    thò hẳn vào mặt bìa.
+    """
+    spec = binding_spec(p.get("binding", "perfect"))
+    return (float(p["trim_width"]) + float(spec["overhang_w"]),
+            float(p["trim_height"]) + float(spec["overhang_h"]))
 
 
 def cover_text_safe_pct(p: dict) -> int:
@@ -82,14 +108,66 @@ def cover_text_safe_pct(p: dict) -> int:
 
     spec = binding_spec(p.get("binding", "perfect"))
     wrap = float(spec["wrap"])
-    safety = float(p.get("safety_margin", 0.5))
-    trim_w = float(p["trim_width"])
-    trim_h = float(p["trim_height"])
+    safety = float(spec["safety"])
+    ct_w, ct_h = cover_trim(p)
 
-    panel_w = trim_w + wrap
-    panel_h = trim_h + wrap * 2
+    panel_w = ct_w + wrap
+    panel_h = ct_h + wrap * 2
     worst = max((wrap + safety) / panel_h, (wrap + safety) / panel_w) * 100
     return int(math.ceil(worst)) + 2
+
+
+def cover_art_insets(p: dict, spine_side: str) -> dict:
+    """Tỉ lệ mỗi cạnh ảnh bìa cần thu vào để KHÔNG có gì bị máy xén cắt mất.
+
+    build_cover kéo ảnh lấp đầy ô trim + lề bao, nên nội dung nằm sát mép ảnh sẽ
+    rơi trọn vào phần bị xén. Bìa cứng mất tới 21.8% diện tích - dặn model chừa
+    lề chỉ là lời thỉnh cầu, nó nghe hay không thì tuỳ.
+
+    Thu trước ở đây thì thành phép tính: ảnh gốc co lại vừa đúng vùng trim, phần
+    viền còn lại lấp bằng cách kéo giãn hàng pixel ngoài cùng. Model vẽ chữ ở đâu
+    cũng được đẩy vào trong.
+
+    spine_side: cạnh nào là nếp gấp gáy - 'left' cho bìa trước, 'right' cho bìa
+    sau. Cạnh đó KHÔNG bị xén nên không cần thu.
+    """
+    # BAO NHIÊU LỀ BAO THÌ THU VÀO - mặc định 0, tức KHÔNG thu.
+    #
+    # Thu trọn lề bao nghe thì an toàn, nhưng nó bịa ra một dải nhân tạo dày 0.875"
+    # phủ kín toàn bộ viền, và dải đó nhìn rất tệ - nhất là với bìa cứng, nơi mặt
+    # bìa nhìn thấy còn rộng hơn khổ trim vì tấm các-tông nhô ra, nên dải bịa thò
+    # cả vào vùng nhìn thấy.
+    #
+    # Để tranh tràn ra rồi bị xén mới là cách in bình thường: mất phần rìa là điều
+    # MONG MUỐN. Việc giữ chữ tiêu đề vào trong là của prompt, không phải của khâu
+    # cắt ghép ảnh.
+    #
+    #   cover_inset_ratio = 0    -> tranh tràn kín, không có dải bịa   (mặc định)
+    #                       0.5  -> thu nửa lề bao
+    #                       1.0  -> thu trọn lề bao, bảo hiểm tối đa nhưng dải dày
+    ratio = float(p.get("cover_inset_ratio", 0) or 0)
+    ratio = max(0.0, min(1.0, ratio))
+
+    spec = binding_spec(p.get("binding", "perfect"))
+    full_wrap = float(spec["wrap"])
+    wrap = full_wrap * ratio
+    extra = float(p.get("cover_safe_inset", 0) or 0)   # muốn lùi sâu hơn thì đặt thêm
+
+    # Ô đặt ảnh tính theo trim CỦA BÌA, không phải trim của ruột.
+    ct_w, ct_h = cover_trim(p)
+    panel_w = ct_w + full_wrap
+    panel_h = ct_h + full_wrap * 2
+
+    v = (wrap + extra) / panel_h
+    outer = (wrap + extra) / panel_w
+    inner = extra / panel_w                    # phía gáy: không xén, chỉ cộng phần dư
+
+    return {
+        "top": v,
+        "bottom": v,
+        "left": inner if spine_side == "left" else outer,
+        "right": inner if spine_side == "right" else outer,
+    }
 
 
 def cover_geometry(p: dict, page_count: int) -> dict:
@@ -101,8 +179,7 @@ def cover_geometry(p: dict, page_count: int) -> dict:
         dọc   = 11    +       0.875*2 = 12.75
     """
     spec = binding_spec(p.get("binding", "perfect"))
-    trim_w = float(p["trim_width"])
-    trim_h = float(p["trim_height"])
+    trim_w, trim_h = cover_trim(p)     # bìa cứng: đã cộng phần các-tông nhô ra
     wrap = float(spec["wrap"])
 
     mode = spec["spine"]
@@ -125,8 +202,16 @@ def cover_geometry(p: dict, page_count: int) -> dict:
                 f"Hãy mở trang tải lên của nhà in, chép đúng con số 'Độ rộng gáy' và "
                 f"nhập vào ô 'Độ rộng gáy do nhà in cấp' trên dashboard.")
     else:
-        spine = (float(manual) if manual not in (None, "")
-                 else spine_width(page_count, float(p.get("paper_thickness", 0.002252))))
+        # mode == "calc": chỉ coi là ghi đè khi người dùng nhập số DƯƠNG.
+        # spine_width = 0 phải hiểu là "tự tính", không phải "gáy bằng 0" - dashboard
+        # ghi 0 mỗi khi ô nhập trống (nó bị ẩn với bìa mềm), và bản trước lấy đúng
+        # số 0 đó làm gáy nên file bìa hụt hẳn phần gáy.
+        try:
+            override = float(manual) if manual not in (None, "") else 0.0
+        except (TypeError, ValueError):
+            override = 0.0
+        spine = override if override > 0 else spine_width(
+            page_count, float(p.get("paper_thickness", 0.002252)))
 
     return {
         "spec": spec,
@@ -409,7 +494,9 @@ def build_cover(
     # ô trắng chừa chỗ barcode (Chuẩn Lulu Template: 3.622" x 1.26", cách mép 0.5")
     if ct.get("barcode", True):
         bw, bh = 3.622 * PT, 1.26 * PT
-        margin = 0.5 * PT
+        # Template Lulu bìa cứng: mã vạch cách mép gáy 0.625" - dùng safety của
+        # chính loại đóng thay vì ghi cứng 0.5.
+        margin = float(binding_spec(p.get("binding", "perfect"))["safety"]) * PT
         bxx = (bl + tw) - margin - bw
         # Đo từ mép TRIM chứ không từ mép tài liệu: với bìa cứng, wrap dày 0.875"
         # nên byy = margin sẽ đặt mã vạch nằm lọt trong phần gập và bị mất hẳn.

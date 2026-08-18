@@ -1,22 +1,23 @@
 book:
-  title: cute dog
+  title: Forest Spirits Coloring Book - Animal Mandalas for Mindfulness and Relaxation
   subtitle: ''
   author: ''
-  num_images: 5
+  num_images: 48
   blank_verso: true
   front_matter_pages: 0
+  matter_pages: true
 print:
   trim_width: 8.5
   trim_height: 11
   bleed: 0.125
-  safety_margin: 0.5
+  safety_margin: 0.6
   gutter: 0.375
   dpi: 300
-  paper_thickness: 0.002252
-  binding: hardcover
+  paper_thickness: 0.00337
+  binding: perfect
   min_pages: 32
   cover_wrap: 0.25
-  spine_width: 0.5
+  spine_width: 0.29
   full_bleed_interior: false
   interior_border: true
   interior_border_width: 1.5
@@ -53,61 +54,136 @@ prompts:
     sun yellow, soft coral, sky blue, mint green, cozy lavender, warm cream) filled
     with soft gradient shading. - NO photorealism, NO harsh 3D glossy plastic renders,
     NO dark gritty shadows. '
-  front_cover: "A vibrant, eye-catching, high-quality full-colour FRONT COVER illustration\
-    \ for a\nchildren's coloring book.\n\nPRINT SAFETY - READ THIS FIRST, IT OVERRIDES\
-    \ EVERYTHING ELSE BELOW:\nThis image will be physically printed and then trimmed\
-    \ by a cutting machine. The outer\nedge of the image gets sliced off and thrown\
-    \ away, so anything placed near an edge is\ndestroyed.\n- The ARTWORK must fill\
-    \ the whole canvas, edge to edge, corner to corner, with no\n  white frame and\
-    \ no empty margin. Losing a little artwork at the edges is fine and\n  expected.\n\
-    - ALL TEXT is the opposite. Every letter of the title, and any other lettering,\
-    \ must\n  stay well inside a central safe box: NOTHING written may come closer\
-    \ than {safe_pct} percent\n  of the image size to ANY edge - not the top, not\
-    \ the bottom, not the left, not the\n  right. Treat that outer {safe_pct} percent\
-    \ band of the image on all four sides as a forbidden strip\n  where letters must\
-    \ never appear.\n- Do NOT let any letter touch, cross, or even come close to an\
-    \ edge. Do NOT run the\n  title off the side of the image. Do NOT crop or clip\
-    \ any letter.\n- Leave clearly visible breathing space between the title and the\
-    \ top edge. The title\n  belongs in the upper area of the cover, but comfortably\
-    \ BELOW the top forbidden\n  strip, not pushed up against the top of the image.\n\
-    \nBOOK TITLE TEXT: Prominently render and display the book title text \"{title}\"\
-    \ in large,\nbeautiful, colorful, readable typography in the upper portion of\
-    \ the cover, perfectly\nintegrated into the illustration artwork style, and fully\
-    \ inside the safe box described\nabove. Spell the title EXACTLY as written, letter\
-    \ for letter. If the title is long,\nbreak it onto two or three shorter centred\
-    \ lines and reduce the letter size rather than\nletting it stretch toward the\
-    \ edges.\n\nCOMPOSITION & LAYOUT (CREATIVE & DYNAMIC): Create an engaging, beautifully\
-    \ balanced\ncomposition suited to the theme. You may choose one of the following\
-    \ dynamic compositions:\n- SCENIC STORYBOOK LAYOUT: 1-3 adorable main characters\
-    \ interacting playfully in a rich,\ndetailed environment (such as a cozy room,\
-    \ magical meadow, underwater world, or fantasy\nlandscape) with distinct foreground,\
-    \ midground, and background depth. - EMBLEM /\nVIGNETTE LAYOUT: Main character\
-    \ framed nicely inside a central decorative arch, ribbon,\nor circular vignette\
-    \ with surrounding thematic elements (stars, flowers, leaves, toys).\n- FULL-PAGE\
-    \ ACTION / PLAY SCENE: Characters engaging in a joyful, dynamic activity with\n\
-    colorful props and environment details filling the scene naturally.\nKeep the\
-    \ main characters and any focal detail inside the same central safe box, so the\n\
-    trimming machine cannot cut a face or a head in half.\n\nART STYLE & QUALITY:\
-    \ {style}\n\nRULES: Render ONLY the specified book title text \"{title}\". Do\
-    \ NOT add any extra random\nscrambled letters, misspelled words, captions, author\
-    \ names, publisher marks or\nwatermarks. Vertical portrait orientation, aspect\
-    \ ratio 8.625:11.25, maximum resolution,\ncrisp details, professional book publishing\
-    \ quality."
+  front_cover: 'A vibrant, eye-catching, high-quality full-colour FRONT COVER illustration
+    for a
+
+    children''s coloring book.
+
+
+    WHAT THIS BOOK IS ABOUT - build the cover from THIS, not from your own defaults.
+    These
+
+    are real scenes taken from inside the book:
+
+    {subject_hint}
+
+
+    CAST RULE - STRICT: every character, creature and object on this cover must belong
+    to
+
+    the subject of this book as shown in the scenes above and in the title "{title}".
+    Do NOT
+
+    invent extra characters just to fill the picture. In particular, do NOT add a
+    fox, a
+
+    rabbit, a bear, a squirrel, a deer, an owl or any other generic storybook animal
+    unless
+
+    that animal is genuinely part of this book''s subject. If one hero character is
+    not
+
+    enough to fill the cover, show MORE OF THE SAME subject in different poses, sizes
+    and
+
+    expressions - never a different species.
+
+
+    SETTING RULE - STRICT: the background must come from this book''s own world, taken
+    from
+
+    the scenes listed above. Do NOT default to a green forest, a woodland clearing,
+    a flower
+
+    meadow or rolling hills unless those scenes actually appear in the list above.
+    Choose the
+
+    environment that genuinely fits this book, and make it specific and characterful.
+
+
+    LAYOUT FOR THIS COVER - use this one, do not substitute another:
+
+    {cover_layout}
+
+
+    BOOK TITLE TEXT: Prominently render and display the book title text "{title}"
+    in large,
+
+    beautiful, colorful, readable typography in the upper part of the cover, perfectly
+
+    integrated into the illustration artwork style. Spell the title EXACTLY as written,
+
+    letter for letter. If the title is long, break it onto two or three shorter centred
+
+    lines and make the letters smaller, rather than letting the words stretch out
+    wide.
+
+
+    TITLE PLACEMENT: Give the title generous breathing room. It should sit comfortably
+
+    within the middle of the cover, framed by artwork on every side, with a clear
+    cushion of
+
+    illustration above it and below it. Never push the lettering out towards the edge
+    of the
+
+    picture, and never let a letter run off the side.
+
+
+    Keep the main characters and their faces well inside the picture, comfortably
+    away from
+
+    the outer edge. Background scenery and small decorative details should carry on
+    right to
+
+    the edges so the artwork fills the whole canvas with no white frame and no empty
+    margin.
+
+
+    ART STYLE & QUALITY: {style}
+
+
+    THIS IS A FINISHED PIECE OF ARTWORK, NOT A DIAGRAM. Draw ONLY the illustration
+    and the
+
+    book title. Absolutely do NOT draw any of the following: no guide lines, no dashed
+    or
+
+    dotted lines, no crop marks, no rulers, no measurement marks, no coloured bands
+    or strips
+
+    along any edge, no rectangles or boxes outlining regions of the page, no labels,
+    no
+
+    captions, no annotations, no instructions, no notes to the printer, no barcode,
+    no ISBN,
+
+    no price, no publisher logo, no author name, no watermark, and no words of any
+    kind other
+
+    than the book title "{title}" itself.
+
+
+    Vertical portrait orientation, aspect ratio 8.625:11.25, maximum resolution, crisp
+
+    details, professional book publishing quality.'
   nudge: 'Generate the image now. Output only the image itself, with no explanation
     and no text in your reply. '
-  back_cover: 'THIS IS THE BACK COVER (REAR COVER OF THE BOOK). DO NOT WRITE OR DRAW
-    ANY TITLE TEXT.
+  back_cover: 'THIS IS THE BACK COVER (REAR COVER OF THE BOOK).
 
 
     Generate the matching BACK COVER for the children''s coloring book.
 
 
-    CRITICAL RULE - NO TITLE TEXT: Unlike the front cover, this BACK COVER must have
+    CRITICAL RULE - ABSOLUTELY NO TEXT: this BACK COVER must contain ZERO words, ZERO
 
-    ABSOLUTELY ZERO WORDS, ZERO TITLE TEXT, ZERO LETTERS, and ZERO HEADINGS. Do NOT
+    letters, ZERO numbers and ZERO headings. Do NOT repeat the book title. Do NOT
+    draw a
 
-    repeat or render the book title on this back cover image. Pure illustration artwork
-    only.
+    barcode, an ISBN, a price box, a publisher logo, an author name, a watermark,
+    a label
+
+    or any annotation. Pure illustration artwork only, nothing else.
 
 
     MATCHING ART STYLE & COLOUR: MUST use EXACTLY the same art style, colour palette
@@ -117,63 +193,69 @@ prompts:
     matching set.
 
 
+    CAST RULE - STRICT: every character and creature must belong to the subject of
+    this
+
+    book, exactly the same cast as the front cover. Do NOT add a fox, a rabbit, a
+    bear, a
+
+    squirrel, a deer, an owl or any other generic storybook animal unless it is genuinely
+
+    part of this book''s subject. Do NOT default to a green forest, a woodland clearing
+    or a
+
+    flower meadow unless that is truly this book''s setting.
+
+
     COMPLETE EDGE-TO-EDGE ARTWORK - THIS IS THE MOST IMPORTANT RULE: The illustration
+    must
 
-    must fill the ENTIRE canvas completely, corner to corner, with an even level of
+    fill the ENTIRE canvas completely, corner to corner, with an even level of finish
 
-    finish everywhere. Every square inch must be fully drawn and fully coloured.
+    everywhere. Every square inch must be fully drawn and fully coloured.
 
 
     STRICTLY FORBIDDEN - do NOT produce any of the following: NO white glow, NO bright
 
     haze, NO blank white patch, NO empty unpainted area, NO washed-out region, NO
-    faded
+    faded or
 
-    or blurred zone, NO soft spotlight, NO vignette, NO radial gradient burst, NO
+    blurred zone, NO soft spotlight, NO vignette, NO radial gradient burst, NO reserved
 
-    reserved blank space of any kind. There must be NO area that looks unfinished,
+    blank space of any kind, NO guide lines, NO dashed lines, NO crop marks, NO coloured
 
-    overexposed, or deliberately left empty. If a region has few objects, it must
-    still
+    bands or strips along any edge, NO rectangles outlining regions of the page. There
+    must
 
-    be fully illustrated with background detail such as wallpaper pattern, sky, foliage
+    be NO area that looks unfinished, overexposed, or deliberately left empty. If
+    a region
 
-    or floor, drawn and coloured at the same quality as the rest.
+    has few objects, it must still be fully illustrated with background detail such
+    as
+
+    wallpaper pattern, sky, foliage or floor, drawn and coloured at the same quality
+    as the
+
+    rest.
 
 
     COMPOSITION: Create a complementary scene that feels distinct from the front cover
-    -
+    - a
 
-    a charming continuation of the story. Good options: the characters resting at
-    sunset,
+    charming continuation of the story. Good options: the characters resting at sunset,
 
     waving goodbye, sleeping cosily under stars, or playing with secondary theme elements.
 
     Spread interest evenly across the whole image rather than concentrating everything
     in
 
-    one spot.
+    one spot. Keep the busiest detail and the characters'' faces away from the very
+    corners,
+
+    and let calmer background scenery sit in the corner areas instead.
 
 
-    BOTTOM-RIGHT CORNER: A small rectangular barcode label will later be pasted over
-    the
-
-    bottom-right corner. Keep the main characters and the most important details OUT
-    of
-
-    that corner, but still draw and colour it completely with ordinary background
-    scenery.
-
-    Do NOT leave it blank and do NOT lighten it.
-
-
-    RULES: ABSOLUTELY NO TEXT of any kind: NO title, NO letters, NO words, NO numbers,
-
-    NO logos, NO signatures, no watermarks anywhere in the image. Pure artwork
-
-    illustration only. Vertical portrait orientation, aspect ratio 8.5:11, maximum
-
-    resolution.'
+    Vertical portrait orientation, aspect ratio 8.625:11.25, maximum resolution.'
   previews:
     preview_1: 'Generate a professional ecommerce product mockup photograph of a physical
       paperback
@@ -262,79 +344,7 @@ prompts:
       on the front cover. CRITICAL REQUIREMENT: Render the attached cover image with
       100% exact visual fidelity. Do NOT generate or modify any artwork or text on
       the book cover. Keep the cover design identical to the attached image.'
-  front_cover_custom: "A vibrant, eye-catching, high-quality full-colour FRONT COVER\
-    \ illustration for a children's coloring book.\nBOOK TITLE TEXT: Prominently render\
-    \ and display the book title text \"Cozy Nature Getaway Coloring Book\" in large,\
-    \ beautiful, colorful, readable typography at the top of the cover, perfectly\
-    \ integrated into the illustration artwork style.\nCOMPOSITION & LAYOUT (CREATIVE\
-    \ & DYNAMIC): Create an engaging, beautifully balanced composition suited to the\
-    \ theme. You may choose one of the following dynamic compositions: - SCENIC STORYBOOK\
-    \ LAYOUT: 1-3 adorable main characters interacting playfully in a rich, detailed\
-    \ environment (such as a cozy room, magical meadow, underwater world, or fantasy\
-    \ landscape) with distinct foreground, midground, and background depth. - EMBLEM\
-    \ / VIGNETTE LAYOUT: Main character framed nicely inside a central decorative\
-    \ arch, ribbon, or circular vignette with surrounding thematic elements (stars,\
-    \ flowers, leaves, toys). - FULL-PAGE ACTION / PLAY SCENE: Characters engaging\
-    \ in a joyful, dynamic activity with colorful props and environment details filling\
-    \ the scene naturally.\nART STYLE & QUALITY: ART STYLE (HAND-COLORED COLORING\
-    \ BOOK STYLE): Vibrant, charming children's coloring book cover style that looks\
-    \ like a beautifully completed hand-colored illustration. - LINEWORK: Bold, clean,\
-    \ crisp black outlines defining all characters and elements, matching the line-art\
-    \ style inside the coloring book. - COLORING & TEXTURE: Filled with rich, cheerful,\
-    \ vibrant colors having subtle colored pencil and crayon shading textures within\
-    \ the black outlines, giving it a warm, delightful hand-colored look. - COLOR\
-    \ PALETTE: Harmonious, bright, friendly colors (warm sun yellow, soft coral, sky\
-    \ blue, mint green, cozy lavender, warm cream) filled with soft gradient shading.\
-    \ - NO photorealism, NO harsh 3D glossy plastic renders, NO dark gritty shadows.\
-    \ \nRULES: Render ONLY the specified book title text \"Cozy Nature Getaway Coloring\
-    \ Book\". Do NOT add any extra random scrambled letters or watermarks. Vertical\
-    \ portrait orientation, aspect ratio 8.5:11, maximum resolution, crisp details,\
-    \ professional book publishing quality."
-  back_cover_custom: 'THIS IS THE BACK COVER (REAR COVER OF THE BOOK). DO NOT WRITE
-    OR DRAW ANY TITLE TEXT.
-
-    Generate the matching BACK COVER for the children''s coloring book.
-
-    CRITICAL RULE - NO TITLE TEXT: Unlike the front cover, this BACK COVER must have
-    ABSOLUTELY ZERO WORDS, ZERO TITLE TEXT, ZERO LETTERS, and ZERO HEADINGS. Do NOT
-    repeat or render the book title on this back cover image. Pure background illustration
-    artwork only.
-
-    MATCHING ART STYLE & COLOUR: MUST use EXACTLY the same art style, colour palette
-    (ART STYLE (HAND-COLORED COLORING BOOK STYLE): Vibrant, charming children''s coloring
-    book cover style that looks like a beautifully completed hand-colored illustration.
-    - LINEWORK: Bold, clean, crisp black outlines defining all characters and elements,
-    matching the line-art style inside the coloring book. - COLORING & TEXTURE: Filled
-    with rich, cheerful, vibrant colors having subtle colored pencil and crayon shading
-    textures within the black outlines, giving it a warm, delightful hand-colored
-    look. - COLOR PALETTE: Harmonious, bright, friendly colors (warm sun yellow, soft
-    coral, sky blue, mint green, cozy lavender, warm cream) filled with soft gradient
-    shading. - NO photorealism, NO harsh 3D glossy plastic renders, NO dark gritty
-    shadows. ), line weight, and character design as the front cover to form a seamless
-    matching set.
-
-    CREATIVE & DYNAMIC BACK COVER COMPOSITION OPTIONS: Create a complementary scene
-    or composition that feels distinct from the front cover: - STORY CONTINUATION
-    LAYOUT: A charming continuation scene (e.g. characters resting at sunset, waving
-    goodbye, sleeping cozy under stars, or playing with secondary theme elements).
-    - CORNER / BOTTOM VIGNETTE LAYOUT: A cute mini-scene featuring 1-2 secondary characters
-    or objects placed in the bottom or lower corner with decorative elements framing
-    the edges. - PASTEL PATTERN & FRAME LAYOUT: A subtle, whimsical background pattern
-    (cloud, star, flower, or paw motifs) with a soft, clean central area.
-
-    TEXT & BARCODE BLURB AREA: Keep the middle/upper central area visually soft, clean,
-    and uncluttered so text blurb and ISBN barcode can be placed cleanly.
-
-    RULES: ABSOLUTELY NO TEXT of any kind: NO title, NO title text, NO letters, NO
-    words, NO numbers, NO logos, NO signatures, or watermarks anywhere in the image.
-    Pure artwork illustration only. Vertical portrait orientation, aspect ratio 8.5:11,
-    maximum resolution.'
-subjects:
-- A happy puppy splashing inside a bubble bath with a yellow rubber duck.
-- A fluffy dog wearing a party hat next to a birthday cake with one candle.
-- A cute puppy sleeping curled up inside a basket with a small teddy bear.
-- A playful dog chasing a fluttering butterfly in a field of sunflowers.
-- A little puppy digging in the sand at the beach next to a simple sandcastle.
+subjects: []
 cover_text:
   back_blurb: '
 
@@ -371,4 +381,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: cute-dog
+_book: forest-spirits-coloring-book-animal-mandalas-for-mindfulness

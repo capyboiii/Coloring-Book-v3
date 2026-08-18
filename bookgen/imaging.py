@@ -144,11 +144,89 @@ def check_dpi(path: Path, w_in: float, h_in: float, min_dpi: int = 300) -> tuple
     return dpi >= min_dpi - 1, dpi
 
 
-def prepare_cover_art(src: Path, dest: Path, w_px: int, h_px: int) -> Path:
-    """Bìa: giữ màu, chỉ resize/crop và ép RGB 300 DPI."""
+def _fill_blur(img: Image.Image, W: int, H: int) -> Image.Image:
+    """Nền cho dải viền: phóng chính ảnh lấp kín khung rồi làm mờ mạnh.
+
+    Kéo giãn một hàng pixel ra 0.8 inch tạo thành vệt sọc rất lộ. Nền mờ thì
+    không sọc, không nhân đôi chi tiết, màu vẫn đúng, và mắt đọc nó như bóng đổ
+    chứ không như tranh - hỏng cũng chỉ hỏng thành một vùng màu vô hại.
+    """
+    scale = max(W / img.width, H / img.height)
+    big = img.resize((max(1, round(img.width * scale)),
+                      max(1, round(img.height * scale))), Image.LANCZOS)
+    left = (big.width - W) // 2
+    top = (big.height - H) // 2
+    bg = big.crop((left, top, left + W, top + H))
+    return bg.filter(ImageFilter.GaussianBlur(radius=max(8, W // 60)))
+
+
+def _inset_with_edge_fill(img: Image.Image, W: int, H: int, insets: dict,
+                          mode: str = "blur") -> Image.Image:
+    """Thu ảnh vào giữa rồi lấp viền bằng hàng pixel ngoài cùng kéo giãn ra.
+
+    Vì sao kéo giãn chứ không để trắng hay soi gương: phần viền này chính là chỗ
+    bị máy xén cắt bỏ (bìa mềm) hoặc gập vào mặt trong tấm bìa các-tông (bìa
+    cứng) - gần như không ai nhìn thấy. Kéo giãn thì liền mạch với tranh, không
+    đẻ ra chi tiết lạ như soi gương, và không để lộ khung trắng.
+    """
+    t = max(0, round(H * insets.get("top", 0)))
+    b = max(0, round(H * insets.get("bottom", 0)))
+    l = max(0, round(W * insets.get("left", 0)))
+    r = max(0, round(W * insets.get("right", 0)))
+    iw, ih = W - l - r, H - t - b
+    if iw <= 0 or ih <= 0:                     # thu quá tay -> thà giữ nguyên
+        return img.resize((W, H), Image.LANCZOS)
+
+    art = img.resize((iw, ih), Image.LANCZOS)
+
+    if mode == "blur":
+        out = _fill_blur(img, W, H)
+        out.paste(art, (l, t))
+        return out
+
+    out = Image.new("RGB", (W, H))
+    out.paste(art, (l, t))
+    if mode == "mirror":
+        if t:
+            out.paste(art.crop((0, 0, iw, t)).transpose(Image.FLIP_TOP_BOTTOM), (l, 0))
+        if b:
+            out.paste(art.crop((0, ih - b, iw, ih)).transpose(Image.FLIP_TOP_BOTTOM), (l, H - b))
+        if l:
+            out.paste(out.crop((l, 0, l + l, H)).transpose(Image.FLIP_LEFT_RIGHT), (0, 0))
+        if r:
+            out.paste(out.crop((W - r - r, 0, W - r, H)).transpose(Image.FLIP_LEFT_RIGHT), (W - r, 0))
+        return out
+
+    # mode == "stretch": kéo giãn hàng pixel ngoài cùng.
+    # Trên/dưới trước, rồi trái/phải kéo trọn chiều cao -> bốn góc tự lấp đúng.
+    if t:
+        out.paste(art.crop((0, 0, iw, 1)).resize((iw, t), Image.NEAREST), (l, 0))
+    if b:
+        out.paste(art.crop((0, ih - 1, iw, ih)).resize((iw, b), Image.NEAREST), (l, H - b))
+    if l:
+        out.paste(out.crop((l, 0, l + 1, H)).resize((l, H), Image.NEAREST), (0, 0))
+    if r:
+        out.paste(out.crop((W - r - 1, 0, W - r, H)).resize((r, H), Image.NEAREST), (W - r, 0))
+    return out
+
+
+def prepare_cover_art(src: Path, dest: Path, w_px: int, h_px: int,
+                      insets: dict | None = None, fill: str = "blur") -> Path:
+    """Bìa: giữ màu, resize/crop, ép RGB 300 DPI.
+
+    insets = tỉ lệ mỗi cạnh cần thu vào (pdf_builder.cover_art_insets). Có thì
+    tranh được đẩy trọn vào vùng an toàn, không còn phụ thuộc việc model có chịu
+    chừa lề hay không.
+    """
     img = Image.open(src).convert("RGB")
     img = _fit_to_ratio(img, w_px, h_px)
-    img = img.resize((w_px, h_px), Image.LANCZOS)
+    if insets:
+        img = _inset_with_edge_fill(img, w_px, h_px, insets, fill)
+        log.info("Thu bìa %s (%s): trên/dưới %.1f%%, trái %.1f%%, phải %.1f%%.",
+                 src.name, fill, insets.get("top", 0) * 100,
+                 insets.get("left", 0) * 100, insets.get("right", 0) * 100)
+    else:
+        img = img.resize((w_px, h_px), Image.LANCZOS)
     dest.parent.mkdir(parents=True, exist_ok=True)
     img.save(dest, "PNG", dpi=(300, 300))
     return dest

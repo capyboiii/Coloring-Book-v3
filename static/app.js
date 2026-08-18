@@ -12,8 +12,11 @@ const TRIM_PRESETS = {
   "square_medium": { width: 8.25, height: 8.25 }
 };
 
+// 60_white ĐO TỪ TEMPLATE LULU THẬT: 54 trang -> gáy 0.18163" => 0.003364 in/trang.
+// Con số 0.002252 cũ sai gần 1.5 lần, và vì ô chọn giấy ghi đè config nên chỉ cần
+// chạm vào nó là toàn bộ thiết lập gáy bị phá.
 const PAPER_THICKNESS = {
-  "60_white": 0.002252,
+  "60_white": 0.00337,
   "60_cream": 0.0025,
   "70_white": 0.0023,
   "80_white": 0.003
@@ -118,7 +121,7 @@ function syncConfigToUI() {
   document.getElementById('trim-height').value = th;
 
   // Sync Paper Dropdown
-  const pt = print.paper_thickness || 0.002252;
+  const pt = print.paper_thickness || 0.00337;
   const matchPaper = Object.keys(PAPER_THICKNESS).find(k => Math.abs(PAPER_THICKNESS[k] - pt) < 0.0001);
   if (matchPaper) {
     document.getElementById('paper-type-select').value = matchPaper;
@@ -128,6 +131,7 @@ function syncConfigToUI() {
   document.getElementById('binding-type-select').value = print.binding || "perfect";
   const spineEl = document.getElementById('spine-width');
   if (spineEl) spineEl.value = print.spine_width ?? 0;
+  syncBookSizeSelect();
   updateBindingHint();
 
   // Sync Safety Margin Dropdown
@@ -149,6 +153,8 @@ function syncConfigToUI() {
     headEl.value = cfg.browser?.headless !== false ? "true" : "false";
   }
   document.getElementById('process-pure-bw').value = cfg.process?.pure_bw ? "true" : "false";
+  const matterEl = document.getElementById('matter-pages-select');
+  if (matterEl) matterEl.value = (cfg.book?.matter_pages === false) ? "false" : "true";
 
   // Hiệu năng & phiên Chrome
   const b = cfg.browser || {};
@@ -229,6 +235,33 @@ const BINDINGS = {
   linen:     { label: "Bìa cứng, bìa vải lanh", wrap: 0.875, spine: "manual", minPages: 24 },
 };
 
+// Khổ sách -> độ rộng gáy. SỐ DO NHÀ IN CẤP, không phải công thức tính.
+// Đã trả giá vì tự tính: 32 trang tính ra 0.1078" trong khi Lulu đòi 0.132".
+const BOOK_SIZES = {
+  "24": { numImages: 24, spine: 0.182 },
+  "48": { numImages: 48, spine: 0.29 },
+};
+
+function onBookSizeChange() {
+  const key = document.getElementById('book-size-select')?.value;
+  const preset = BOOK_SIZES[key];
+  if (preset) {
+    const n = document.getElementById('book-num-images');
+    const s = document.getElementById('spine-width');
+    if (n) n.value = preset.numImages;
+    if (s) s.value = preset.spine;
+  }
+  saveConfigFromUI();
+}
+
+// Đang ở khổ nào: suy từ số trang hiện tại, không khớp thì là "tuỳ chỉnh".
+function syncBookSizeSelect() {
+  const el = document.getElementById('book-size-select');
+  if (!el) return;
+  const n = String(numOr('book-num-images', 0));
+  el.value = BOOK_SIZES[n] ? n : "custom";
+}
+
 function updateBindingHint() {
   const el = document.getElementById('binding-hint');
   if (!el) return;
@@ -238,8 +271,10 @@ function updateBindingHint() {
   const th = parseFloat(document.getElementById('trim-height')?.value) || 11;
   const manual = parseFloat(document.getElementById('spine-width')?.value) || 0;
 
+  // Ô nhập gáy LUÔN hiện: bìa mềm cũng phải chép số nhà in cấp, vì công thức
+  // tự tính lệch giữa các sản phẩm (32 trang: tính 0.1078" / Lulu đòi 0.132").
   const grp = document.getElementById('spine-width-group');
-  if (grp) grp.style.display = (spec.spine === "manual") ? "" : "none";
+  if (grp) grp.style.display = "";
 
   let spine = 0, spineNote = "gáy 0 (loại này không có gáy)";
   if (spec.spine === "manual") {
@@ -249,8 +284,9 @@ function updateBindingHint() {
       : `⚠️ CHƯA nhập độ rộng gáy — bìa cứng thì nhà in phải cấp số này, tính theo số trang sẽ SAI vì còn độ dày bìa các-tông`;
   } else if (spec.spine === "calc") {
     spine = manual || 0;
-    spineNote = manual ? `gáy ${manual}" (bạn nhập, đè lên số tự tính)`
-                       : "gáy tự tính theo số trang khi dựng PDF";
+    spineNote = manual
+      ? `gáy ${manual}" (số nhà in cấp)`
+      : "⚠️ chưa nhập gáy — sẽ tự tính theo số trang, con số này hay LỆCH so với nhà in";
   }
 
   const w = (tw * 2 + spine + spec.wrap * 2).toFixed(3);
@@ -301,7 +337,7 @@ function updateBrowserPerfHint() {
 
 async function saveConfigFromUI() {
   const paperKey = document.getElementById('paper-type-select').value;
-  const paper_thick = PAPER_THICKNESS[paperKey] || 0.002252;
+  const paper_thick = PAPER_THICKNESS[paperKey] || 0.00337;
   const marginVal = parseFloat(document.getElementById('safety-margin-select').value);
   const borderVal = document.getElementById('interior-border-select').value === "true";
   const genTimeout = numOr('browser-generation-timeout', 240);
@@ -323,6 +359,7 @@ async function saveConfigFromUI() {
       subtitle: document.getElementById('book-subtitle').value,
       author: document.getElementById('book-author').value,
       num_images: parseInt(document.getElementById('book-num-images').value),
+      matter_pages: document.getElementById('matter-pages-select')?.value !== "false",
       blank_verso: document.getElementById('blank-verso').value === "true",
       front_matter_pages: parseInt(document.getElementById('front-matter-select').value)
     },

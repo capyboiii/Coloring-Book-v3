@@ -103,7 +103,7 @@ LULU_PRESETS = {
         {"id": "a4", "name": "A4 (8.27 x 11.69 in)", "width": 8.27, "height": 11.69, "popular": False},
     ],
     "paper_types": [
-        {"id": "60_white", "name": "60# White Paper (Standard)", "thickness": 0.002252, "desc": "0.002252 in/trang - Chuẩn ruột sách tô màu"},
+        {"id": "60_white", "name": "60# White Paper (Standard)", "thickness": 0.00337, "desc": "0.003370 in/trang (do tu template Lulu) - Chuẩn ruột sách tô màu"},
         {"id": "60_cream", "name": "60# Cream Paper (Classic)", "thickness": 0.0025, "desc": "0.002500 in/trang - Giấy ngà truyền thống"},
         {"id": "70_white", "name": "70# White Coated (Premium)", "thickness": 0.0023, "desc": "0.002300 in/trang - Giấy bóng dày dặn"},
         {"id": "80_white", "name": "80# White Coated (Heavy)", "thickness": 0.003, "desc": "0.003000 in/trang - Giấy siêu dày cao cấp"},
@@ -209,17 +209,31 @@ def sync_book_config(slug: str) -> dict:
         "safety_margin": 0.5,
         "gutter": 0.375,
         "dpi": 300,
-        "paper_thickness": 0.002252,
+        "paper_thickness": 0.00337,
         "binding": "perfect",
         "min_pages": 32,
         "cover_wrap": 0.25
     }
     
+    # THÔNG SỐ IN LÀ DÙNG CHUNG, CHỈ ĐỘ RỘNG GÁY LÀ THEO TỪNG CUỐN.
+    #
+    # Bản trước cho cả khối state["print"] đè lên config.yaml. Mỗi cuốn vì thế
+    # đóng băng một bản sao thông số in từ lúc nó được tạo, và sửa cấu hình toàn
+    # cục KHÔNG lan sang cuốn cũ. Đã trả giá thật: cute-dog giữ spine_width 0.5
+    # của đợt thử bìa cứng, dựng ra bìa rộng 17.75 trong khi cần 17.382, còn
+    # paper_thickness thì vẫn là 0.002252 sai từ đầu.
+    #
+    # Độ rộng gáy thì ngược lại - nó phụ thuộc số trang của CHÍNH cuốn đó và do
+    # nhà in cấp, nên bắt buộc phải giữ riêng.
+    PER_BOOK_PRINT = ("spine_width",)
+
     cfg_print = DEFAULT_PRINT.copy()
     if isinstance(cfg.get("print"), dict):
         cfg_print.update(cfg["print"])
     if isinstance(state.get("print"), dict):
-        cfg_print.update(state["print"])
+        for k in PER_BOOK_PRINT:
+            if state["print"].get(k) is not None:
+                cfg_print[k] = state["print"][k]
     cfg["print"] = cfg_print
 
     if "cover_text" in state:
@@ -250,7 +264,11 @@ def sync_book_config(slug: str) -> dict:
     state["blank_verso"] = blank_verso
     state["book"] = cfg["book"]
     state["cover_text"] = cfg.get("cover_text", {})
-    state["print"] = cfg.get("print", {})
+    # Chỉ lưu lại phần THEO CUỐN. Ghi cả khối print vào state là cách cái bẫy
+    # trên tự tái sinh: lần sau đọc lên nó lại đè config.
+    state["print"] = {k: cfg.get("print", {}).get(k)
+                      for k in PER_BOOK_PRINT
+                      if cfg.get("print", {}).get(k) is not None}
     state["subjects"] = cfg.get("subjects", [])
     state["backend"] = cfg.get("backend", "api")
     state["process"] = cfg.get("process", {})
@@ -993,10 +1011,18 @@ def get_raw_inspector_details():
         has_proc = key in proc_files
         status = reviews.get(key, "pending" if has_raw else "missing")
         
-        if key == "cover_front":
-            subj = cfg.get("prompts", {}).get("front_cover_custom") or cfg.get("prompts", {}).get("front_cover", "").format(title=title, style=style)
+        tpl_key = "front_cover" if key == "cover_front" else "back_cover"
+        saved = (state.get("prompts") or {}).get(f"{tpl_key}_custom")
+        if saved:
+            subj = saved
         else:
-            subj = cfg.get("prompts", {}).get("back_cover_custom") or cfg.get("prompts", {}).get("back_cover", "").format(title=title, style=style)
+            try:
+                subj = cfg["prompts"][tpl_key].format(
+                    title=title, style=style,
+                    safe_pct=book_main.cover_safe_pct(cfg),
+                    **book_main.cover_prompt_extras(cfg))
+            except Exception:
+                subj = cfg.get("prompts", {}).get(tpl_key, "")
 
         items.append({
             "key": key,
@@ -1058,7 +1084,8 @@ def update_inspector_subject(payload: dict):
     if key.startswith("page_"):
         try:
             idx = int(key.replace("page_", "")) - 1
-            subjects = list(cfg.get("subjects") or [])
+            # seed tu state cua cuon nay, khong tu config.yaml (cua cuon khac)
+            subjects = list(state.get("subjects") or cfg.get("subjects") or [])
             while len(subjects) <= idx:
                 subjects.append("")
             subjects[idx] = subject
@@ -1070,14 +1097,12 @@ def update_inspector_subject(payload: dict):
             book_main.save_state(P["state_file"], state)
         except ValueError:
             pass
-    elif key == "cover_front":
-        cfg.setdefault("prompts", {})["front_cover_custom"] = subject
-        with open(ROOT / "config.yaml", "w", encoding="utf-8") as f:
-            yaml.dump(cfg, f, allow_unicode=True, sort_keys=False)
-    elif key == "cover_back":
-        cfg.setdefault("prompts", {})["back_cover_custom"] = subject
-        with open(ROOT / "config.yaml", "w", encoding="utf-8") as f:
-            yaml.dump(cfg, f, allow_unicode=True, sort_keys=False)
+    elif key in ("cover_front", "cover_back"):
+        # Theo TUNG CUON. Luu toan cuc thi moi cuon sau deu dinh prompt cua cuon
+        # dau tien, kem ca tieu de cu da nuong cung vao text.
+        tpl_key = "front_cover" if key == "cover_front" else "back_cover"
+        state.setdefault("prompts", {})[f"{tpl_key}_custom"] = subject
+        book_main.save_state(P["state_file"], state)
             
     return {"status": "success", "key": key, "subject": subject}
 
@@ -1167,7 +1192,12 @@ def process_inspector_image_single(payload: dict):
     
     from bookgen import imaging
     if key.startswith("cover_"):
-        imaging.prepare_cover_art(raw_file, proc_file, w_px, h_px)
+        # Bìa trước: nếp gấp gáy bên trái; bìa sau: bên phải.
+        spine_side = "right" if key == "cover_back" else "left"
+        pr_cfg = cfg.get("print") or {}
+        insets = pdf_builder.cover_art_insets(pr_cfg, spine_side)
+        imaging.prepare_cover_art(raw_file, proc_file, w_px, h_px,
+                                  insets, str(pr_cfg.get("cover_fill", "blur")))
     else:
         imaging.process_lineart(
             raw_file, proc_file, w_px, h_px,
@@ -1204,22 +1234,27 @@ def regenerate_inspector_image_single(payload: dict):
         except ValueError:
             idx = 1
             
+        # NGUỒN CHÂN LÝ LÀ state.json CỦA CUỐN ĐANG CHỌN, không phải config.yaml.
+        # config.yaml giữ subjects của cuốn làm GẦN NHẤT, nên đọc từ đó thì bấm
+        # sinh lại một trang trong sách rồng sẽ vẽ ra cảnh mèo của cuốn trước.
+        state = book_main.load_state(P["state_file"])
+        subjects = list(state.get("subjects") or cfg.get("subjects") or [])
+
         if custom_prompt:
             subj = custom_prompt
-            subjects = list(cfg.get("subjects") or [])
             while len(subjects) < idx:
                 subjects.append("")
             subjects[idx - 1] = subj
-            cfg["subjects"] = subjects
-            
-            with open(ROOT / "config.yaml", "w", encoding="utf-8") as f:
-                yaml.dump(cfg, f, allow_unicode=True, sort_keys=False)
-                
-            state = book_main.load_state(P["state_file"])
+
             state["subjects"] = subjects
             book_main.save_state(P["state_file"], state)
+
+            # Ghi cả vào config.yaml để giao diện hiện đúng ngay, nhưng state mới
+            # là thứ quyết định (sync_book_config cho state đè lên config).
+            cfg["subjects"] = subjects
+            with open(ROOT / "config.yaml", "w", encoding="utf-8") as f:
+                yaml.dump(cfg, f, allow_unicode=True, sort_keys=False)
         else:
-            subjects = cfg.get("subjects", [])
             subj = subjects[idx - 1] if idx - 1 < len(subjects) else f"scene {idx}"
 
         if subj.lower().startswith("a black and white") or "coloring page illustration" in subj.lower():
@@ -1230,25 +1265,30 @@ def regenerate_inspector_image_single(payload: dict):
             except Exception:
                 prompt = f"A black and white line-art coloring page illustration for children. Subject: {subj}."
 
-    elif key == "cover_front":
-        if custom_prompt:
-            prompt = custom_prompt
-            cfg.setdefault("prompts", {})["front_cover_custom"] = custom_prompt
-            with open(ROOT / "config.yaml", "w", encoding="utf-8") as f:
-                yaml.dump(cfg, f, allow_unicode=True, sort_keys=False)
-        else:
-            style = cfg.get("prompts", {}).get("cover_style", "")
-            prompt = cfg.get("prompts", {}).get("front_cover_custom") or cfg["prompts"]["front_cover"].format(title=title, style=style, safe_pct=book_main.cover_safe_pct(cfg))
+    elif key in ("cover_front", "cover_back"):
+        # PROMPT TUỲ CHỈNH LƯU THEO TỪNG CUỐN, KHÔNG LƯU TOÀN CỤC.
+        #
+        # Bản trước ghi vào cfg["prompts"]["front_cover_custom"] rồi dump ra
+        # config.yaml, và nhánh else lấy nó ra TRƯỚC prompt thật. Hậu quả: gõ
+        # prompt tuỳ chỉnh đúng một lần cho một cuốn là từ đó MỌI cuốn đều dùng
+        # bản chụp đông cứng đó - kèm tên sách cũ đã nướng thẳng vào text, nên
+        # mọi bìa sinh sau đều mang tiêu đề của cuốn đầu tiên.
+        tpl_key = "front_cover" if key == "cover_front" else "back_cover"
+        state = book_main.load_state(P["state_file"])
+        saved = (state.get("prompts") or {}).get(f"{tpl_key}_custom")
 
-    elif key == "cover_back":
         if custom_prompt:
             prompt = custom_prompt
-            cfg.setdefault("prompts", {})["back_cover_custom"] = custom_prompt
-            with open(ROOT / "config.yaml", "w", encoding="utf-8") as f:
-                yaml.dump(cfg, f, allow_unicode=True, sort_keys=False)
+            state.setdefault("prompts", {})[f"{tpl_key}_custom"] = custom_prompt
+            book_main.save_state(P["state_file"], state)
+        elif saved:
+            prompt = saved
         else:
             style = cfg.get("prompts", {}).get("cover_style", "")
-            prompt = cfg.get("prompts", {}).get("back_cover_custom") or cfg["prompts"]["back_cover"].format(title=title, style=style, safe_pct=book_main.cover_safe_pct(cfg))
+            prompt = cfg["prompts"][tpl_key].format(
+                title=title, style=style,
+                safe_pct=book_main.cover_safe_pct(cfg),
+                **book_main.cover_prompt_extras(cfg))
 
     attach = []
     if key == "cover_back":

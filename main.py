@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import random
 import sys
 from pathlib import Path
 
@@ -122,6 +123,63 @@ def make_driver(cfg: dict):
     return GeminiApiDriver(cfg)
 
 
+# Bố cục bìa. BỐC NGẪU NHIÊN MỘT CÁI rồi mới nhét vào prompt, thay vì liệt kê cả
+# danh sách để model tự chọn - đưa thực đơn thì lần nào nó cũng chọn mục đầu, nên
+# mọi cuốn ra cùng một kiểu tranh.
+COVER_LAYOUTS = [
+    "SCENIC STORYBOOK LAYOUT: two or three of the book's own characters interacting "
+    "playfully, with clear foreground, midground and background depth.",
+
+    "EMBLEM / VIGNETTE LAYOUT: one hero character framed inside a central decorative "
+    "arch, ribbon or circular vignette, with smaller thematic motifs arranged around it.",
+
+    "FULL-PAGE ACTION SCENE: the characters caught mid-movement in a joyful, energetic "
+    "activity, with props and details filling the scene naturally.",
+
+    "PORTRAIT CLOSE-UP: one single hero subject drawn large and friendly, filling most "
+    "of the cover, seen close up with rich detail and a simple background behind it.",
+
+    "PATTERN COLLAGE LAYOUT: many small motifs taken from the book's own subjects, "
+    "arranged as a lively repeating collage across the whole cover, with one slightly "
+    "larger hero motif as the focal point.",
+
+    "DIORAMA / CUTAWAY LAYOUT: the scene shown as a charming cross-section or stacked "
+    "levels, with different characters busy on each level.",
+]
+
+
+def cover_prompt_extras(cfg: dict) -> dict:
+    """Thông tin động nhét vào prompt bìa.
+
+    subject_hint: vài cảnh CÓ THẬT trong ruột sách. Không có nó, prompt bảo model
+    'vẽ hợp với chủ đề' mà không hề nói chủ đề là gì - model chỉ có mỗi tiêu đề,
+    vẽ đúng một con theo tiêu đề rồi độn thêm cáo với thỏ cho đủ nhân vật.
+
+    layout: bốc ngẫu nhiên để mỗi cuốn ra một kiểu bố cục khác nhau.
+    """
+    # LẤY TỪ STATE CỦA CHÍNH CUỐN ĐANG LÀM, không lấy từ config.yaml.
+    # config.yaml giữ subjects của cuốn làm GẦN NHẤT: nút sinh lại trên UI nạp
+    # thẳng config.yaml nên nếu tin vào nó, bìa sách rồng sẽ được mô tả bằng các
+    # cảnh mèo của cuốn trước.
+    subs: list[str] = []
+    try:
+        state = load_state(paths_of(cfg)["state_file"])
+        subs = [str(s).strip() for s in (state.get("subjects") or []) if str(s).strip()]
+    except Exception as e:  # noqa: BLE001
+        log.debug("Không đọc được subjects từ state (%s).", e)
+    if not subs:
+        subs = [str(s).strip() for s in (cfg.get("subjects") or []) if str(s).strip()]
+
+    if subs:
+        pick = subs[:8]
+        if len(subs) > 8:
+            pick = random.sample(subs, 8)
+        hint = " ".join(f"- {s}" for s in pick)
+    else:
+        hint = f"- scenes about {cfg.get('book', {}).get('title', 'the book subject')}"
+    return {"subject_hint": hint, "cover_layout": random.choice(COVER_LAYOUTS)}
+
+
 def cover_safe_pct(cfg: dict) -> int:
     """% mép bìa cấm đặt chữ, nhét vào prompt qua placeholder {safe_pct}.
 
@@ -219,6 +277,7 @@ def build_jobs(cfg: dict, subjects: list[str], raw: Path, state: dict) -> list:
     title = cfg["book"]["title"]
     style = cfg["prompts"].get("cover_style", "")
     safe_pct = cover_safe_pct(cfg)
+    extras = cover_prompt_extras(cfg)
     covers = []
     for key, tpl in [("cover_front", cfg["prompts"]["front_cover"]),
                      ("cover_back", cfg["prompts"]["back_cover"])]:
@@ -226,7 +285,7 @@ def build_jobs(cfg: dict, subjects: list[str], raw: Path, state: dict) -> list:
         if key in state["done"] and dest.exists():
             continue
         covers.append((key, tpl.format(title=title, style=style,
-                                       safe_pct=safe_pct), dest))
+                                       safe_pct=safe_pct, **extras), dest))
 
     if len(covers) == 2:
         jobs.append(covers)          # chuỗi: cùng chat, cùng tab
@@ -248,7 +307,10 @@ def cmd_generate_parallel(cfg: dict) -> None:
     state = load_state(P["state_file"])
     n = cfg["book"]["num_images"]
 
-    subjects = [s for s in (cfg.get("subjects") or []) if s and s.strip()]
+    # state cua cuon dang chon truoc, config.yaml chi la du phong:
+    # config giu subjects cua cuon lam gan nhat.
+    subjects = [s for s in (state.get("subjects") or cfg.get("subjects") or [])
+                if s and s.strip()]
 
     async def run() -> None:
         nonlocal subjects
@@ -317,7 +379,8 @@ def cmd_generate(cfg: dict) -> None:
     state = load_state(P["state_file"])
     n = cfg["book"]["num_images"]
 
-    subjects = list(cfg.get("subjects") or [])
+    # state cua cuon dang chon truoc, config.yaml chi la du phong.
+    subjects = list(state.get("subjects") or cfg.get("subjects") or [])
     subjects = [s for s in subjects if s and s.strip()]
 
     with make_driver(cfg) as g:
@@ -366,7 +429,8 @@ def cmd_generate(cfg: dict) -> None:
             log.info("Đang tạo %s...", key)
             if g.generate_image(tpl.format(title=cfg["book"]["title"],
                                            style=cfg["prompts"].get("cover_style", ""),
-                                           safe_pct=cover_safe_pct(cfg)), dest):
+                                           safe_pct=cover_safe_pct(cfg),
+                                           **cover_prompt_extras(cfg)), dest):
                 state["done"].append(key)
                 save_state(P["state_file"], state)
             g._sleep_jitter()
@@ -401,10 +465,13 @@ def cmd_process(cfg: dict) -> None:
             sharpen=bool(pr.get("sharpen", True)),
         )
 
-    for name in ("cover_front", "cover_back"):
+    # Bìa trước: nếp gấp gáy ở cạnh TRÁI. Bìa sau: ở cạnh PHẢI.
+    for name, spine_side in (("cover_front", "left"), ("cover_back", "right")):
         src = raw / f"{name}.png"
         if src.exists():
-            imaging.prepare_cover_art(src, proc / f"{name}.png", w_px, h_px)
+            insets = pdf_builder.cover_art_insets(p, spine_side)
+            imaging.prepare_cover_art(src, proc / f"{name}.png", w_px, h_px,
+                                      insets, str(p.get("cover_fill", "blur")))
         else:
             log.warning("Thiếu %s.png - bìa sẽ dùng nền màu trơn.", name)
 
@@ -413,33 +480,126 @@ def cmd_process(cfg: dict) -> None:
 
 # --------------------------------------------------------------- build
 
+MATTER_DIR = ROOT / "assets" / "matter"
+
+# Ba trang dùng chung cho MỌI cuốn sách: (tên file nguồn, vị trí)
+#   "front" = chèn vào đầu, theo đúng thứ tự liệt kê
+#   "back"  = chèn vào cuối
+MATTER_PAGES = [
+    ("belongs_to.png", "front"),   # trang 1: This book belongs to
+    ("color_test.png", "front"),   # trang 2: Color test page
+    ("thank_you.png",  "back"),    # trang cuối: Thank you
+]
+
+
+def build_matter_pages(cfg: dict) -> tuple[list[Path], list[Path]]:
+    """Xử lý 3 trang dùng chung rồi trả về (chèn đầu, chèn cuối).
+
+    Ba ảnh này KHÔNG nằm trong output/books/<sách>/01_raw như trang ruột, mà để
+    ở assets/matter/ và dùng lại cho mọi cuốn - vẽ một lần, xài mãi.
+
+    Vẫn phải chạy qua process_lineart y hệt trang thường: cùng 300 DPI, cùng
+    khổ, cùng cách xén lề. Bỏ qua bước này thì chúng lệch kích thước với phần
+    còn lại và khung viền đen trong PDF sẽ không khớp.
+    """
+    front: list[Path] = []
+    back: list[Path] = []
+    if not cfg.get("book", {}).get("matter_pages", True):
+        return front, back
+
+    P = paths_of(cfg)
+    p = cfg.get("print", {})
+    dpi = int(p.get("dpi", 300))
+    bleed = float(p.get("bleed", 0.125))
+    w_px = int((float(p.get("trim_width", 8.5)) + 2 * bleed) * dpi)
+    h_px = int((float(p.get("trim_height", 11.0)) + 2 * bleed) * dpi)
+    pr = cfg.get("process") or {}
+    proc = P["processed_dir"]
+
+    for name, where in MATTER_PAGES:
+        src = MATTER_DIR / name
+        if not src.exists():
+            log.warning("Thiếu trang dùng chung %s -> bỏ qua. Đặt file vào %s",
+                        name, MATTER_DIR)
+            continue
+        dest = proc / f"_matter_{name}"
+        try:
+            imaging.process_lineart(
+                src, dest, w_px, h_px,
+                threshold=int(pr.get("threshold", 165)),
+                pure_bw=bool(pr.get("pure_bw", False)),
+                sharpen=bool(pr.get("sharpen", True)),
+            )
+        except Exception as e:  # noqa: BLE001
+            log.warning("Không xử lý được %s: %s", name, e)
+            continue
+        (front if where == "front" else back).append(dest)
+
+    return front, back
+
+
+# Độ rộng gáy theo khổ sách. SỐ DO NHÀ IN CẤP, không phải công thức - phải khớp
+# BOOK_SIZES trong static/app.js.
+VARIANT_SPINES = {24: 0.182, 48: 0.29}
+
+
+def build_one_version(cfg: dict, pages_art: list[Path], out_dir: Path,
+                      proc: Path, spine: float | None,
+                      nhan: str) -> tuple[Path, Path, int, float]:
+    """Dựng một phiên bản sách: interior + cover vào out_dir.
+
+    pages_art = danh sách trang TÔ MÀU (chưa gồm 3 trang dùng chung).
+    spine     = độ rộng gáy nhà in cấp cho đúng khổ này; None thì để tự tính.
+    """
+    front_matter, back_matter = build_matter_pages(cfg)
+    images = front_matter + pages_art + back_matter
+
+    one = dict(cfg)
+    one["print"] = dict(cfg["print"])
+    if spine:
+        one["print"]["spine_width"] = spine
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    interior, pages = pdf_builder.build_interior(images, out_dir / "interior.pdf", one)
+
+    fc, bc = proc / "cover_front.png", proc / "cover_back.png"
+    cover = pdf_builder.build_cover(fc if fc.exists() else None,
+                                    bc if bc.exists() else None,
+                                    out_dir / "cover.pdf", one, pages)
+    used = pdf_builder.cover_geometry(one["print"], pages)["spine"]
+    log.info("[%s] %d trang tô màu + %d trang dùng chung -> %d trang ruột, gáy %.4f in.",
+             nhan, len(pages_art), len(front_matter) + len(back_matter), pages, used)
+    return interior, cover, pages, used
+
+
 def cmd_build(cfg: dict) -> None:
     P = paths_of(cfg)
     proc, out = P["processed_dir"], P["pdf_dir"]
-    images = sorted(proc.glob("page_*.png"))
-    if not images:
+    art = sorted(proc.glob("page_*.png"))
+    if not art:
         log.error("Không có ảnh đã xử lý. Chạy `python main.py process` trước.")
         return
 
-    interior, pages = pdf_builder.build_interior(images, out / "interior.pdf", cfg)
+    # BẢN RÚT GỌN: sách 48 trang tô màu thì dựng thêm một bản 24 trang, lấy các
+    # trang LẺ (page_001, 003, ... 047). Hai sản phẩm từ một lượt sinh ảnh.
+    # Bản đầy đủ vẫn ghi vào 03_pdf/ như cũ để UI và cmd_check không phải đổi.
+    short_n = int(cfg.get("book", {}).get("short_variant_pages", 24) or 0)
+    make_short = (bool(cfg.get("book", {}).get("build_short_variant", True))
+                  and short_n and len(art) >= short_n * 2)
 
-    fc = proc / "cover_front.png"
-    bc = proc / "cover_back.png"
-    cover = pdf_builder.build_cover(
-        fc if fc.exists() else None,
-        bc if bc.exists() else None,
-        out / "cover.pdf",
-        cfg,
-        pages,
-    )
+    interior, cover, pages, spine = build_one_version(
+        cfg, art, out, proc, VARIANT_SPINES.get(len(art)), f"{len(art)} trang")
 
-    binding = cfg["print"].get("binding", "perfect")
-    if "spine_width" in cfg["print"] and cfg["print"]["spine_width"] is not None:
-        spine = float(cfg["print"]["spine_width"])
-    elif binding in ["coil", "saddle"]:
-        spine = 0.0
+    if make_short:
+        odd = art[::2][:short_n]          # page_001, 003, 005, ...
+        s_dir = out / f"{short_n}-trang"
+        s_int, s_cov, s_pages, s_spine = build_one_version(
+            cfg, odd, s_dir, proc, VARIANT_SPINES.get(short_n), f"{short_n} trang")
+        log.info("Bản rút gọn: %s", s_dir)
     else:
-        spine = pdf_builder.spine_width(pages, cfg["print"]["paper_thickness"])
+        s_dir = s_int = s_cov = s_pages = s_spine = None
+
+    # 'spine' lấy từ build_one_version - con số THẬT đã dùng để dựng bìa.
     print(f"""
 ================= SẴN SÀNG TẢI LÊN LULU =================
   Interior : {interior}
@@ -451,6 +611,16 @@ def cmd_build(cfg: dict) -> None:
   Nhớ chọn đúng loại giấy khớp paper_thickness trong config.yaml,
   vì Lulu tính lại độ rộng gáy theo giấy bạn chọn.
 =========================================================
+""")
+    if s_dir:
+        print(f"""--------- BẢN RÚT GỌN {short_n} TRANG (trang lẻ) ---------
+  Interior : {s_int}
+             {s_pages} trang
+  Cover    : {s_cov}
+             gáy {s_spine:.4f} in
+  Đây là MỘT SẢN PHẨM RIÊNG trên Lulu: tạo project mới, đừng tải đè lên
+  bản đầy đủ - hai bản khác số trang nên khác cả gáy lẫn kích thước bìa.
+---------------------------------------------------------
 """)
 
 
