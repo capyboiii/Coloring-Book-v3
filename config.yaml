@@ -1,5 +1,5 @@
 book:
-  title: cute dragon
+  title: Ocean Animals
   subtitle: ''
   author: ''
   num_images: 24
@@ -80,25 +80,51 @@ prompts:
     LAYOUT: {cover_layout}
 
 
-    ONE UNBROKEN PICTURE - THIS IS THE MOST IMPORTANT RULE. The cover is a single
-    scene in a
+    ONE SINGLE COHERENT SCENE - THIS IS THE MOST IMPORTANT RULE. The whole cover shows
+    ONE
 
-    single view, drawn at full strength from the top edge to the bottom edge and from
-    side to
+    place, at ONE moment, from ONE viewpoint, as if photographed in a single shot.
+    One
 
-    side. There is NO band, stripe, gap, seam, empty strip or white area anywhere,
-    and the
+    horizon, one light source, one consistent perspective and one continuous ground
+    plane run
 
-    cover is NEVER split into an upper scene and a lower scene. Behind the title the
-    scenery
+    across the entire cover. Every character stands in that same place and could walk
+    over to
 
-    keeps exactly the same colours, brightness and density of detail as everywhere
-    else: if
+    any other character.
 
-    the letters were hidden, that area would look like a completely ordinary part
-    of the
 
-    picture.
+    THIS IS NOT A COLLAGE. Do NOT assemble the cover from separate pictures. No panels,
+    no
+
+    tiles, no grid, no patchwork, no scrapbook arrangement, no circular or oval vignettes
+
+    holding little separate scenes, no stacked levels or cross-sections, no upper
+    scene above
+
+    a lower scene, no row of unrelated mini-illustrations, no floating cut-out elements
+    from
+
+    somewhere else. Two different settings must never appear on the same cover - not
+    a room
+
+    above a garden, not a kitchen beside a meadow.
+
+
+    THE PICTURE IS ALSO UNBROKEN: it is drawn at full strength from the top edge to
+    the bottom
+
+    edge and from side to side, with NO band, stripe, gap, seam, empty strip or white
+    area
+
+    anywhere. Behind the title the scenery keeps exactly the same colours, brightness
+    and
+
+    density of detail as everywhere else: if the letters were hidden, that area would
+    look
+
+    like a completely ordinary part of the picture.
 
 
     TITLE "{title}" - spell it EXACTLY, letter for letter. Draw it as a real object
@@ -335,30 +361,30 @@ prompts:
       100% exact visual fidelity. Do NOT generate or modify any artwork or text on
       the book cover. Keep the cover design identical to the attached image.'
 subjects:
-- A cute baby dragon roasting a marshmallow over a tiny campfire.
-- A little dragon splashing happily in a bubbly bathtub with a rubber duck.
-- A smiling dragon wearing a party hat and holding a colorful balloon.
-- A chubby dragon sleeping curled up on a soft, fluffy cloud.
-- A playful dragon chasing a fluttering butterfly in a flower garden.
-- A tiny dragon wearing an oversized chef hat while mixing cake batter in a bowl.
-- A cheerful dragon building a big sandcastle on a sunny beach.
-- A cute dragon wearing a warm scarf and catching falling snowflakes on its tongue.
-- A friendly dragon watering potted flowers with a small watering can.
-- A happy dragon sitting under an apple tree and munching on a big red apple.
-- A baby dragon riding a wooden rocking horse with a wide grin.
-- A curious dragon looking at a snail resting on a giant mushroom.
-- A sweet dragon hugging a plush teddy bear tightly before bedtime.
-- A joyful dragon swinging high on a tire swing tied to an old tree branch.
-- A little dragon wearing snorkeling goggles and waving at a goldfish.
-- A baby dragon proudly flying a diamond-shaped kite on a windy hill.
-- A cozy dragon wearing round glasses and reading a large fairy tale book.
-- A happy dragon licking a towering ice cream cone with three scoops.
-- A tiny dragon blowing shiny soap bubbles through a bubble wand.
-- A mischievous dragon popping out of a large wrapped gift box.
-- A friendly dragon sharing an umbrella with a little green frog in the rain.
-- A baby dragon sitting comfortably inside a giant cracked eggshell.
-- A cute dragon wearing roller skates and wobbling with outstretched wings.
-- A sleepy dragon wrapped in a blanket watching twinkling stars from a window.
+- A happy clownfish peeking out from behind soft sea anemone tentacles.
+- A smiling sea turtle swimming peacefully above a colorful coral reef.
+- A playful dolphin jumping out of the ocean water under a bright sun.
+- A cute baby seal resting comfortably on a floating block of ice.
+- A friendly octopus waving its eight curly arms near floating bubbles.
+- A tiny seahorse holding onto a tall strand of wavy green seaweed.
+- A cheerful blue whale spraying a big water fountain from its blowhole.
+- A little crab wearing a tiny seashell hat while walking along the sandy seafloor.
+- A gentle manta ray gliding smoothly across the calm ocean waves.
+- A round pufferfish puffed up like a balloon near smooth ocean rocks.
+- A smiling starfish resting next to an open oyster holding a shiny pearl.
+- A pair of playful sea otters floating on their backs holding paws.
+- A friendly shark showing a wide smile beside three little swimming fish.
+- A mother penguin waddling alongside her fluffy baby chick by the shore.
+- A cute jellyfish floating gently with long wavy tentacles.
+- A curious walrus with long tusks peeking over a smooth ocean rock.
+- A cheerful narwhal pointing its spiral horn up toward the water surface.
+- A smiling stingray resting peacefully on the soft sandy ocean bottom.
+- A little hermit crab trying on a brand-new patterned seashell home.
+- A happy hammerhead shark cruising past a forest of tall kelp.
+- A tiny shrimp cleaning a smooth sea pebble on the ocean floor.
+- A friendly moray eel poking its head out from a cozy rock cave.
+- A playful squid zooming through the water surrounded by small bubbles.
+- A happy lobster holding a small sunken treasure coin in its big claw.
 cover_text:
   back_blurb: '
 
@@ -373,7 +399,7 @@ api:
   - 2
   - 5
 browser:
-  headless: true
+  headless: false
   gemini_url: https://gemini.google.com/app
   generation_timeout: 240
   recycle_tab_every: 1
@@ -395,4 +421,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: cute-dragon
+_book: ocean-animals

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Coloring Book Generator - Lulu POD Studio</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=5">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -422,14 +422,17 @@
               🚀 CHẠY TOÀN BỘ (GEN -> PROCESS -> BUILD PDF)
             </button>
             
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
               <button class="btn" style="background: var(--primary);" onclick="runTaskCommand('generate')">🎨 Bước 1: Gen Ảnh AI</button>
               <button class="btn btn-secondary" onclick="runTaskCommand('process')">🧹 Bước 2: Xử Lý 300 DPI</button>
+              <button class="btn btn-secondary" onclick="runTaskCommand('build')">📦 Bước 3: Dựng PDF Lulu</button>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-              <button class="btn btn-secondary" onclick="runTaskCommand('build')">📦 Bước 3: Dựng PDF Lulu</button>
-              <button class="btn" style="background: #8b5cf6;" onclick="runTaskCommand('preview')">📸 Bước 4: Gen 5 Ảnh Preview</button>
+            <div style="border-top: 1px solid var(--border, #333); margin-top: 10px; padding-top: 10px;">
+              <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 6px;">
+                Việc riêng, KHÔNG thuộc quy trình in — chỉ chạy khi cần ảnh đăng bán:
+              </div>
+              <button class="btn btn-block" style="background: #8b5cf6;" onclick="runTaskCommand('preview')">📸 Gen 5 Ảnh Preview Marketing</button>
             </div>
 
             <button class="btn btn-secondary btn-block" style="margin-top: 6px;" onclick="runTaskCommand('demo')">
@@ -456,6 +459,37 @@
             <div class="log-line start">[SYSTEM] Sẵn sàng. Nhấn "CHẠY TOÀN BỘ" hoặc chọn bước để tiến hành...</div>
           </div>
         </div>
+      </div>
+
+      <!-- Batch: nhiều cuốn từ một danh sách chủ đề -->
+      <div class="card" style="margin-top: 1.5rem;">
+        <div class="card-title">
+          <span>📚 Chạy Hàng Loạt Nhiều Cuốn</span>
+          <span class="badge">BATCH RUNNER</span>
+        </div>
+
+        <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.55; margin-bottom: 10px;">
+          Mỗi dòng là một cuốn sách. Tool tự nghĩ chủ đề từng trang, gen ảnh, xử lý 300 DPI
+          rồi dựng PDF. <b>Cấu hình hiện tại được dùng chung cho toàn bộ batch</b> — chụp lại
+          lúc bấm chạy, sửa config giữa chừng không ảnh hưởng.
+        </div>
+
+        <div class="form-group">
+          <label>Danh Sách Chủ Đề (mỗi dòng một cuốn)</label>
+          <textarea id="batch-titles" rows="7" placeholder="Cute Dragons&#10;Ocean Animals&#10;Space Adventure&#10;Dinosaurs For Kids"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Số Ảnh Mỗi Cuốn (bỏ trống = lấy theo cấu hình)</label>
+          <input type="number" id="batch-num-images" min="1" max="200" placeholder="24">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px;">
+          <button class="btn btn-success" id="btn-batch-start" onclick="startBatch()">🚀 Chạy Cả Danh Sách</button>
+          <button class="btn btn-danger" onclick="stopBatch()">🛑 Dừng Batch</button>
+        </div>
+
+        <div id="batch-progress" style="margin-top: 14px;"></div>
       </div>
     </div>
 
@@ -541,6 +575,6 @@
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>

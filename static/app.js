@@ -50,6 +50,7 @@ async function initApp() {
   await loadConfig();
   await loadBooksList();
   await loadGallery();
+  pollBatch();   // batch đang chạy dở thì hiện lại tiến độ ngay khi mở trang
 }
 
 // ---------------- TAB NAVIGATION ----------------
@@ -549,6 +550,132 @@ async function stopCurrentTask() {
   } catch (err) {
     alert("Lỗi kết nối khi dừng chương trình: " + err.message);
   }
+}
+
+// ---------------- BATCH: NHIỀU CUỐN TỪ MỘT DANH SÁCH CHỦ ĐỀ ----------------
+let batchTimer = null;
+
+async function startBatch() {
+  const titles = document.getElementById('batch-titles').value
+    .split('\n').map(s => s.trim()).filter(Boolean);
+  if (!titles.length) { alert("Nhập ít nhất một chủ đề (mỗi dòng một cuốn)."); return; }
+
+  const numRaw = document.getElementById('batch-num-images').value.trim();
+  const body = { titles: titles };
+  if (numRaw) body.num_images = parseInt(numRaw, 10);
+
+  if (!confirm(`Chạy ${titles.length} cuốn với cấu hình hiện tại?\n\nMỗi cuốn sẽ gen ảnh AI -> xử lý 300 DPI -> dựng PDF. Việc này có thể mất nhiều giờ.`)) return;
+
+  const btn = document.getElementById('btn-batch-start');
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/batch/start', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (!res.ok) { alert("Lỗi: " + (data.detail || 'không rõ')); return; }
+    logToTerminal(`[BATCH] Đã khởi chạy ${data.total} cuốn.`);
+    renderBatch(data);
+    pollBatch();
+  } catch (err) {
+    alert("Lỗi kết nối: " + err.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function stopBatch() {
+  if (!confirm("Dừng batch?\n\nCuốn đang gen ảnh sẽ bị huỷ. Cuốn đã có đủ ảnh vẫn được dựng PDF cho trọn.")) return;
+  try {
+    const res = await fetch('/api/batch/stop', { method: 'POST' });
+    renderBatch(await res.json());
+    logToTerminal("[BATCH] 🛑 Đã gửi lệnh dừng batch.");
+  } catch (err) {
+    alert("Lỗi kết nối: " + err.message);
+  }
+}
+
+async function pollBatch() {
+  if (batchTimer) clearTimeout(batchTimer);
+  try {
+    const data = await (await fetch('/api/batch/status')).json();
+    renderBatch(data);
+    if (data.running) {
+      batchTimer = setTimeout(pollBatch, 5000);
+    } else if (data.total) {
+      loadGallery();
+      loadBooksList();
+    }
+  } catch (err) {
+    batchTimer = setTimeout(pollBatch, 15000);  // mất mạng thì thử lại thưa hơn
+  }
+}
+
+async function resumeBatch() {
+  try {
+    const res = await fetch('/api/batch/resume', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) { alert("Lỗi: " + (data.detail || 'không rõ')); return; }
+    logToTerminal("[BATCH] ▶️ Chạy tiếp các cuốn còn dở.");
+    renderBatch(data);
+    pollBatch();
+  } catch (err) {
+    alert("Lỗi kết nối: " + err.message);
+  }
+}
+
+const BATCH_LABELS = {
+  QUEUED:     ['⏳', 'Đang chờ',           'var(--text-muted)'],
+  GENERATING: ['🎨', 'Bước 1: gen ảnh AI', 'var(--primary)'],
+  BUILDING:   ['📦', 'Bước 2+3: PDF',      '#8b5cf6'],
+  DONE:       ['✅', 'Hoàn tất',           'var(--accent-emerald, #10b981)'],
+  INCOMPLETE: ['⚠️', 'Thiếu ảnh',          '#f59e0b'],
+  FAILED:     ['❌', 'Lỗi',                'var(--error, #f43f5e)'],
+  STOPPED:    ['🛑', 'Đã dừng',            'var(--text-muted)'],
+};
+
+function renderBatch(data) {
+  const box = document.getElementById('batch-progress');
+  if (!box) return;
+  if (!data.total) { box.innerHTML = ''; return; }
+
+  const rows = data.books.map(b => {
+    const [icon, label, color] = BATCH_LABELS[b.status] || ['•', b.status, 'var(--text-muted)'];
+    const dur = (b.started_at && b.finished_at)
+      ? `${Math.round((b.finished_at - b.started_at) / 60)} phút` : '';
+    return `<tr>
+      <td style="padding: 5px 8px;">${icon}</td>
+      <td style="padding: 5px 8px;">${b.title}</td>
+      <td style="padding: 5px 8px; color: ${color}; white-space: nowrap;">${label}</td>
+      <td style="padding: 5px 8px; color: var(--text-muted); font-size: 0.78rem;">${dur}</td>
+      <td style="padding: 5px 8px; color: var(--error, #f43f5e); font-size: 0.75rem;">${b.error || ''}</td>
+    </tr>`;
+  }).join('');
+
+  const paused = data.paused_reason ? `
+    <div style="margin: 8px 0; padding: 9px 11px; border-left: 3px solid #f59e0b;
+                background: rgba(245,158,11,0.08); font-size: 0.82rem; line-height: 1.5;">
+      ⏸️ <b>Batch tạm dừng.</b> ${data.paused_reason}
+    </div>` : '';
+
+  const resumeBtn = (!data.running && data.resumable) ? `
+    <button class="btn btn-block" style="background: var(--primary); margin-top: 10px;"
+            onclick="resumeBatch()">▶️ Chạy Tiếp ${data.resumable} Cuốn Còn Dở</button>` : '';
+
+  box.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+      <b>${data.done}/${data.total} hoàn tất</b>
+      <span style="font-size: 0.8rem; color: var(--text-muted);">
+        ${data.running ? '🟢 đang chạy' : '⚪ đã kết thúc'}${data.failed ? ` · ${data.failed} chưa xong` : ''}
+      </span>
+    </div>
+    ${paused}
+    <div style="overflow-x: auto;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">${rows}</table>
+    </div>
+    ${resumeBtn}`;
 }
 
 function logToTerminal(msg) {

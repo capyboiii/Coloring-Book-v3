@@ -754,11 +754,11 @@ def run_task(payload: dict):
             elif command == "demo":
                 book_main.cmd_demo(cfg)
             elif command == "all":
+                # Quy trình chuẩn = ĐÚNG 3 bước. `check` đã nằm trong build;
+                # `preview` là việc marketing riêng, chạy bằng nút riêng.
                 book_main.cmd_generate(cfg)
                 book_main.cmd_process(cfg)
                 book_main.cmd_build(cfg)
-                book_main.cmd_check(cfg)
-                book_main.cmd_preview(cfg)
             log_q.put(f"[SUCCESS] Command '{command}' completed!")
         except Exception as e:
             logger.exception(f"Task failed: {e}")
@@ -1380,6 +1380,56 @@ def regenerate_inspector_image_single(payload: dict):
         "key": key,
         "raw_url": f"/api/images/{slug}/01_raw/{key}.png?v={ts}"
     }
+
+
+# --------------------------------------------------------------- batch nhiều cuốn
+
+from bookgen.batch import BatchRunner  # noqa: E402
+
+batch_runner = BatchRunner(ROOT, book_main)
+batch_runner.load_from_disk()
+
+
+@app.post("/api/batch/start")
+def batch_start(payload: dict):
+    """Nhận một list chủ đề -> tự dựng ra từng cuốn sách.
+
+    Config lấy từ config.yaml tại thời điểm bấm chạy và dùng chung cho cả batch.
+    """
+    raw = payload.get("titles") or ""
+    titles = raw if isinstance(raw, list) else raw.splitlines()
+    try:
+        return batch_runner.start(titles, payload.get("num_images"))
+    except (RuntimeError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/batch/resume")
+def batch_resume():
+    """Chạy tiếp các cuốn còn dở, giữ nguyên slug + config + ảnh đã vẽ."""
+    try:
+        return batch_runner.resume()
+    except (RuntimeError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/batch/status")
+def batch_status():
+    return batch_runner.status()
+
+
+@app.post("/api/batch/stop")
+def batch_stop():
+    return batch_runner.stop()
+
+
+@app.get("/api/batch/log/{slug}")
+def batch_log(slug: str, tail: int = 200):
+    f = book_main.BOOKS_DIR / slug / "run.log"
+    if not f.exists():
+        return {"slug": slug, "lines": []}
+    lines = f.read_text(encoding="utf-8", errors="replace").splitlines()
+    return {"slug": slug, "lines": lines[-tail:]}
 
 
 # Static directory setup

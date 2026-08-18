@@ -139,13 +139,18 @@ COVER_LAYOUTS = [
     "PORTRAIT CLOSE-UP: one single hero subject drawn large and friendly, filling most "
     "of the cover, seen close up with rich detail and a simple background behind it.",
 
-    "PATTERN COLLAGE LAYOUT: many small motifs taken from the book's own subjects, "
-    "arranged as a lively repeating collage across the whole cover, with one slightly "
-    "larger hero motif as the focal point.",
+    "WIDE ESTABLISHING VIEW: the characters seen small within one big open landscape of "
+    "their own world, a single sweeping view with a clear horizon and deep distance.",
 
-    "DIORAMA / CUTAWAY LAYOUT: the scene shown as a charming cross-section or stacked "
-    "levels, with different characters busy on each level.",
+    "LOW ANGLE HERO SHOT: the scene viewed from low down and close to the ground, the "
+    "nearest character rising large in the foreground while the rest of the same place "
+    "carries on behind it.",
 ]
+
+# ĐÃ BỎ hai bố cục cũ - chúng chính là thứ đẻ ra bìa chắp vá:
+#   "PATTERN COLLAGE"  -> yêu cầu ghép nhiều motif rời rạc thành collage
+#   "DIORAMA/CUTAWAY"  -> yêu cầu chia tầng, mỗi tầng một cảnh
+# Cả hai mâu thuẫn trực tiếp với luật "một bức tranh liền mạch".
 
 
 def cover_prompt_extras(cfg: dict) -> dict:
@@ -631,27 +636,37 @@ def cmd_build(cfg: dict) -> None:
 ---------------------------------------------------------
 """)
 
+    # Phần đuôi của bước 3: tự soi lại PDF vừa dựng. Có lỗi cứng thì văng ngoại
+    # lệ để batch đánh dấu cuốn này FAILED thay vì đẩy file hỏng lên Lulu.
+    if not cmd_check(cfg):
+        raise RuntimeError("PDF vừa dựng không đạt - xem dòng KẾT QUẢ ở trên.")
+
 
 # --------------------------------------------------------------- check
 
-def cmd_check(cfg: dict) -> None:
+def cmd_check(cfg: dict) -> bool:
+    """Soi lại PDF vừa dựng. Trả về True nếu KHÔNG có lỗi cứng.
+
+    Lỗi cứng (thiếu file, số trang lẻ) = Lulu chắc chắn từ chối -> chặn luôn.
+    Cảnh báo mềm (DPI thấp) = vẫn in được, chỉ ghi log để người xem tự quyết.
+    """
     from pypdf import PdfReader
 
     P = paths_of(cfg)
-    ok = True
+    errors: list[str] = []
+    warnings: list[str] = []
+
     for name in ("interior.pdf", "cover.pdf"):
         f = P["pdf_dir"] / name
         if not f.exists():
-            log.error("Thiếu %s", name)
-            ok = False
+            errors.append(f"Thiếu {name}")
             continue
         r = PdfReader(str(f))
         box = r.pages[0].mediabox
         log.info("%-13s %d trang, %.3f x %.3f in",
                  name, len(r.pages), float(box.width) / 72, float(box.height) / 72)
         if name == "interior.pdf" and len(r.pages) % 2:
-            log.error("  -> Số trang lẻ, Lulu sẽ từ chối.")
-            ok = False
+            errors.append(f"{name}: {len(r.pages)} trang (số lẻ), Lulu sẽ từ chối")
 
     for f in sorted((P["processed_dir"]).glob("page_*.png")):
         good, dpi = imaging.check_dpi(
@@ -659,10 +674,21 @@ def cmd_check(cfg: dict) -> None:
             cfg["print"]["trim_height"] + 2 * cfg["print"]["bleed"],
         )
         if not good:
-            log.warning("%s chỉ đạt %.0f DPI (<300)", f.name, dpi)
-            ok = False
+            warnings.append(f"{f.name} chỉ đạt {dpi:.0f} DPI (<300)")
 
-    print("\nKẾT QUẢ:", "ĐẠT ✓" if ok else "CÓ CẢNH BÁO ✗")
+    for w in warnings:
+        log.warning("%s", w)
+    for e in errors:
+        log.error("%s", e)
+
+    if errors:
+        print("\nKẾT QUẢ: LỖI ✗ -", "; ".join(errors))
+    elif warnings:
+        print(f"\nKẾT QUẢ: ĐẠT ✓ (kèm {len(warnings)} cảnh báo DPI)")
+    else:
+        print("\nKẾT QUẢ: ĐẠT ✓")
+
+    return not errors
 
 
 # --------------------------------------------------------------- demo
@@ -690,7 +716,6 @@ def cmd_demo(cfg: dict) -> None:
     log.info("Đã tạo %d ảnh placeholder.", n + 2)
     cmd_process(cfg)
     cmd_build(cfg)
-    cmd_check(cfg)
 
 
 # --------------------------------------------------------------- ask
@@ -1017,11 +1042,11 @@ def main() -> None:
         cfg["_book"] = args.book
 
     if args.command == "all":
+        # Quy trình chuẩn của 1 cuốn = ĐÚNG 3 bước; `check` nằm trong build.
+        # `preview` (5 ảnh mockup marketing) là việc riêng, không thuộc quy trình in.
         cmd_generate(cfg)
         cmd_process(cfg)
         cmd_build(cfg)
-        cmd_check(cfg)
-        cmd_preview(cfg)
     else:
         {"ask": cmd_ask, "books": cmd_books, "generate": cmd_generate,
          "process": cmd_process, "build": cmd_build, "check": cmd_check,
