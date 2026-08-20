@@ -122,6 +122,46 @@ def upscale_to_min(path: Path, min_long_edge: int = 2000) -> Path:
     return path
 
 
+def square_upscale(path: Path, size_px: int = 2000) -> Path:
+    """Ép ảnh preview về tỉ lệ 1:1 (crop giữa) rồi phóng lên size_px x size_px.
+
+    Gemini trả ảnh preview quanh 800px và tỉ lệ không cố định. Sàn TMĐT muốn ảnh
+    vuông (1:1) cỡ lớn thì mới bật được chức năng zoom khi khách rê chuột. Ở đây:
+      1) crop giữa về đúng 1:1 (không bóp méo hình);
+      2) resize LANCZOS lên đúng size_px x size_px;
+      3) unsharp nhẹ lấy lại cảm giác sắc nét sau khi phóng.
+
+    NÓI RÕ: phóng to KHÔNG tạo thêm chi tiết, chỉ đạt ngưỡng kỹ thuật của sàn.
+    """
+    try:
+        with Image.open(path) as im:
+            im.load()
+            if im.mode not in ("RGB", "L"):
+                im = im.convert("RGB")
+            w, h = im.size
+
+            # 1) crop giữa về vuông 1:1
+            side = min(w, h)
+            left = (w - side) // 2
+            top = (h - side) // 2
+            sq = im.crop((left, top, left + side, top + side))
+
+            # 2) phóng/thu về đúng size_px x size_px
+            if sq.size != (size_px, size_px):
+                sq = sq.resize((size_px, size_px), Image.LANCZOS)
+
+            # 3) LANCZOS phóng xong hay mềm; unsharp nhẹ khi có phóng to
+            if side < size_px:
+                sq = sq.filter(ImageFilter.UnsharpMask(radius=2, percent=90,
+                                                       threshold=3))
+        sq.save(path, "PNG", dpi=(300, 300), optimize=True)
+        log.info("Vuông hoá %s: %dx%d -> %dx%d px.",
+                 path.name, w, h, size_px, size_px)
+    except Exception as e:  # noqa: BLE001
+        log.warning("Không vuông hoá được %s: %s", path.name, e)
+    return path
+
+
 def crop_white_margins(img: Image.Image, padding_px: int = 10) -> Image.Image:
     """Tự động xén bỏ các lề trắng thừa xung quanh hình vẽ nét để nét vẽ mở rộng chạm sát viền."""
     try:

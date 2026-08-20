@@ -1,6 +1,5 @@
 book:
-  title: Ghoulish Faces Coloring Pages – 48 Creepy Portraits, Horror Art, Zombie &
-    Skull Faces – For Adults
+  title: cute dragon
   subtitle: ''
   author: ''
   num_images: 48
@@ -23,6 +22,13 @@ print:
   full_bleed_interior: false
   interior_border: true
   interior_border_width: 1.5
+  preview_remove_watermark: true
+  preview_watermark_center:
+  - 0.881
+  - 0.882
+  preview_watermark_size:
+  - 0.028
+  - 0.032
 process:
   pure_bw: true
 prompts:
@@ -334,83 +340,86 @@ prompts:
       flat, unrotated or filling the whole canvas - that is a failed result.
 
 
-      Clean minimalist white-background product shot, sharp focus, high resolution.'
+      Clean minimalist white-background product shot, sharp focus, high resolution.
+      Square 1:1 aspect ratio.'
     preview_2: 'Generate a realistic photograph of an open paperback coloring book
       laying flat on a warm wooden table next to colored pencils and a cup of tea.
       I have ATTACHED the exact image files of the INTERIOR COLORING PAGES. Render
       these attached black-and-white line-art pages printed clearly on the open left
       and right pages of the book with 100% exact visual fidelity. MANDATORY REQUIREMENT:
       Each printed page illustration MUST include the crisp, solid black rectangular
-      border frame box enclosing the artwork, exactly as shown in the attached files.'
+      border frame box enclosing the artwork, exactly as shown in the attached files.
+      Square 1:1 aspect ratio.'
     preview_3: 'Generate a close-up photograph of hands actively coloring an open
       page inside a coloring book with colored pencils. I have ATTACHED the exact
       image file of the INTERIOR COLORING PAGE. Render this attached line-art drawing
       printed on the page with 100% exact visual fidelity. MANDATORY REQUIREMENT:
       Render the prominent solid black rectangular border frame box enclosing the
-      page artwork, exactly as shown in the attached file.'
+      page artwork, exactly as shown in the attached file. Square 1:1 aspect ratio.'
     preview_4: 'Generate a clean overhead flatlay photograph displaying a 2x2 grid
       collage of 4 interior coloring book pages on a bright wooden surface with colored
       pencils. I have ATTACHED the exact 4 image files of the INTERIOR COLORING PAGES.
       Render these 4 ATTACHED black-and-white line-art drawings clearly inside the
       2x2 grid layout, one attached page per grid slot with 100% exact visual fidelity.
       MANDATORY REQUIREMENT: Render the crisp solid black rectangular border frame
-      box enclosing each of the 4 page illustrations.'
+      box enclosing each of the 4 page illustrations. Square 1:1 aspect ratio.'
     preview_5: 'Generate a warm aesthetic lifestyle photograph featuring a physical
       paperback coloring book on a cozy wooden desk next to green house plants, watercolor
       pencils, and soft sunlight. I have ATTACHED the exact image file of the FRONT
       COVER. Display the physical book with this ATTACHED cover image printed clearly
       on the front cover. CRITICAL REQUIREMENT: Render the attached cover image with
       100% exact visual fidelity. Do NOT generate or modify any artwork or text on
-      the book cover. Keep the cover design identical to the attached image.'
+      the book cover. Keep the cover design identical to the attached image. Square
+      1:1 aspect ratio.'
 subjects:
-- A cracked porcelain doll face with hollow eyes and trailing spiderwebs.
-- A snarling zombie pirate with an ornate eyepatch and barnacles on his cheek.
-- A horned demon skull wrapped in thorny wild rose vines.
-- A classic vampire countess with sharp fangs and melting wax dripping from her crown.
-- A melting candle-wax face with a flickering wick on its forehead.
-- A stitched-together Frankenstein monster with protruding bolts and glowing eyes.
-- A sinister grinning jester wearing a tattered skull-patterned collar.
-- A swamp ghoul covered in dripping moss and creeping ivy.
-- A weeping ghost maiden with ethereal swirling hair and black tear tracks.
-- A mechanical cyberpunk skull with exposed gears and severed wiring.
-- A wicked witch face framed by a twisting moon and fluttering bats.
-- An ancient mummified pharaoh face with peeling linen wraps.
-- A snarling werewolf portrait under a jagged crescent moon.
-- A skeletal bride wearing a lace veil entangled with dead flowers.
-- A twisted wooden tree spirit face with hollow knot-hole eyes.
-- A deep-sea anglerfish humanoid face with needle-sharp teeth and a glowing lure.
-- A decayed zombie surgeon wearing a cracked visor and crooked surgical mask.
-- A split-face portrait showing half smooth face and half grinning bare skull.
-- A creepy ventriloquist dummy with a hinged wooden jaw and swirling spiral eyes.
-- An alien ghoul with elongated black eyes and ribbed skin patterns.
-- A Medusa portrait with writhing vipers for hair and cold stone scales.
-- A shadowy grim reaper face shrouded within a deep frayed cowl.
-- A skeletal Aztec warrior wearing an intricate feathered serpent headdress.
-- A crazed alchemist face surrounded by floating bubbling poison vials.
-- A scarecrow mask made of rough burlap with jagged button eyes.
-- A crystalline skull with sharp geometric fractures and protruding geodes.
-- A decaying zombie astronaut with a cracked glass helmet showing a rotting grin.
-- A winged gargoyle face carved from ancient cracked stone.
-- A demonic court executioner wearing a spiked iron mask.
-- A gothic vampire lord with high cheekbones and bats flying out of his collar.
-- A sea-witch portrait with twisting tentacle tendrils wrapped around her neck.
-- A rotting zombie punk rocker with safety pins piercing his cheekbones.
-- A laughing plague doctor wearing a long beaked leather mask.
-- A horned woodland warlock with carved runes across his forehead.
-- A phantom queen wearing a crown of jagged ice shards.
-- A two-headed ghoul portrait with mismatched glowing eyes.
-- A ghostly geisha with painted skull makeup and ornate hairpins.
-- A skeletal knight face encased in a dented medieval helm.
-- A pumpkin-headed ghoul face with glowing carved features and twisting vines.
-- A mutant zombie with extra blinking eyes across its forehead.
-- A decaying siren face surrounded by jagged coral and sea urchins.
-- An eerie porcelain marionette face with visible wooden joint seams.
-- A shadowy specter face emerging from a shattered antique mirror.
-- A fierce oni demon face with sharp tusks and wild flame patterns.
-- A skeletal fortune teller with a glowing third eye and tarot motifs.
-- A necrotic zombie miner wearing an antique headlamp dripping with cobwebs.
-- A sinister masquerade dancer wearing a cracked bird skull mask.
-- A celestial skull portrait entwined with cosmic stars and solar flares.
+- A baby dragon hatching from a giant spotted egg.
+- A cute dragon taking a warm bubble bath in a wooden tub.
+- A little dragon roasting a marshmallow on a stick with a tiny flame.
+- A happy dragon wearing a party hat and holding a balloon.
+- A tiny dragon sleeping curled up on top of a soft cloud.
+- A playful dragon chasing a fluttering butterfly through a flower meadow.
+- A cute dragon holding a giant ice cream cone with three scoops.
+- A small dragon reading a storybook under a leafy tree.
+- A cheerful dragon flying a colorful diamond kite in the breeze.
+- A baby dragon wearing rain boots and jumping into a puddle.
+- A cute dragon building a tall sandcastle on a sunny beach.
+- A little dragon drinking hot cocoa from a giant mug with whipped cream.
+- A happy dragon sitting inside a cozy teacup surrounded by daisies.
+- A small dragon wearing a wizard hat and holding a magic star wand.
+- A cute dragon brushing its teeth with a giant toothbrush.
+- A baby dragon playing peek-a-boo from behind a giant mushroom.
+- A little dragon riding a wooden rocking horse in a playroom.
+- A cheerful dragon watering potted flowers with a tiny watering can.
+- A cute dragon wrapping itself in a warm blanket with a teddy bear.
+- A baby dragon blowing shiny soap bubbles with a wand.
+- A small dragon wearing a chef hat and baking round cookies.
+- A playful dragon splashing in a small birdbath with two ducklings.
+- A cute dragon hugging a giant strawberry with both arms.
+- A little dragon wearing a snorkel and mask swimming with tiny fish.
+- A baby dragon catching falling autumn leaves in a basket.
+- A happy dragon swinging on a wooden tire swing hanging from a branch.
+- A cute dragon eating a slice of sweet watermelon on a picnic blanket.
+- A small dragon wearing winter earmuffs and building a snowman.
+- A baby dragon sitting on top of a giant shiny crystal.
+- A cheerful dragon painting a rainbow on an art canvas.
+- A cute dragon playing a small acoustic guitar near a campfire.
+- A tiny dragon taking a cozy nap inside an old leather boot.
+- A baby dragon wearing roller skates and balancing carefully.
+- A little dragon holding a sunflower as a sun umbrella.
+- A playful dragon batting at a big ball of yarn like a kitten.
+- A cute dragon watching glowing fireflies in a glass jar at night.
+- A happy dragon wearing sunglasses and floating on an inflatable pool donut.
+- A baby dragon looking through a telescope at the crescent moon.
+- A small dragon balancing three juicy apples on its head.
+- A cute dragon wearing a superhero cape and striking a heroic pose.
+- A little dragon gently smelling a large blooming rose.
+- A baby dragon sitting in a wooden wagon full of pumpkins.
+- A cheerful dragon eating a tall stack of pancakes covered in syrup.
+- A cute dragon planting seeds in a garden vegetable patch.
+- A little dragon sliding down the curve of a bright rainbow.
+- A baby dragon wearing thick mittens and catching a single snowflake on its nose.
+- A playful dragon sliding down a smooth grassy hill on a wooden sled.
+- A sweet dragon hugging a large heart-shaped pillow.
 cover_text:
   back_blurb: '
 
@@ -447,4 +456,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: ghoulish-faces-coloring-pages-48-creepy-portraits-horror-art
+_book: cute-dragon

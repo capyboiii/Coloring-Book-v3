@@ -228,10 +228,10 @@ def finalize_preview(cfg: dict, dest: Path) -> None:
         except Exception as e:  # noqa: BLE001
             log.warning("Xoá watermark lỗi (bỏ qua): %s", e)
 
-    # 2) Phóng lên mức sàn TMĐT
-    min_px = int(pr.get("preview_min_px", 2000))
-    if min_px > 0:
-        imaging.upscale_to_min(dest, min_px)
+    # 2) Ép về 1:1 rồi phóng lên đúng size x size (mặc định 2000x2000) cho sàn TMĐT
+    size_px = int(pr.get("preview_min_px", 2000))
+    if size_px > 0:
+        imaging.square_upscale(dest, size_px)
 
 
 def generate_single(cfg: dict, key: str, prompt: str, dest: Path,
