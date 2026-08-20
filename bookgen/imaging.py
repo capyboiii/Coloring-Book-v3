@@ -12,6 +12,79 @@ log = logging.getLogger(__name__)
 Image.MAX_IMAGE_PIXELS = None
 
 
+def remove_watermark(path: Path,
+                     center: tuple[float, float] = (0.870, 0.902),
+                     size: tuple[float, float] = (0.034, 0.041)) -> Path:
+    """Xoa dau sao cua Gemini o GOC PHAI-DUOI anh mau, ghi de tai cho.
+
+    Gemini web luon dong dau sao ban trong suot o MOT vi tri co dinh. Trang to
+    mau tu sach nho buoc threshold 1-bit; anh preview MAU khong qua buoc do.
+
+    Cach lam: mask hinh sao 4 canh tai vi tri co dinh `center`, roi inpaint bang
+    xphoto SHIFTMAP - thuat toan COPY van that tu vung xung quanh (patch-based),
+    nen va xong van con van go/da/giay, KHONG de lai mang "qua min" nhu Telea.
+    Chay tren mot cua so nho quanh dau sao cho nhanh (~1s thay vi quet ca anh).
+
+    center,size theo TI LE anh -> dung cho moi kich thuoc. Thieu opencv-contrib
+    (khong co xphoto) thi tu lui ve Telea.
+    """
+    import cv2
+    import numpy as np
+
+    try:
+        buf = np.fromfile(str(path), dtype=np.uint8)
+        img = cv2.imdecode(buf, cv2.IMREAD_COLOR)
+    except Exception as e:  # noqa: BLE001
+        log.warning("Khong doc duoc %s de xoa watermark: %s", path.name, e)
+        return path
+    if img is None:
+        return path
+
+    H, W = img.shape[:2]
+
+    def star_mask(h, w, cx, cy, rx, ry):
+        outer = [(0, -1), (1, 0), (0, 1), (-1, 0)]
+        pts = []
+        for i in range(4):
+            ox, oy = outer[i]
+            pts.append((cx + ox * rx, cy + oy * ry))
+            nx, ny = outer[(i + 1) % 4]
+            pts.append((cx + (ox + nx) * rx * 0.34, cy + (oy + ny) * ry * 0.34))
+        m = np.zeros((h, w), np.uint8)
+        cv2.fillPoly(m, [np.array(pts, np.int32)], 255)
+        return cv2.dilate(m, np.ones((3, 3), np.uint8))
+
+    # Cua so nho quanh dau sao (SHIFTMAP quet ca anh thi rat cham).
+    wx0, wy0 = int(W * 0.72), int(H * 0.78)
+    win = img[wy0:H, wx0:W].copy()
+    wh, ww = win.shape[:2]
+    cx, cy = center[0] * W - wx0, center[1] * H - wy0
+    rx, ry = size[0] * W, size[1] * H
+    m = star_mask(wh, ww, cx, cy, rx, ry)
+
+    has_xphoto = hasattr(cv2, "xphoto")
+    if has_xphoto:
+        # SHIFTMAP: mask non-zero = pixel HOP LE (giu), zero = can lap -> 255-m.
+        dst = win.copy()
+        cv2.xphoto.inpaint(win, 255 - m, dst, cv2.xphoto.INPAINT_SHIFTMAP)
+    else:
+        dst = cv2.inpaint(win, m, 3, cv2.INPAINT_TELEA)
+
+    a = np.maximum(m.astype(np.float32) / 255.0,
+                   cv2.GaussianBlur(m.astype(np.float32) / 255.0, (0, 0), 1.5))[..., None]
+    blended = (win.astype(np.float32) * (1 - a) + dst.astype(np.float32) * a
+               ).clip(0, 255).astype(np.uint8)
+    out = img.copy()
+    out[wy0:H, wx0:W] = blended
+
+    ok, enc = cv2.imencode(path.suffix or ".png", out)
+    if ok:
+        enc.tofile(str(path))
+        log.info("Da xoa watermark (%s): %s",
+                 "SHIFTMAP" if has_xphoto else "Telea", path.name)
+    return path
+
+
 def upscale_to_min(path: Path, min_long_edge: int = 2000) -> Path:
     """Phóng ảnh lên cho cạnh dài đạt tối thiểu min_long_edge, ghi đè tại chỗ.
 

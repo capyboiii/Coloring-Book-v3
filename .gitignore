@@ -19,3 +19,8 @@ venv/
 # IDE
 .idea/
 .vscode/
+
+# Secrets - KHONG BAO GIO commit. R2 keys, API keys nam trong day.
+.env
+.env.*
+!.env.example

@@ -1,8 +1,9 @@
 book:
-  title: Ocean Animals
+  title: Ghoulish Faces Coloring Pages – 48 Creepy Portraits, Horror Art, Zombie &
+    Skull Faces – For Adults
   subtitle: ''
   author: ''
-  num_images: 24
+  num_images: 48
   blank_verso: true
   front_matter_pages: 0
   matter_pages: true
@@ -17,12 +18,13 @@ print:
   binding: perfect
   min_pages: 32
   cover_wrap: 0.25
-  spine_width: 0.182
+  pod_package_id: 0850X1100BWSTDPB060UW444MXX
+  spine_width: 0.29
   full_bleed_interior: false
   interior_border: true
   interior_border_width: 1.5
 process:
-  pure_bw: false
+  pure_bw: true
 prompts:
   page: 'A black and white line-art coloring page illustration for children ages 4-8.
 
@@ -361,30 +363,54 @@ prompts:
       100% exact visual fidelity. Do NOT generate or modify any artwork or text on
       the book cover. Keep the cover design identical to the attached image.'
 subjects:
-- A happy clownfish peeking out from behind soft sea anemone tentacles.
-- A smiling sea turtle swimming peacefully above a colorful coral reef.
-- A playful dolphin jumping out of the ocean water under a bright sun.
-- A cute baby seal resting comfortably on a floating block of ice.
-- A friendly octopus waving its eight curly arms near floating bubbles.
-- A tiny seahorse holding onto a tall strand of wavy green seaweed.
-- A cheerful blue whale spraying a big water fountain from its blowhole.
-- A little crab wearing a tiny seashell hat while walking along the sandy seafloor.
-- A gentle manta ray gliding smoothly across the calm ocean waves.
-- A round pufferfish puffed up like a balloon near smooth ocean rocks.
-- A smiling starfish resting next to an open oyster holding a shiny pearl.
-- A pair of playful sea otters floating on their backs holding paws.
-- A friendly shark showing a wide smile beside three little swimming fish.
-- A mother penguin waddling alongside her fluffy baby chick by the shore.
-- A cute jellyfish floating gently with long wavy tentacles.
-- A curious walrus with long tusks peeking over a smooth ocean rock.
-- A cheerful narwhal pointing its spiral horn up toward the water surface.
-- A smiling stingray resting peacefully on the soft sandy ocean bottom.
-- A little hermit crab trying on a brand-new patterned seashell home.
-- A happy hammerhead shark cruising past a forest of tall kelp.
-- A tiny shrimp cleaning a smooth sea pebble on the ocean floor.
-- A friendly moray eel poking its head out from a cozy rock cave.
-- A playful squid zooming through the water surrounded by small bubbles.
-- A happy lobster holding a small sunken treasure coin in its big claw.
+- A cracked porcelain doll face with hollow eyes and trailing spiderwebs.
+- A snarling zombie pirate with an ornate eyepatch and barnacles on his cheek.
+- A horned demon skull wrapped in thorny wild rose vines.
+- A classic vampire countess with sharp fangs and melting wax dripping from her crown.
+- A melting candle-wax face with a flickering wick on its forehead.
+- A stitched-together Frankenstein monster with protruding bolts and glowing eyes.
+- A sinister grinning jester wearing a tattered skull-patterned collar.
+- A swamp ghoul covered in dripping moss and creeping ivy.
+- A weeping ghost maiden with ethereal swirling hair and black tear tracks.
+- A mechanical cyberpunk skull with exposed gears and severed wiring.
+- A wicked witch face framed by a twisting moon and fluttering bats.
+- An ancient mummified pharaoh face with peeling linen wraps.
+- A snarling werewolf portrait under a jagged crescent moon.
+- A skeletal bride wearing a lace veil entangled with dead flowers.
+- A twisted wooden tree spirit face with hollow knot-hole eyes.
+- A deep-sea anglerfish humanoid face with needle-sharp teeth and a glowing lure.
+- A decayed zombie surgeon wearing a cracked visor and crooked surgical mask.
+- A split-face portrait showing half smooth face and half grinning bare skull.
+- A creepy ventriloquist dummy with a hinged wooden jaw and swirling spiral eyes.
+- An alien ghoul with elongated black eyes and ribbed skin patterns.
+- A Medusa portrait with writhing vipers for hair and cold stone scales.
+- A shadowy grim reaper face shrouded within a deep frayed cowl.
+- A skeletal Aztec warrior wearing an intricate feathered serpent headdress.
+- A crazed alchemist face surrounded by floating bubbling poison vials.
+- A scarecrow mask made of rough burlap with jagged button eyes.
+- A crystalline skull with sharp geometric fractures and protruding geodes.
+- A decaying zombie astronaut with a cracked glass helmet showing a rotting grin.
+- A winged gargoyle face carved from ancient cracked stone.
+- A demonic court executioner wearing a spiked iron mask.
+- A gothic vampire lord with high cheekbones and bats flying out of his collar.
+- A sea-witch portrait with twisting tentacle tendrils wrapped around her neck.
+- A rotting zombie punk rocker with safety pins piercing his cheekbones.
+- A laughing plague doctor wearing a long beaked leather mask.
+- A horned woodland warlock with carved runes across his forehead.
+- A phantom queen wearing a crown of jagged ice shards.
+- A two-headed ghoul portrait with mismatched glowing eyes.
+- A ghostly geisha with painted skull makeup and ornate hairpins.
+- A skeletal knight face encased in a dented medieval helm.
+- A pumpkin-headed ghoul face with glowing carved features and twisting vines.
+- A mutant zombie with extra blinking eyes across its forehead.
+- A decaying siren face surrounded by jagged coral and sea urchins.
+- An eerie porcelain marionette face with visible wooden joint seams.
+- A shadowy specter face emerging from a shattered antique mirror.
+- A fierce oni demon face with sharp tusks and wild flame patterns.
+- A skeletal fortune teller with a glowing third eye and tarot motifs.
+- A necrotic zombie miner wearing an antique headlamp dripping with cobwebs.
+- A sinister masquerade dancer wearing a cracked bird skull mask.
+- A celestial skull portrait entwined with cosmic stars and solar flares.
 cover_text:
   back_blurb: '
 
@@ -399,7 +425,7 @@ api:
   - 2
   - 5
 browser:
-  headless: false
+  headless: true
   gemini_url: https://gemini.google.com/app
   generation_timeout: 240
   recycle_tab_every: 1
@@ -421,4 +447,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: ocean-animals
+_book: ghoulish-faces-coloring-pages-48-creepy-portraits-horror-art

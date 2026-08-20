@@ -347,6 +347,42 @@ class BatchRunner:
         cfg["subjects"] = []
         return cfg
 
+    def _profile_dirs(self) -> list[Path]:
+        """Các profile Chrome gốc mà pool sẽ dùng (từ config.yaml)."""
+        b = self._base_cfg.get("browser", {})
+        profiles = b.get("profiles") or (
+            [b["user_data_dir"]] if "user_data_dir" in b else [])
+        return [Path(p).resolve() for p in profiles]
+
+    def _wait_profiles_free(self, timeout: float = 90.0) -> None:
+        """Đợi Chrome của cuốn trước nhả khoá profile trước khi phóng cuốn sau.
+
+        Bản chất lỗi 'forest' hôm nay: cuốn kế khởi động chỉ vài giây sau khi
+        cuốn trước gen xong, lúc Chrome (Windows) CHƯA nhả 'lockfile'. Pool thấy
+        khoá -> tạo bản sao .chrome-account1-p1 KHÔNG mang phiên đăng nhập ->
+        'Chưa đăng nhập Google' -> cả cuốn chết oan dù tài khoản vẫn tốt.
+
+        Chờ tới khi mọi profile gốc rảnh, rồi cuốn sau chạy thẳng trên profile
+        đã đăng nhập. Hết giờ chờ thì vẫn đi tiếp (pool tự nhân bản như cũ).
+        """
+        from bookgen.gemini_driver import is_profile_locked
+
+        dirs = self._profile_dirs()
+        if not dirs:
+            return
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            locked = [d for d in dirs if d.exists() and is_profile_locked(d)]
+            if not locked:
+                return
+            if self._stop.is_set():
+                return
+            log.info("[BATCH] Đợi Chrome nhả profile: %s",
+                     ", ".join(d.name for d in locked))
+            time.sleep(2.0)
+        log.warning("[BATCH] Quá %.0fs profile vẫn bị giữ -> chạy tiếp, pool sẽ "
+                    "tự nhân bản (có thể mất phiên đăng nhập).", timeout)
+
     # ---------------------------------------------------------- kiểm ảnh
 
     def _missing(self, cfg: dict) -> list[str]:
@@ -379,6 +415,11 @@ class BatchRunner:
                 return "stopped"
             before = len(self._missing(cfg))
             reset_cancel()
+
+            # Đợi Chrome của cuốn/lượt trước nhả profile đã đăng nhập.
+            self._wait_profiles_free()
+            if self._stop.is_set():
+                return "stopped"
 
             # Đồng hồ canh giờ: cuốn nào treo quá lâu thì bắn cờ dừng để
             # cmd_generate tự văng ra, batch không đứng hình vĩnh viễn.

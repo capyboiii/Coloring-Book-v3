@@ -5,3 +5,5 @@ pypdf>=4.2
 fastapi
 uvicorn
 python-multipart
+boto3
+opencv-contrib-python-headless

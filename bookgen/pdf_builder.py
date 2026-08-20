@@ -470,15 +470,7 @@ def build_cover(
         c.line(spine_x, 0, spine_x, total_h)
         c.line(spine_x + sp, 0, spine_x + sp, total_h)
 
-        # Lulu: chỉ in chữ lên gáy khi gáy đủ rộng >= 0.25" (tương đương >=110 trang)
-        if spine >= 0.25:
-            c.saveState()
-            c.translate(spine_x + sp / 2, total_h / 2)
-            c.rotate(-90)
-            c.setFillColor(white)
-            c.setFont(font, min(14, sp * 0.55))
-            c.drawCentredString(0, -min(14, sp * 0.55) * 0.35, b["title"])
-            c.restoreState()
+        # KHÔNG in chữ tiêu đề lên gáy (theo yêu cầu) - chỉ để nguyên màu gáy.
 
     # Chữ tiêu đề đã nằm sẵn 100% trong hình vẽ nghệ thuật của Gemini, không vẽ chèn thêm chữ bằng code Python nữa.
 

@@ -216,7 +216,20 @@ def finalize_preview(cfg: dict, dest: Path) -> None:
     if not dest.exists():
         return
     from bookgen import imaging
-    min_px = int((cfg.get("print") or {}).get("preview_min_px", 2000))
+    pr = cfg.get("print") or {}
+
+    # 1) Xoá dấu sao Gemini góc phải-dưới TRƯỚC khi phóng to (làm ở ảnh nhỏ cho
+    #    nhanh; ROI theo tỉ lệ nên kích thước nào cũng đúng). Bật/tắt qua config.
+    if pr.get("preview_remove_watermark", True):
+        center = tuple(pr.get("preview_watermark_center") or (0.870, 0.902))
+        size = tuple(pr.get("preview_watermark_size") or (0.031, 0.037))
+        try:
+            imaging.remove_watermark(dest, center, size)
+        except Exception as e:  # noqa: BLE001
+            log.warning("Xoá watermark lỗi (bỏ qua): %s", e)
+
+    # 2) Phóng lên mức sàn TMĐT
+    min_px = int(pr.get("preview_min_px", 2000))
     if min_px > 0:
         imaging.upscale_to_min(dest, min_px)
 
