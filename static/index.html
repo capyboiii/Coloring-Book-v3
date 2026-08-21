@@ -95,8 +95,11 @@
           </div>
 
           <div class="form-group">
-            <label>Tác giả (Author Name)</label>
-            <input type="text" id="book-author" placeholder="VD: Bao Vo" onchange="saveConfigFromUI()">
+            <label>Đối tượng (Audience) — quyết định phong cách nét & chủ đề khi gen ảnh</label>
+            <select id="book-audience" onchange="saveConfigFromUI()">
+              <option value="kids">Trẻ em 4-8 tuổi (nét to, mảng lớn, dễ thương)</option>
+              <option value="adults">Người lớn (nét tinh xảo, chi tiết dày)</option>
+            </select>
           </div>
 
           <div class="form-group">
@@ -122,18 +125,6 @@
             </div>
           </div>
 
-          <div class="form-group">
-            <label>Trang Tiêu Đề Đầu Sách (Front Matter Title Page)</label>
-            <select id="front-matter-select" onchange="saveConfigFromUI()">
-              <option value="0">Tắt (Không tạo trang tiêu đề, bắt đầu ngay từ tranh đầu tiên)</option>
-              <option value="2">Bật (Tạo 2 trang tiêu đề & bản quyền đầu sách)</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label>Mô tả / Lời giới thiệu bìa sau (Back Cover Blurb)</label>
-            <textarea id="cover-back-blurb" rows="3" onchange="saveConfigFromUI()"></textarea>
-          </div>
         </div>
 
         <!-- Lulu POD Specifications Card -->

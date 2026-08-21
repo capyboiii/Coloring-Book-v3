@@ -92,18 +92,13 @@ function syncConfigToUI() {
   const cfg = state.config || {};
   const print = cfg.print || {};
   const book = cfg.book || {};
-  const cover_text = cfg.cover_text || {};
 
   document.getElementById('book-title').value = book.title || "";
   document.getElementById('book-subtitle').value = book.subtitle || "";
-  document.getElementById('book-author').value = book.author || "";
+  const audEl = document.getElementById('book-audience');
+  if (audEl) audEl.value = book.audience || "kids";
   document.getElementById('book-num-images').value = book.num_images || 30;
   document.getElementById('blank-verso').value = book.blank_verso !== false ? "true" : "false";
-  const fmEl = document.getElementById('front-matter-select');
-  if (fmEl) {
-    fmEl.value = (book.front_matter_pages !== undefined) ? book.front_matter_pages.toString() : "0";
-  }
-  document.getElementById('cover-back-blurb').value = cover_text.back_blurb || "";
 
   // Sync Trim Preset Dropdown
   const tw = print.trim_width || 8.5;
@@ -358,14 +353,10 @@ async function saveConfigFromUI() {
     book: {
       title: document.getElementById('book-title').value,
       subtitle: document.getElementById('book-subtitle').value,
-      author: document.getElementById('book-author').value,
+      audience: document.getElementById('book-audience')?.value || "kids",
       num_images: parseInt(document.getElementById('book-num-images').value),
       matter_pages: document.getElementById('matter-pages-select')?.value !== "false",
-      blank_verso: document.getElementById('blank-verso').value === "true",
-      front_matter_pages: parseInt(document.getElementById('front-matter-select').value)
-    },
-    cover_text: {
-      back_blurb: document.getElementById('cover-back-blurb').value
+      blank_verso: document.getElementById('blank-verso').value === "true"
     },
     browser: {
       headless: document.getElementById('browser-headless-select').value === "true",

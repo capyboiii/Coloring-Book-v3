@@ -180,6 +180,34 @@ def crop_white_margins(img: Image.Image, padding_px: int = 10) -> Image.Image:
     return img
 
 
+def _upscale_steps(img: Image.Image, tw: int, th: int) -> Image.Image:
+    """Phóng theo từng chặng x2 rồi mới về đúng khổ (C).
+
+    Nhảy thẳng 800->2625 (một lần LANCZOS ~3.3x) làm nét mềm và răng cưa không
+    đều. Phóng nhiều chặng nhỏ (800->1600->2625) cho nét liền và đều hơn vì mỗi
+    lần nội suy chỉ phải "đoán" ít.
+    """
+    w, h = img.size
+    while w * 2 <= tw and h * 2 <= th:
+        w, h = w * 2, h * 2
+        img = img.resize((w, h), Image.LANCZOS)
+    if (img.width, img.height) != (tw, th):
+        img = img.resize((tw, th), Image.LANCZOS)
+    return img
+
+
+def _levels(img: Image.Image, black: int = 12, white: int = 244) -> Image.Image:
+    """Kéo levels NHẸ (B): nền về trắng sạch, nét về đen đặc hơn.
+
+    Khoảng [black, white] hẹp vừa phải để KHÔNG nuốt nét xám mảnh (chỉ dịch nhẹ),
+    nhưng đủ để bỏ nền hơi ngả xám và làm nét đen dứt khoát -> nhìn crisp hơn.
+    """
+    scale = 255.0 / max(1, (white - black))
+    lut = [0 if i <= black else 255 if i >= white
+           else int(round((i - black) * scale)) for i in range(256)]
+    return img.point(lut)
+
+
 def process_lineart(
     src: Path,
     dest: Path,
@@ -207,17 +235,24 @@ def process_lineart(
     # 1) cắt về đúng tỉ lệ TRƯỚC khi phóng to
     img = _fit_to_ratio(img, target_w_px, target_h_px)
 
-    # 2) phóng/thu về đúng kích thước, vẫn ở dạng xám
-    if (img.width, img.height) != (target_w_px, target_h_px):
-        img = img.resize((target_w_px, target_h_px), Image.LANCZOS)
-
-    # 3) lấy lại độ sắc đã mất khi phóng to
     scale = target_w_px / max(1, src_w)
-    if sharpen and scale > 1.2:
-        img = img.filter(ImageFilter.UnsharpMask(radius=2, percent=110,
-                                                 threshold=3))
+    up = (img.width, img.height) != (target_w_px, target_h_px)
 
-    # 4) threshold MỘT lần duy nhất, ở kích thước cuối
+    # 2) (C) phóng NHIỀU CHẶNG (800->1600->2625) cho nét đều rồi về đúng khổ.
+    #    Ảnh Gemini vốn sạch nên KHÔNG khử nhiễu (median chỉ bào mòn nét mảnh).
+    if up:
+        img = _upscale_steps(img, target_w_px, target_h_px)
+
+    # 3) (C) unsharp lấy lại độ sắc sau khi phóng
+    if sharpen and scale > 1.2:
+        img = img.filter(ImageFilter.UnsharpMask(radius=2, percent=120,
+                                                 threshold=2))
+
+    # 4) (B) kéo levels: nền về trắng sạch, lõi nét về đen đặc -> nhìn crisp,
+    #    khoảng vẫn đủ rộng để giữ các nét xám mảnh (vết nứt, hoa văn nhạt).
+    img = _levels(img, black=28, white=246)
+
+    # 5) threshold MỘT lần duy nhất, ở kích thước cuối
     if pure_bw:
         img = img.point(lambda p: 255 if p >= threshold else 0, mode="L")
         img = img.convert("1")
@@ -345,7 +380,7 @@ def prepare_cover_art(src: Path, dest: Path, w_px: int, h_px: int,
     return dest
 
 
-def render_titled_cover(src_cover: Path, dest_cover: Path, title: str = "", subtitle: str = "", author: str = "") -> Path:
+def render_titled_cover(src_cover: Path, dest_cover: Path, title: str = "", subtitle: str = "") -> Path:
     """Ảnh bìa đã được Gemini tự vẽ sẵn chữ tiêu đề trong prompt. Hàm này chỉ sao chép file tới dest_cover."""
     if not src_cover.exists():
         return src_cover

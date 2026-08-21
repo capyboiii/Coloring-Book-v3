@@ -309,6 +309,10 @@ class GeminiPool:
             self.stall_timeout = floor
         self.max_requeue = int(b.get("max_requeue", 2))
         self.max_nudges = int(b.get("max_nudges", 2))
+        # Ảnh bắt ở tầng mạng là bản xem trước ~800-1024px. Nếu cạnh dài nhỏ hơn
+        # ngưỡng này, thử mở ảnh/bấm Tải xuống để lấy BẢN GỐC (2K+, 3-6MB) rồi
+        # giữ bản lớn hơn. Đặt 0 để tắt (chỉ dùng bản xem trước cho nhanh).
+        self.raw_min_long_edge = int(b.get("raw_min_long_edge", 1500))
         self.nudge_prompt = (cfg.get("prompts", {}).get("nudge")
                              or "Generate the image now. Output only the image, "
                                 "with no explanation and no text in your reply.")
@@ -967,6 +971,42 @@ class GeminiPool:
             log.debug("Nút tải xuống không dùng được: %s", e)
             return False
 
+    async def _download_fullsize_button(self, page: Page, dest: Path) -> bool:
+        """Bấm THẲNG nút 'Tải ảnh kích thước đầy đủ' trên trang (không cần viewer).
+
+        Nút <download-generated-image-button data-test-id=...> có sẵn ngay trong
+        khung chat sau khi vẽ xong; bấm nó là Gemini tải bản GỐC về. Đây là cách
+        sát thao tác tay nhất và không phụ thuộc việc mở được lightbox.
+        """
+        loc = page.locator(
+            '[data-test-id="download-generated-image-button"] button, '
+            '[data-test-id="download-generated-image-button"]').last
+        try:
+            n = await loc.count()
+        except Exception:  # noqa: BLE001
+            n = 0
+        if not n:
+            log.info("[fullres] không thấy nút download trên trang.")
+            return False
+        try:
+            try:
+                await loc.scroll_into_view_if_needed(timeout=2_000)
+                await loc.hover(timeout=2_000)      # nút chỉ hiện khi rê chuột
+            except Exception:  # noqa: BLE001
+                pass
+            async with page.expect_download(timeout=30_000) as info:
+                await loc.click(timeout=5_000, force=True)
+            dl = await info.value
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            await dl.save_as(str(dest))
+            ok = dest.exists() and dest.stat().st_size > 20_000
+            log.info("[fullres] nút download: ok=%s (%d KB).", ok,
+                     dest.stat().st_size // 1024 if dest.exists() else 0)
+            return ok
+        except Exception as e:  # noqa: BLE001
+            log.info("[fullres] nút download không bắt được tải: %s", e)
+            return False
+
     async def _grab_full_image(self, page: Page, src: str, dest: Path) -> bool:
         """Mở ảnh ra rồi lấy bản gốc: ưu tiên nút Tải xuống, sau đó tới URL."""
         if not await self._open_viewer(page, src):
@@ -984,6 +1024,89 @@ class GeminiPool:
             return False
         finally:
             await self._close_viewer(page)
+
+    @staticmethod
+    def _long_edge(dest: Path) -> int:
+        """Cạnh dài (px) của file ảnh; 0 nếu đọc lỗi/không tồn tại."""
+        try:
+            from PIL import Image
+            with Image.open(dest) as im:
+                return max(im.size)
+        except Exception:  # noqa: BLE001
+            return 0
+
+    async def _upgrade_to_fullres(self, page: Page, dest: Path) -> None:
+        """Nếu ảnh vừa bắt (bản xem trước) nhỏ, thử lấy BẢN GỐC và giữ bản lớn hơn.
+
+        Ảnh inline trong chat Gemini là bản nén ~800-1024px. Bản gốc (2K+, 3-6MB)
+        chỉ nạp khi mở ảnh/bấm Tải xuống. Ở đây: đo cạnh dài; nếu < ngưỡng thì
+        thử _download_via_toolbar rồi _grab_full_image vào file tạm, chỉ THAY THẾ
+        khi bản mới lớn hơn thật. Thất bại thì im lặng giữ nguyên bản xem trước.
+        """
+        if self.raw_min_long_edge <= 0:
+            return
+        cur = self._long_edge(dest)
+        if cur >= self.raw_min_long_edge:
+            return
+
+        urls = await self._image_urls(page)
+        log.info("[fullres] %s: bản bắt %dpx < %d, thử nâng. %d URL ứng viên.",
+                 dest.name, cur, self.raw_min_long_edge, len(urls))
+        for u in urls[:3]:
+            scheme = u.split(":", 1)[0]
+            log.info("[fullres]   URL(%s): %s", scheme, u[:160])
+        if not urls:
+            return
+        tmp = dest.with_suffix(dest.suffix + ".full")
+
+        def _consider(tag: str) -> bool:
+            big = self._long_edge(tmp) if tmp.exists() else 0
+            if tmp.exists() and is_real_art(tmp) and big > cur:
+                tmp.replace(dest)
+                log.info("[fullres] %s: NÂNG qua %s -> %dpx (trước %dpx).",
+                         dest.name, tag, big, cur)
+                return True
+            if tmp.exists():
+                log.info("[fullres] %s: %s cho %dpx (%d KB), không hơn %dpx -> bỏ.",
+                         dest.name, tag, big, tmp.stat().st_size // 1024, cur)
+                tmp.unlink()
+            else:
+                log.info("[fullres] %s: %s không tải được file.", dest.name, tag)
+            return False
+
+        # 1) ĐÁNG TIN NHẤT: bấm thẳng nút 'Tải ảnh đầy đủ' trên trang.
+        try:
+            if await self._download_fullsize_button(page, tmp) and _consider("nút-download"):
+                return
+        except Exception as e:  # noqa: BLE001
+            log.info("[fullres] nút-download lỗi: %s", e)
+
+        # 2) fetch thẳng URL với =s0 (chỉ ăn nếu là lh3, blob thì trượt).
+        for url in urls[:3]:
+            try:
+                if await self._download(page, url, tmp) and _consider("=s0/url"):
+                    return
+            except Exception as e:  # noqa: BLE001
+                log.debug("[fullres] fetch url lỗi: %s", e)
+
+        # 3) Mở viewer rồi bấm nút Tải xuống trong đó.
+        for url in urls[:2]:
+            try:
+                if await self._grab_full_image(page, url, tmp) and _consider("viewer"):
+                    return
+            except Exception as e:  # noqa: BLE001
+                log.info("[fullres] viewer lỗi: %s", e)
+
+        # 3) Nút Tải xuống trên thanh công cụ nổi của ảnh inline.
+        for url in urls[:2]:
+            try:
+                if await self._download_via_toolbar(page, url, tmp) and _consider("toolbar"):
+                    return
+            except Exception as e:  # noqa: BLE001
+                log.debug("[fullres] toolbar lỗi: %s", e)
+
+        log.warning("[fullres] %s: không lấy được bản lớn hơn %dpx, giữ bản xem trước.",
+                    dest.name, cur)
 
     async def _turn_ended_with_text(self, page: Page) -> bool:
         """Model đã kết thúc lượt trả lời và có chữ trong câu trả lời."""
@@ -1332,8 +1455,12 @@ class GeminiPool:
                                 catcher.arm()
                                 await self._send_prompt(page, self.nudge_prompt)
                         if got and is_real_art(dest):
+                            # Bản bắt ở mạng là ảnh xem trước nhỏ -> thử nâng lên
+                            # bản gốc (2K+) trước khi chốt.
+                            await self._upgrade_to_fullres(page, dest)
                             await self.throttle.on_ok()
-                            log.info("[tab %d] OK -> %s", idx, dest.name)
+                            log.info("[tab %d] OK -> %s (%dpx)",
+                                     idx, dest.name, self._long_edge(dest))
                             return True
                     finally:
                         catcher.disarm()

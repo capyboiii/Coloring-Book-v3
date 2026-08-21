@@ -326,7 +326,6 @@ class BatchRunner:
         state = self.bm.load_state(P["state_file"])
         state["title"] = title
         state["subtitle"] = ""
-        state["author"] = ""
         state["num_images"] = cfg["book"]["num_images"]
         state["blank_verso"] = cfg["book"].get("blank_verso", True)
         state["book"] = cfg["book"]
@@ -341,7 +340,6 @@ class BatchRunner:
         cfg.setdefault("book", {})
         cfg["book"]["title"] = title
         cfg["book"]["subtitle"] = ""
-        cfg["book"]["author"] = ""
         # QUAN TRỌNG: config.yaml còn giữ subjects của cuốn làm gần nhất. Không
         # xoá thì cmd_generate sẽ lấy lại đúng list đó cho MỌI cuốn trong batch.
         cfg["subjects"] = []

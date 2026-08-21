@@ -251,7 +251,7 @@ def _book_cfg(slug: str) -> dict:
     P = book_main.paths_of(c)
     state = book_main.load_state(P["state_file"])
     c.setdefault("book", {})
-    for k in ("title", "subtitle", "author", "num_images", "blank_verso"):
+    for k in ("title", "subtitle", "num_images", "blank_verso"):
         if state.get(k) is not None:
             c["book"][k] = state[k]
     c["_paths"] = {k: str(v) for k, v in P.items()}

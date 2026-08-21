@@ -1,10 +1,9 @@
 book:
-  title: cute dragon
+  title: Chihuahua Love – Relaxing Coloring Book for Dog Fans of All Ages
   subtitle: ''
-  author: ''
-  num_images: 48
+  audience: kids
+  num_images: 5
   blank_verso: true
-  front_matter_pages: 0
   matter_pages: true
 print:
   trim_width: 8.5
@@ -18,7 +17,7 @@ print:
   min_pages: 32
   cover_wrap: 0.25
   pod_package_id: 0850X1100BWSTDPB060UW444MXX
-  spine_width: 0.29
+  spine_width: 0.182
   full_bleed_interior: false
   interior_border: true
   interior_border_width: 1.5
@@ -29,10 +28,17 @@ print:
   preview_watermark_size:
   - 0.028
   - 0.032
+  cover_remove_watermark: true
+  cover_watermark_center:
+  - 0.866
+  - 0.899
+  cover_watermark_size:
+  - 0.023
+  - 0.026
 process:
-  pure_bw: true
+  pure_bw: false
 prompts:
-  page: 'A black and white line-art coloring page illustration for children ages 4-8.
+  page: 'A black and white line-art coloring page illustration for {audience_desc}.
 
     Subject: {subject}.
 
@@ -43,8 +49,7 @@ prompts:
     NO TEXT of any kind: no title, no caption, no letters, numbers, page number, signature,
     watermark or logo.
 
-    Line work: pure black outlines on a pure white background, uniform thick strokes,
-    closed shapes with large open areas that are easy to colour in.
+    Line work: pure black outlines on a pure white background, {page_line_style}
 
     NO shading, NO hatching, NO stippling, NO gray tones, NO fill, NO colour.
 
@@ -52,18 +57,15 @@ prompts:
     vector-like edges.
 
     '
-  cover_style: 'ART STYLE (HAND-COLORED COLORING BOOK STYLE): Vibrant, charming children''s
-    coloring book cover style that looks like a beautifully completed hand-colored
-    illustration. - LINEWORK: Bold, clean, crisp black outlines defining all characters
-    and elements, matching the line-art style inside the coloring book. - COLORING
-    & TEXTURE: Filled with rich, cheerful, vibrant colors having subtle colored pencil
-    and crayon shading textures within the black outlines, giving it a warm, delightful
-    hand-colored look. - COLOR PALETTE: Harmonious, bright, friendly colors (warm
-    sun yellow, soft coral, sky blue, mint green, cozy lavender, warm cream) filled
-    with soft gradient shading. - NO photorealism, NO harsh 3D glossy plastic renders,
-    NO dark gritty shadows. '
-  front_cover: 'A vibrant, full-colour FRONT COVER illustration for a children''s
-    coloring book.
+  cover_style: 'soft watercolor style mixed with realistic details, vibrant yet soft
+    pastel colors, warm and charming atmosphere, dreamy lighting, highly detailed,
+    eye-catching, aesthetic, high quality illustration. - LINEWORK: keep clean, crisp
+    black outlines defining all characters and elements, matching the line-art style
+    inside the coloring book. - A warm cream / soft ivory background, not stark white.
+    - The colouring is professionally graded, luminous and cohesive, polished and
+    premium, never flat, muddy, dull, garish or neon. '
+  front_cover: 'A vibrant, full-colour FRONT COVER illustration for {audience_article}
+    {audience_adj} coloring book.
 
 
     THIS BOOK''S SUBJECT - build the cover only from this:
@@ -73,14 +75,15 @@ prompts:
     Every character, creature and object must belong to that subject. Do NOT add a
     fox, a
 
-    rabbit, a bear, a squirrel, a deer or an owl unless it genuinely belongs. If one
-    character
+    rabbit, a bear, a squirrel, a deer or an owl unless it genuinely belongs, and
+    never a different species.
 
-    cannot fill the cover, show MORE OF THE SAME subject in different poses and sizes,
-    never a
-
-    different species. Do NOT fall back on a generic green forest or flower meadow
-    unless the
+    KEEP IT SIMPLE - FEW CHARACTERS: feature only a SMALL focal group, about ONE to
+    THREE main characters total, drawn large, clear and charming. Do NOT crowd the
+    cover with many repeated characters, and do NOT fill empty space by adding extra
+    copies of the subject. A clean, uncluttered composition with a strong focal point
+    is the goal. Do NOT fall back on a generic green forest or flower meadow unless
+    the
 
     scenes above are actually set there.
 
@@ -88,51 +91,26 @@ prompts:
     LAYOUT: {cover_layout}
 
 
-    ONE SINGLE COHERENT SCENE - THIS IS THE MOST IMPORTANT RULE. The whole cover shows
-    ONE
+    COMPOSITION - arrange the cover in whatever way looks most beautiful, charming
+    and eye-catching for a coloring book cover. You are FREE to choose the layout:
+    it may be a single unified scene, OR a tasteful grouped arrangement / soft vignette
+    composition - for example the main characters gathered together as a lovely group,
+    with smaller supporting characters, props or gentle decorative vignettes softly
+    arranged around them.
 
-    place, at ONE moment, from ONE viewpoint, as if photographed in a single shot.
-    One
+    Whatever layout you pick, keep the WHOLE cover visually COHESIVE: one consistent
+    art style, one colour palette and one light mood throughout, so it reads as ONE
+    polished, harmonious design - not random, clashing clip-art. Avoid an ugly rigid
+    grid of hard boxes or a messy scrapbook; any groupings or vignettes should blend
+    softly and pleasingly into each other or into a shared background.
 
-    horizon, one light source, one consistent perspective and one continuous ground
-    plane run
-
-    across the entire cover. Every character stands in that same place and could walk
-    over to
-
-    any other character.
-
-
-    THIS IS NOT A COLLAGE. Do NOT assemble the cover from separate pictures. No panels,
-    no
-
-    tiles, no grid, no patchwork, no scrapbook arrangement, no circular or oval vignettes
-
-    holding little separate scenes, no stacked levels or cross-sections, no upper
-    scene above
-
-    a lower scene, no row of unrelated mini-illustrations, no floating cut-out elements
-    from
-
-    somewhere else. Two different settings must never appear on the same cover - not
-    a room
-
-    above a garden, not a kitchen beside a meadow.
-
-
-    THE PICTURE IS ALSO UNBROKEN: it is drawn at full strength from the top edge to
-    the bottom
-
-    edge and from side to side, with NO band, stripe, gap, seam, empty strip or white
-    area
-
-    anywhere. Behind the title the scenery keeps exactly the same colours, brightness
-    and
-
-    density of detail as everywhere else: if the letters were hidden, that area would
-    look
-
-    like a completely ordinary part of the picture.
+    ONE CONTINUOUS PICTURE - IMPORTANT: the whole cover must be a SINGLE continuous
+    illustration on one shared background. Do NOT split it into separate horizontal
+    bands, strips, header bars, panels or boxed-off sections, and do NOT draw any
+    dividing line, rule, seam or inner frame that cuts the artwork into pieces. The
+    top of the cover flows into the middle and bottom as one seamless image; grouped
+    characters and soft vignettes may sit within it but must NOT become separate fenced-off
+    compartments.
 
 
     TITLE "{title}" - spell it EXACTLY, letter for letter. Draw it as a real object
@@ -141,13 +119,17 @@ prompts:
     inside this scene, not as text laid on top: the same bold black hand-drawn outline,
     the
 
-    same coloured-pencil shading and the same palette as the artwork; leaves, vines,
-    flowers
+    same coloured-pencil shading and the same palette as the artwork.
 
-    or small motifs weaving behind some letters and in front of others; scenery passing
-    behind
 
-    them. Place the title in the upper part of the cover, with a clear band of illustration
+    KEEP THE TITLE CLEAN AND SEPARATE: NO flowers, leaves, vines, branches, tendrils
+    or motifs may weave through, overlap, touch or cover any letter. The lettering
+    stands completely clear of all foliage, with clean breathing space around the
+    words so every letter reads instantly. Scenery may sit BEHIND the title band,
+    but nothing may cross in FRONT of the letters or grow onto them.
+
+
+    Place the title in the upper part of the cover, with a clear band of illustration
 
     ABOVE it at least as tall as one line of the lettering, so artwork is always the
     first
@@ -172,17 +154,19 @@ prompts:
     glow, no mist, no panel, no banner, no box, no drop shadow.
 
 
-    Main characters and their faces stay well inside the picture; background detail
-    runs out to
-
-    all four edges with no white frame and no empty margin.
+    FULL BLEED - IMPORTANT: the illustration and its coloured background must fill
+    the ENTIRE cover completely, running right off all four edges (full bleed). Do
+    NOT draw any border, outline, frame, keyline, rectangle or box around the cover,
+    and do NOT leave any empty margin, blank strip or unpainted band along ANY edge
+    - no plain cream/white border of any kind. Colour reaches every corner. Only the
+    main characters and their faces stay comfortably in from the very edges.
 
 
     ART STYLE: {style}
 
 
-    Draw ONLY the illustration and the title. No guide lines, no dashed lines, no
-    crop marks,
+    Draw ONLY the illustration and the title. No border, no frame, no outline box,
+    no keyline, no guide lines, no dashed lines, no crop marks,
 
     no rulers, no labels, no captions, no annotations, no barcode, no ISBN, no price,
     no logo,
@@ -196,7 +180,7 @@ prompts:
   back_cover: 'THIS IS THE BACK COVER (REAR COVER OF THE BOOK).
 
 
-    Generate the matching BACK COVER for the children''s coloring book.
+    Generate the matching BACK COVER for the {audience_adj} coloring book.
 
 
     CRITICAL RULE - ABSOLUTELY NO TEXT: this BACK COVER must contain ZERO words, ZERO
@@ -281,63 +265,37 @@ prompts:
 
     Vertical portrait orientation, aspect ratio 8.625:11.25, maximum resolution.'
   previews:
-    preview_1: 'Generate a professional ecommerce product mockup photograph of a physical
-      paperback
-
-      coloring book, photographed as a real object.
+    preview_1: 'Create a flat, FRONT-FACING product image of a paperback coloring
+      book cover, shown perfectly straight-on.
 
 
-      THE BOOK AS AN OBJECT - this is the point of the image: Show a real paperback
-      book
-
-      standing upright on a pure white seamless background. Photograph it front-facing
-      but
-
-      turned slightly, roughly 15 degrees, so that the thickness of the book and the
-      stacked
-
-      page edges are clearly visible along one side. Add a soft realistic contact
-      shadow on
-
-      the ground beneath the book. Soft even studio lighting, gentle highlight on
-      the glossy
-
-      cover stock.
+      VIEWPOINT - THE MOST IMPORTANT RULE: The cover is a flat upright rectangle facing
+      the camera DIRECTLY, exactly parallel to the image plane, with zero perspective.
+      This is a head-on / flat-lay view seen straight from the front. All four corners
+      are perfect 90-degree square corners. The two vertical edges are exactly vertical
+      and parallel; the two horizontal edges are exactly horizontal and parallel.
+      ABSOLUTELY NO angle, NO tilt, NO rotation, NO 3D turn, NO foreshortening, NO
+      perspective vanishing. Do NOT show the spine, the side, the thickness or the
+      stacked page edges - we see ONLY the flat front face, like a flat scan of the
+      cover.
 
 
-      FRAMING - equally important: The book must occupy only about 65 percent of the
-      frame,
-
-      centred, with generous clean white empty space on all four sides. Do NOT let
-      the cover
-
-      artwork bleed to the edges of the image. The final image is a photo OF a book
-      sitting
-
-      in white space, not a flat picture of a cover.
+      DEPTH: Add ONLY a soft, even drop shadow directly behind the rectangle to hint
+      it is a real book, plus optionally a very thin sliver of white page edge along
+      the bottom. Nothing else that implies a 3D angle.
 
 
-      THE COVER ARTWORK: I have ATTACHED the front cover image. Print that attached
-      artwork
-
-      onto the front cover of the book in the photograph. Keep the same illustration,
-      the
-
-      same characters, the same colours and the same title wording. Do NOT add, remove,
-
-      reword or redraw any text, and do NOT invent extra illustrations, logos or watermarks.
+      FRAMING: The cover rectangle is centred and occupies about 85 percent of the
+      frame, on a pure white seamless background with clean white margin on all four
+      sides.
 
 
-      PERSPECTIVE IS EXPECTED: Because the book is a solid object seen at an angle,
-      the cover
-
-      artwork MUST be foreshortened, slightly tilted and wrapped over the book''s
-      thickness.
-
-      This perspective distortion is correct and wanted. Do NOT output the attached
-      image
-
-      flat, unrotated or filling the whole canvas - that is a failed result.
+      THE COVER ARTWORK: I have ATTACHED the front cover image. Reproduce that attached
+      artwork on the cover FLAT and UNDISTORTED, filling the whole cover exactly as
+      in the attached file. Keep the same illustration, characters, colours and title
+      wording. Do NOT add, remove, reword or redraw any text, and do NOT invent extra
+      illustrations, logos or watermarks. Do NOT rotate, tilt, skew, curve, warp or
+      foreshorten the artwork in any way.
 
 
       Clean minimalist white-background product shot, sharp focus, high resolution.
@@ -371,55 +329,7 @@ prompts:
       100% exact visual fidelity. Do NOT generate or modify any artwork or text on
       the book cover. Keep the cover design identical to the attached image. Square
       1:1 aspect ratio.'
-subjects:
-- A baby dragon hatching from a giant spotted egg.
-- A cute dragon taking a warm bubble bath in a wooden tub.
-- A little dragon roasting a marshmallow on a stick with a tiny flame.
-- A happy dragon wearing a party hat and holding a balloon.
-- A tiny dragon sleeping curled up on top of a soft cloud.
-- A playful dragon chasing a fluttering butterfly through a flower meadow.
-- A cute dragon holding a giant ice cream cone with three scoops.
-- A small dragon reading a storybook under a leafy tree.
-- A cheerful dragon flying a colorful diamond kite in the breeze.
-- A baby dragon wearing rain boots and jumping into a puddle.
-- A cute dragon building a tall sandcastle on a sunny beach.
-- A little dragon drinking hot cocoa from a giant mug with whipped cream.
-- A happy dragon sitting inside a cozy teacup surrounded by daisies.
-- A small dragon wearing a wizard hat and holding a magic star wand.
-- A cute dragon brushing its teeth with a giant toothbrush.
-- A baby dragon playing peek-a-boo from behind a giant mushroom.
-- A little dragon riding a wooden rocking horse in a playroom.
-- A cheerful dragon watering potted flowers with a tiny watering can.
-- A cute dragon wrapping itself in a warm blanket with a teddy bear.
-- A baby dragon blowing shiny soap bubbles with a wand.
-- A small dragon wearing a chef hat and baking round cookies.
-- A playful dragon splashing in a small birdbath with two ducklings.
-- A cute dragon hugging a giant strawberry with both arms.
-- A little dragon wearing a snorkel and mask swimming with tiny fish.
-- A baby dragon catching falling autumn leaves in a basket.
-- A happy dragon swinging on a wooden tire swing hanging from a branch.
-- A cute dragon eating a slice of sweet watermelon on a picnic blanket.
-- A small dragon wearing winter earmuffs and building a snowman.
-- A baby dragon sitting on top of a giant shiny crystal.
-- A cheerful dragon painting a rainbow on an art canvas.
-- A cute dragon playing a small acoustic guitar near a campfire.
-- A tiny dragon taking a cozy nap inside an old leather boot.
-- A baby dragon wearing roller skates and balancing carefully.
-- A little dragon holding a sunflower as a sun umbrella.
-- A playful dragon batting at a big ball of yarn like a kitten.
-- A cute dragon watching glowing fireflies in a glass jar at night.
-- A happy dragon wearing sunglasses and floating on an inflatable pool donut.
-- A baby dragon looking through a telescope at the crescent moon.
-- A small dragon balancing three juicy apples on its head.
-- A cute dragon wearing a superhero cape and striking a heroic pose.
-- A little dragon gently smelling a large blooming rose.
-- A baby dragon sitting in a wooden wagon full of pumpkins.
-- A cheerful dragon eating a tall stack of pancakes covered in syrup.
-- A cute dragon planting seeds in a garden vegetable patch.
-- A little dragon sliding down the curve of a bright rainbow.
-- A baby dragon wearing thick mittens and catching a single snowflake on its nose.
-- A playful dragon sliding down a smooth grassy hill on a wooden sled.
-- A sweet dragon hugging a large heart-shaped pillow.
+subjects: []
 cover_text:
   back_blurb: '
 
@@ -436,9 +346,9 @@ api:
 browser:
   headless: true
   gemini_url: https://gemini.google.com/app
-  generation_timeout: 240
+  generation_timeout: 60
   recycle_tab_every: 1
-  stall_timeout: 360
+  stall_timeout: 120
   max_requeue: 2
   delay_between_prompts:
   - 3
@@ -456,4 +366,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: cute-dragon
+_book: chihuahua-love-relaxing-coloring-book-for-dog-fans-of-all-ag

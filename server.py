@@ -150,7 +150,7 @@ def calculate_lulu_specs(cfg: dict) -> dict:
     bleed = float(p.get("bleed", 0.125))
     paper_thick = float(p.get("paper_thickness", 0.002252))
     num_images = int(b.get("num_images", 30))
-    front_pages = int(b.get("front_matter_pages", 2))
+    front_pages = 0
     blank_verso = bool(b.get("blank_verso", True))
     min_pages = int(p.get("min_pages", 32))
 
@@ -213,14 +213,14 @@ def sync_book_config(slug: str) -> dict:
     book_meta = state.get("book", {})
     title = state.get("title") or book_meta.get("title") or slug.replace("-", " ").title()
     subtitle = state.get("subtitle") or book_meta.get("subtitle") or ""
-    author = state.get("author") or book_meta.get("author") or ""
+    audience = state.get("audience") or book_meta.get("audience") or cfg.get("book", {}).get("audience", "kids")
     num_images = state.get("num_images") or book_meta.get("num_images") or cfg.get("book", {}).get("num_images", 30)
     blank_verso = state.get("blank_verso") if state.get("blank_verso") is not None else book_meta.get("blank_verso", True)
-    
+
     cfg.setdefault("book", {})
     cfg["book"]["title"] = title
     cfg["book"]["subtitle"] = subtitle
-    cfg["book"]["author"] = author
+    cfg["book"]["audience"] = audience
     cfg["book"]["num_images"] = num_images
     cfg["book"]["blank_verso"] = blank_verso
     
@@ -256,11 +256,6 @@ def sync_book_config(slug: str) -> dict:
                 cfg_print[k] = state["print"][k]
     cfg["print"] = cfg_print
 
-    if "cover_text" in state:
-        cfg["cover_text"] = state["cover_text"]
-    elif "cover_text" not in cfg:
-        cfg["cover_text"] = {"back_blurb": ""}
-
     if "subjects" in state:
         cfg["subjects"] = state["subjects"]
     else:
@@ -279,11 +274,10 @@ def sync_book_config(slug: str) -> dict:
     # Save state back to state.json to ensure complete per-book state
     state["title"] = title
     state["subtitle"] = subtitle
-    state["author"] = author
+    state["audience"] = audience
     state["num_images"] = num_images
     state["blank_verso"] = blank_verso
     state["book"] = cfg["book"]
-    state["cover_text"] = cfg.get("cover_text", {})
     # Chỉ lưu lại phần THEO CUỐN. Ghi cả khối print vào state là cách cái bẫy
     # trên tự tái sinh: lần sau đọc lên nó lại đè config.
     state["print"] = {k: cfg.get("print", {}).get(k)
@@ -356,11 +350,9 @@ def update_config(data: dict):
             state.setdefault("book", {}).update(data["book"])
             if "title" in data["book"]: state["title"] = data["book"]["title"]
             if "subtitle" in data["book"]: state["subtitle"] = data["book"]["subtitle"]
-            if "author" in data["book"]: state["author"] = data["book"]["author"]
+            if "audience" in data["book"]: state["audience"] = data["book"]["audience"]
             if "num_images" in data["book"]: state["num_images"] = data["book"]["num_images"]
             if "blank_verso" in data["book"]: state["blank_verso"] = data["book"]["blank_verso"]
-        if "cover_text" in data:
-            state["cover_text"] = data["cover_text"]
         if "print" in data:
             # CHỈ khoá theo-cuốn. Ghi cả khối print vào state là tự dựng lại cái
             # bẫy đóng băng: cuốn cũ giữ thông số in riêng, sửa cấu hình chung
@@ -622,7 +614,7 @@ def create_book(payload: dict):
     cfg = book_main.load_cfg(ROOT / "config.yaml")
     cfg["book"]["title"] = title
     cfg["book"]["subtitle"] = payload.get("subtitle", "")
-    cfg["book"]["author"] = payload.get("author", "")
+    cfg["book"]["audience"] = payload.get("audience", "kids")
     cfg["book"]["num_images"] = int(payload.get("num_images", 30))
     cfg["subjects"] = []
     cfg["_book"] = slug
@@ -633,7 +625,7 @@ def create_book(payload: dict):
     state = book_main.load_state(P["state_file"])
     state["title"] = title
     state["subtitle"] = payload.get("subtitle", "")
-    state["author"] = payload.get("author", "")
+    state["audience"] = payload.get("audience", "kids")
     state["num_images"] = int(payload.get("num_images", 30))
     state["blank_verso"] = True
     state["book"] = cfg["book"]
@@ -650,8 +642,10 @@ async def generate_subjects(payload: dict):
     title = payload.get("title") or cfg["book"]["title"]
     count = int(payload.get("count") or cfg["book"]["num_images"])
     
+    _adj = book_main.audience_of(cfg)["adj"]
     prompt = (
-        f'I am making a children\'s coloring book titled "{title}". '
+        f'I am making a{"n" if _adj == "adult" else ""} {_adj} coloring book '
+        f'titled "{title}". '
         f'Give me exactly {count} scene ideas. '
         "Each idea must be one short English sentence describing a single simple "
         "scene suitable for a bold-outline coloring page. "
@@ -1041,7 +1035,7 @@ def get_raw_inspector_details():
         
     # Covers
     title = book_title(cfg)
-    style = cfg.get("prompts", {}).get("cover_style", "")
+    style = book_main.cover_style_of(cfg)
     for key, title_label in [("cover_front", "Bìa trước (Front Cover)"), ("cover_back", "Bìa sau (Back Cover)")]:
         fname = f"{key}.png"
         raw_f = raw_files.get(key)
@@ -1056,7 +1050,7 @@ def get_raw_inspector_details():
         else:
             try:
                 subj = cfg["prompts"][tpl_key].format(
-                    title=title, style=style,
+                    title=book_main.cover_title(cfg), style=style,
                     safe_pct=book_main.cover_safe_pct(cfg),
                     **book_main.cover_prompt_extras(cfg))
             except Exception:
@@ -1149,8 +1143,8 @@ def update_inspector_subject(payload: dict):
         # và cuốn khác sinh lại bìa vẫn ra tên cũ.
         try:
             default = cfg["prompts"][tpl_key].format(
-                title=cfg.get("book", {}).get("title", ""),
-                style=cfg.get("prompts", {}).get("cover_style", ""),
+                title=book_main.cover_title(cfg),
+                style=book_main.cover_style_of(cfg),
                 safe_pct=book_main.cover_safe_pct(cfg),
                 **book_main.cover_prompt_extras(cfg))
         except Exception:
@@ -1254,6 +1248,7 @@ def process_inspector_image_single(payload: dict):
         # Bìa trước: nếp gấp gáy bên trái; bìa sau: bên phải.
         spine_side = "right" if key == "cover_back" else "left"
         pr_cfg = cfg.get("print") or {}
+        book_main.finalize_cover(cfg, raw_file)   # xoá dấu sao trên raw trước
         insets = pdf_builder.cover_art_insets(pr_cfg, spine_side)
         imaging.prepare_cover_art(raw_file, proc_file, w_px, h_px,
                                   insets, str(pr_cfg.get("cover_fill", "blur")))
@@ -1261,7 +1256,7 @@ def process_inspector_image_single(payload: dict):
         imaging.process_lineart(
             raw_file, proc_file, w_px, h_px,
             threshold=int(pr.get("threshold", 165)),
-            pure_bw=bool(pr.get("pure_bw", False)),
+            pure_bw=book_main.effective_pure_bw(cfg),
             sharpen=bool(pr.get("sharpen", True)),
         )
         
@@ -1320,9 +1315,10 @@ def regenerate_inspector_image_single(payload: dict):
             prompt = subj
         else:
             try:
-                prompt = cfg["prompts"]["page"].format(subject=subj)
+                prompt = book_main.format_page_prompt(cfg, subj)
             except Exception:
-                prompt = f"A black and white line-art coloring page illustration for children. Subject: {subj}."
+                _desc = book_main.audience_of(cfg)["desc"]
+                prompt = f"A black and white line-art coloring page illustration for {_desc}. Subject: {subj}."
 
     elif key in ("cover_front", "cover_back"):
         # PROMPT TUỲ CHỈNH LƯU THEO TỪNG CUỐN, KHÔNG LƯU TOÀN CỤC.
@@ -1343,9 +1339,9 @@ def regenerate_inspector_image_single(payload: dict):
         elif saved:
             prompt = saved
         else:
-            style = cfg.get("prompts", {}).get("cover_style", "")
+            style = book_main.cover_style_of(cfg)
             prompt = cfg["prompts"][tpl_key].format(
-                title=title, style=style,
+                title=book_main.cover_title(cfg), style=style,
                 safe_pct=book_main.cover_safe_pct(cfg),
                 **book_main.cover_prompt_extras(cfg))
 

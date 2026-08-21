@@ -153,6 +153,98 @@ COVER_LAYOUTS = [
 # Cả hai mâu thuẫn trực tiếp với luật "một bức tranh liền mạch".
 
 
+# Hồ sơ theo ĐỐI TƯỢNG người tô. Kids giữ nguyên phong cách cũ (nét to, mảng
+# lớn, dễ thương). Adults dùng nét tinh xảo, chi tiết dày, bảng màu trưởng thành.
+# Định nghĩa ở CODE để không phải đập vỡ các block prompt lớn trong config.yaml;
+# prompt chỉ cần chèn token {audience_desc}, {audience_adj}, {page_line_style}.
+AUDIENCE_PROFILES = {
+    "kids": {
+        "desc": "children ages 4-8",
+        "adj": "children's",
+        "page_line_style": "uniform thick strokes, closed shapes with large open "
+                           "areas that are easy to colour in.",
+        # None -> dùng prompts.cover_style hiện có (bản cho trẻ em).
+        "cover_style": None,
+    },
+    "adults": {
+        "desc": "adults",
+        "adj": "adult",
+        "page_line_style": "detailed, refined line work with clean medium-weight "
+                           "strokes and some finer accents; more elaborate than a "
+                           "children's page but keeping clear, open areas that are "
+                           "comfortable to colour in - NOT densely filled edge to "
+                           "edge, NOT a busy mandala or zentangle pattern.",
+        "cover_style": (
+            "soft watercolor style mixed with realistic details, vibrant "
+            "yet soft pastel colors, warm and charming atmosphere, dreamy lighting, "
+            "highly detailed, eye-catching, aesthetic, high quality illustration. "
+            "- LINEWORK: keep fine, intricate, precise black outlines with elaborate "
+            "ornamental detail, matching the detailed line-art inside the book. "
+            "- A warm cream / soft ivory background, not stark white. "
+            "- The colouring is professionally graded, luminous and cohesive, "
+            "polished, elegant and premium, never flat, muddy, dull, garish or neon."
+        ),
+    },
+}
+
+
+def audience_key(cfg: dict) -> str:
+    return (cfg.get("book", {}).get("audience") or "kids").strip().lower()
+
+
+def audience_of(cfg: dict) -> dict:
+    return AUDIENCE_PROFILES.get(audience_key(cfg), AUDIENCE_PROFILES["kids"])
+
+
+def cover_style_of(cfg: dict) -> str:
+    """Phong cách nghệ thuật bìa theo đối tượng (kids lấy từ prompts.cover_style)."""
+    prof = audience_of(cfg)
+    return prof.get("cover_style") or cfg.get("prompts", {}).get("cover_style", "")
+
+
+def cover_title(cfg: dict) -> str:
+    """Tiêu đề dùng cho ẢNH BÌA: chỉ TÊN NGẮN, VIẾT HOA hết.
+
+    book.title là chuỗi SEO dài ("Tên chính – 48 Pages – ... – For Kids"). Nhét cả
+    lên bìa thì chữ dài kín mặt, xấu và khó đọc trên thumbnail. Bìa chỉ cần TÊN
+    CHÍNH: lấy đoạn trước dấu gạch/gạch dọc/hai chấm đầu tiên. Phần mô tả còn lại
+    để dành cho listing/SEO, không lên bìa.
+
+    Cho phép ép thủ công qua book.cover_title nếu muốn tự đặt tên bìa riêng.
+    Chỉ áp cho prompt vẽ bìa - trang tiêu đề PDF và SEO vẫn giữ tiêu đề gốc.
+    """
+    import re
+    b = cfg.get("book", {})
+    manual = (b.get("cover_title") or "").strip()
+    raw = manual or (b.get("title", "") or "").strip()
+    if not manual:
+        # Cắt tại dấu phân cách mô tả đầu tiên: – — - | : hoặc "  " kép.
+        raw = re.split(r"\s*[–—\-|:]\s*", raw, maxsplit=1)[0].strip()
+    return raw.upper()
+
+
+def effective_pure_bw(cfg: dict) -> bool:
+    """Có threshold 1-bit hay giữ grayscale khử răng cưa.
+
+    Kids: nét to thô -> 1-bit sạch, đều. Adults: nét mảnh nhiều chi tiết -> 1-bit
+    cắt lung tung làm nét không đều, nên GIỮ GRAYSCALE dù config bật pure_bw.
+    """
+    if audience_key(cfg) != "kids":
+        return False
+    return bool((cfg.get("process") or {}).get("pure_bw", False))
+
+
+def page_tokens(cfg: dict) -> dict:
+    """Token đối tượng nhét vào prompt trang ruột."""
+    prof = audience_of(cfg)
+    return {"audience_desc": prof["desc"], "page_line_style": prof["page_line_style"]}
+
+
+def format_page_prompt(cfg: dict, subject: str, i: int = 1) -> str:
+    """Dựng prompt trang ruột, tự chèn token đối tượng + i + subject."""
+    return cfg["prompts"]["page"].format(i=i, subject=subject, **page_tokens(cfg))
+
+
 def cover_prompt_extras(cfg: dict) -> dict:
     """Thông tin động nhét vào prompt bìa.
 
@@ -186,11 +278,17 @@ def cover_prompt_extras(cfg: dict) -> dict:
                         cfg.get("book", {}).get("title", ""))
 
     if subs:
-        pick = subs[:8] if len(subs) <= 8 else rnd.sample(subs, 8)
+        # Bìa chỉ cần 1-2 cảnh trọng tâm (nhiều quá thì bìa rối). Có <=2 thì
+        # dùng hết; nhiều hơn thì bốc 2 cái (tất định theo tên cuốn).
+        n = min(2, len(subs))
+        pick = subs[:n] if len(subs) <= 2 else rnd.sample(subs, n)
         hint = " ".join(f"- {s}" for s in pick)
     else:
         hint = f"- scenes about {cfg.get('book', {}).get('title', 'the book subject')}"
-    return {"subject_hint": hint, "cover_layout": rnd.choice(COVER_LAYOUTS)}
+    adj = audience_of(cfg)["adj"]
+    return {"subject_hint": hint, "cover_layout": rnd.choice(COVER_LAYOUTS),
+            "audience_adj": adj,
+            "audience_article": "an" if adj[:1].lower() in "aeiou" else "a"}
 
 
 def cover_safe_pct(cfg: dict) -> int:
@@ -205,6 +303,34 @@ def cover_safe_pct(cfg: dict) -> int:
     except Exception as e:  # noqa: BLE001
         log.debug("Không tính được safe_pct (%s), dùng 12.", e)
         return 12
+
+
+def finalize_cover(cfg: dict, raw_path: Path) -> None:
+    """Xoá dấu sao Gemini trên ảnh RAW bìa (cover_front/cover_back), ghi đè tại chỗ.
+
+    Làm trên RAW vì tọa độ dấu sao được đo theo tỉ lệ ảnh gốc (1792x2368); sau
+    khi crop/inset để dựng bìa PDF thì vị trí đổi, không dùng lại được. Xoá ở raw
+    thì cả bìa PDF lẫn ảnh preview đính kèm đều sạch.
+
+    Idempotent nhẹ: dùng marker sidecar để không inpaint lại vùng đã sạch mỗi lần
+    build. Khi sinh lại bìa mới, generation ghi đè raw -> xoá marker để làm lại.
+    """
+    if not raw_path.exists():
+        return
+    pr = cfg.get("print") or {}
+    if not pr.get("cover_remove_watermark", True):
+        return
+    marker = raw_path.with_suffix(raw_path.suffix + ".wmok")
+    if marker.exists() and marker.stat().st_mtime >= raw_path.stat().st_mtime:
+        return                      # đã xoá cho đúng bản raw này rồi
+    from bookgen import imaging
+    center = tuple(pr.get("cover_watermark_center") or (0.866, 0.899))
+    size = tuple(pr.get("cover_watermark_size") or (0.023, 0.026))
+    try:
+        imaging.remove_watermark(raw_path, center, size)
+        marker.write_text("1", encoding="utf-8")
+    except Exception as e:  # noqa: BLE001
+        log.warning("Xoá watermark bìa lỗi (bỏ qua): %s", e)
 
 
 def finalize_preview(cfg: dict, dest: Path) -> None:
@@ -273,7 +399,8 @@ def generate_single(cfg: dict, key: str, prompt: str, dest: Path,
 
 def subjects_prompt(cfg: dict, subjects: list[str], need: int) -> str:
     return (
-        f'I am making a children\'s coloring book titled "{cfg["book"]["title"]}" '
+        f'I am making a{"n" if audience_of(cfg)["adj"] == "adult" else ""} '
+        f'{audience_of(cfg)["adj"]} coloring book titled "{cfg["book"]["title"]}" '
         f'({cfg["book"]["subtitle"]}). Give me exactly {need} NEW scene ideas, '
         f"different from these: {subjects}. "
         "Each idea must be one short English sentence describing a single simple "
@@ -298,10 +425,10 @@ def build_jobs(cfg: dict, subjects: list[str], raw: Path, state: dict) -> list:
         dest = raw / f"{key}.png"
         if key in state["done"] and dest.exists():
             continue
-        jobs.append((key, tmpl.format(i=i, subject=subj), dest))
+        jobs.append((key, format_page_prompt(cfg, subj, i), dest))
 
-    title = cfg["book"]["title"]
-    style = cfg["prompts"].get("cover_style", "")
+    title = cover_title(cfg)
+    style = cover_style_of(cfg)
     safe_pct = cover_safe_pct(cfg)
     extras = cover_prompt_extras(cfg)
     covers = []
@@ -436,7 +563,7 @@ def cmd_generate(cfg: dict) -> None:
                 log.info("[%d/%d] Bỏ qua (đã có): %s", i, n, key)
                 continue
             log.info("[%d/%d] %s", i, n, subj)
-            if g.generate_image(tmpl.format(i=i, subject=subj), dest):
+            if g.generate_image(format_page_prompt(cfg, subj, i), dest):
                 state["done"].append(key)
                 save_state(P["state_file"], state)
             else:
@@ -453,8 +580,8 @@ def cmd_generate(cfg: dict) -> None:
                 log.info("Bỏ qua (đã có): %s", key)
                 continue
             log.info("Đang tạo %s...", key)
-            if g.generate_image(tpl.format(title=cfg["book"]["title"],
-                                           style=cfg["prompts"].get("cover_style", ""),
+            if g.generate_image(tpl.format(title=cover_title(cfg),
+                                           style=cover_style_of(cfg),
                                            safe_pct=cover_safe_pct(cfg),
                                            **cover_prompt_extras(cfg)), dest):
                 state["done"].append(key)
@@ -487,7 +614,7 @@ def cmd_process(cfg: dict) -> None:
         imaging.process_lineart(
             f, proc / f.name, w_px, h_px,
             threshold=int(pr.get("threshold", 165)),
-            pure_bw=bool(pr.get("pure_bw", False)),
+            pure_bw=effective_pure_bw(cfg),
             sharpen=bool(pr.get("sharpen", True)),
         )
 
@@ -495,6 +622,7 @@ def cmd_process(cfg: dict) -> None:
     for name, spine_side in (("cover_front", "left"), ("cover_back", "right")):
         src = raw / f"{name}.png"
         if src.exists():
+            finalize_cover(cfg, src)          # xoá dấu sao trên raw trước khi dựng bìa
             insets = pdf_builder.cover_art_insets(p, spine_side)
             imaging.prepare_cover_art(src, proc / f"{name}.png", w_px, h_px,
                                       insets, str(p.get("cover_fill", "blur")))
@@ -553,7 +681,7 @@ def build_matter_pages(cfg: dict) -> tuple[list[Path], list[Path]]:
             imaging.process_lineart(
                 src, dest, w_px, h_px,
                 threshold=int(pr.get("threshold", 165)),
-                pure_bw=bool(pr.get("pure_bw", False)),
+                pure_bw=effective_pure_bw(cfg),
                 sharpen=bool(pr.get("sharpen", True)),
             )
         except Exception as e:  # noqa: BLE001
@@ -861,7 +989,10 @@ def get_preview_attachments_map(cfg: dict) -> dict[str, list[Path]]:
     proc_dir = P["processed_dir"]
     title = cfg.get("book", {}).get("title", "Coloring Book")
     subtitle = cfg.get("book", {}).get("subtitle", "")
-    author = cfg.get("book", {}).get("author", "")
+
+    # Xoá dấu sao Gemini trên bìa raw trước khi đính kèm vào preview mockup.
+    for _cov in ("cover_front.png", "cover_back.png"):
+        finalize_cover(cfg, raw_dir / _cov)
 
     cover_front_titled = proc_dir / "cover_front_titled.png"
     if cover_front_titled.exists():
@@ -873,7 +1004,7 @@ def get_preview_attachments_map(cfg: dict) -> dict[str, list[Path]]:
             try:
                 cover_front = imaging.render_titled_cover(
                     cover_front_raw, cover_front_titled,
-                    title, subtitle, author
+                    title, subtitle
                 )
             except Exception:
                 cover_front = cover_front_raw
@@ -896,7 +1027,7 @@ def get_preview_attachments_map(cfg: dict) -> dict[str, list[Path]]:
             imaging.process_lineart(
                 r_file, p_file, w_px, h_px,
                 threshold=int(pr.get("threshold", 165)),
-                pure_bw=bool(pr.get("pure_bw", False)),
+                pure_bw=effective_pure_bw(cfg),
                 sharpen=bool(pr.get("sharpen", True)),
             )
         except Exception:

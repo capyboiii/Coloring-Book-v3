@@ -284,7 +284,7 @@ def build_interior(
     out_pdf.parent.mkdir(parents=True, exist_ok=True)
     c = canvas.Canvas(str(out_pdf), pagesize=(page_w, page_h))
     c.setTitle(b["title"])
-    c.setAuthor(b["author"])
+    c.setAuthor(b.get("author", ""))
     font = _register_font()
 
     pages = 0
@@ -296,23 +296,6 @@ def build_interior(
         c.showPage()
         pages += 1
 
-    # ---- front matter: title page + copyright ----
-    fm = b.get("front_matter_pages", 2)
-    if fm >= 1:
-        c.setFillColor(white)
-        c.rect(0, 0, page_w, page_h, stroke=0, fill=1)
-        c.setFillColor(black)
-        c.setFont(font, 30)
-        c.drawCentredString(page_w / 2, page_h * 0.60, b["title"])
-        if b.get("subtitle"):
-            c.setFont(font, 15)
-            c.drawCentredString(page_w / 2, page_h * 0.54, b["subtitle"])
-        c.setFont(font, 12)
-        c.drawCentredString(page_w / 2, page_h * 0.44, b["author"])
-        c.showPage()
-        pages += 1
-    for _ in range(max(0, fm - 1)):
-        blank_page()
 
     # ---- các trang hình ----
     safety_margin = float(p.get("safety_margin", 0.5))
@@ -378,15 +361,14 @@ def build_interior(
 
     c.save()
 
-    fm_blank = max(0, fm - 1)
     verso = len(images) if b.get("blank_verso", True) else 0
-    total_blank = fm_blank + verso + padded
+    total_blank = verso + padded
 
     log.info("Interior: %s (%d trang, %.2f x %.2f in)", out_pdf.name, pages,
              page_w / PT, page_h / PT)
     log.info("  Chi tiết: %d trang hình + %d trang trắng "
-             "(%d mặt sau hình, %d front matter, %d đệm cho đủ %d trang)",
-             len(images), total_blank, verso, fm_blank, padded, min_pages)
+             "(%d mặt sau hình, %d đệm cho đủ %d trang)",
+             len(images), total_blank, verso, padded, min_pages)
 
     if padded >= 4:
         need = (min_pages - content_pages + (2 if b.get("blank_verso", True)
@@ -473,15 +455,6 @@ def build_cover(
         # KHÔNG in chữ tiêu đề lên gáy (theo yêu cầu) - chỉ để nguyên màu gáy.
 
     # Chữ tiêu đề đã nằm sẵn 100% trong hình vẽ nghệ thuật của Gemini, không vẽ chèn thêm chữ bằng code Python nữa.
-
-    # ---- chữ bìa sau ----
-    bx = bl + tw / 2
-    c.setFillColor(black)
-    c.setFont(font, 14)
-    y = total_h - bl - th * 0.30
-    for line in ct.get("back_blurb", "").strip().splitlines():
-        c.drawCentredString(bx, y, line.strip())
-        y -= 20
 
     # ô trắng chừa chỗ barcode (Chuẩn Lulu Template: 3.622" x 1.26", cách mép 0.5")
     if ct.get("barcode", True):

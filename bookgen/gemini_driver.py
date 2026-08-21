@@ -93,9 +93,14 @@ SELECTORS = {
         ".image-panel img",
     ],
     "download_button": [
+        # Nút "Tải ảnh kích thước đầy đủ" trong viewer - ID ổn định nhất.
+        '[data-test-id="download-generated-image-button"] button',
+        '[data-test-id="download-generated-image-button"]',
+        'download-generated-image-button button',
+        # Fallback theo aria-label (UI tiếng Việt: "Tải hình ảnh ... đầy đủ xuống").
+        'button[aria-label*="đầy đủ" i]',
         'button[aria-label*="Download" i]',
-        'button[aria-label*="Tải xuống" i]',
-        'button[aria-label*="Tải về" i]',
+        'button[aria-label*="Tải" i]',
         'a[download]',
     ],
     "close_viewer": [
