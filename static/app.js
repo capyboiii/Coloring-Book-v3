@@ -546,6 +546,96 @@ async function stopCurrentTask() {
 // ---------------- BATCH: NHIỀU CUỐN TỪ MỘT DANH SÁCH CHỦ ĐỀ ----------------
 let batchTimer = null;
 
+// ---------------------------------------------------------- Đẻ sách từ keyword
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function ideaRowHtml(cover, seo, desc) {
+  return `<div class="idea-row" style="border:1px solid var(--border,#ddd);border-radius:8px;padding:8px;margin-bottom:8px;">
+    <div style="display:grid;grid-template-columns:1fr 1.4fr auto;gap:8px;align-items:center;">
+      <input class="idea-cover" value="${escHtml(cover)}" placeholder="cover_title (tên bìa)">
+      <input class="idea-seo" value="${escHtml(seo)}" placeholder="seo_title (tiêu đề SEO)">
+      <button class="btn btn-danger" style="padding:6px 10px;" onclick="this.closest('.idea-row').remove()">✕</button>
+    </div>
+    <input class="idea-desc" value="${escHtml(desc)}" placeholder="seo_description (mô tả SEO ~150 ký tự)" style="margin-top:6px;width:100%;">
+  </div>`;
+}
+
+function renderIdeas(ideas) {
+  const box = document.getElementById('ideas-list');
+  box.innerHTML = ideas.map(it => ideaRowHtml(it.cover_title || '', it.seo_title || '', it.seo_description || '')).join('');
+  document.getElementById('ideas-actions').style.display = ideas.length ? 'grid' : 'none';
+}
+
+function addIdeaRow() {
+  const box = document.getElementById('ideas-list');
+  box.insertAdjacentHTML('beforeend', ideaRowHtml('', '', ''));
+  document.getElementById('ideas-actions').style.display = 'grid';
+}
+
+function collectIdeas() {
+  return Array.from(document.querySelectorAll('#ideas-list .idea-row')).map(row => ({
+    cover_title: row.querySelector('.idea-cover').value.trim(),
+    seo_title: row.querySelector('.idea-seo').value.trim(),
+    seo_description: row.querySelector('.idea-desc').value.trim(),
+  })).filter(it => it.seo_title);
+}
+
+async function generateIdeas() {
+  const keyword = document.getElementById('ideas-keyword').value.trim();
+  if (!keyword) { alert("Nhập keyword đã."); return; }
+  const audience = document.getElementById('ideas-audience').value;
+  const count = parseInt(document.getElementById('ideas-count').value, 10) || 10;
+
+  const btn = document.getElementById('btn-ideas-gen');
+  btn.disabled = true; btn.textContent = '⏳ Gemini đang nghĩ...';
+  try {
+    const res = await fetch('/api/ideas/generate', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ keyword, audience, count })
+    });
+    const data = await res.json();
+    if (!res.ok) { alert("Lỗi: " + (data.detail || 'không rõ')); return; }
+    renderIdeas(data.ideas || []);
+    logToTerminal(`[IDEAS] Gemini gợi ý ${(data.ideas||[]).length} chủ đề cho "${keyword}".`);
+  } catch (err) {
+    alert("Lỗi kết nối: " + err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '✨ Gợi Ý Chủ Đề';
+  }
+}
+
+async function startBatchFromIdeas() {
+  const ideas = collectIdeas();
+  if (!ideas.length) { alert("Chưa có chủ đề nào (cần seo_title)."); return; }
+
+  const numRaw = document.getElementById('batch-num-images').value.trim();
+  const body = { titles: ideas };
+  if (numRaw) body.num_images = parseInt(numRaw, 10);
+
+  if (!confirm(`Gen ${ideas.length} cuốn từ danh sách ý tưởng?\n\nMỗi cuốn: gen ảnh AI -> 300 DPI -> PDF. Có thể mất nhiều giờ.`)) return;
+
+  const btn = document.getElementById('btn-ideas-batch');
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/batch/start', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (!res.ok) { alert("Lỗi: " + (data.detail || 'không rõ')); return; }
+    logToTerminal(`[BATCH] Đã khởi chạy ${data.total} cuốn từ ý tưởng.`);
+    renderBatch(data);
+    pollBatch();
+  } catch (err) {
+    alert("Lỗi kết nối: " + err.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 async function startBatch() {
   const titles = document.getElementById('batch-titles').value
     .split('\n').map(s => s.trim()).filter(Boolean);

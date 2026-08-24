@@ -452,6 +452,47 @@
         </div>
       </div>
 
+      <!-- Đẻ sách từ 1 keyword: Gemini tự nghĩ 10 chủ đề -->
+      <div class="card" style="margin-top: 1.5rem;">
+        <div class="card-title">
+          <span>💡 Đẻ Sách Từ Keyword</span>
+          <span class="badge">AI IDEAS</span>
+        </div>
+
+        <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.55; margin-bottom: 10px;">
+          Nhập 1 keyword + đối tượng → Gemini nghĩ ra 10 chủ đề (tên bìa + tiêu đề SEO).
+          Sửa/xóa tuỳ ý rồi bấm gen cả loạt. <b>seo_title</b> là thứ tool dùng để nghĩ scene,
+          <b>cover_title</b> là tên ngắn hiện trên bìa.
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px;">
+          <div class="form-group" style="margin:0;">
+            <label>Keyword</label>
+            <input type="text" id="ideas-keyword" placeholder="hawaii, dinosaurs, mandala flowers...">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Đối Tượng</label>
+            <select id="ideas-audience">
+              <option value="kids">Kids</option>
+              <option value="adults">Adults</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Số Chủ Đề</label>
+            <input type="number" id="ideas-count" min="1" max="30" value="10">
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="btn-ideas-gen" onclick="generateIdeas()" style="margin-top:10px;">✨ Gợi Ý Chủ Đề</button>
+
+        <div id="ideas-list" style="margin-top: 14px;"></div>
+
+        <div id="ideas-actions" style="display:none; grid-template-columns: 2fr 1fr; gap:10px; margin-top:10px;">
+          <button class="btn btn-success" id="btn-ideas-batch" onclick="startBatchFromIdeas()">🚀 Gen Cả Loạt (dùng batch)</button>
+          <button class="btn btn-secondary" onclick="addIdeaRow()">➕ Thêm Dòng</button>
+        </div>
+      </div>
+
       <!-- Batch: nhiều cuốn từ một danh sách chủ đề -->
       <div class="card" style="margin-top: 1.5rem;">
         <div class="card-title">
@@ -566,6 +607,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>

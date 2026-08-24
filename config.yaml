@@ -1,9 +1,9 @@
 book:
-  title: Gothic Autumn Magic Halloween Coloring Book for Adults Stress Relief and
-    Relaxation
+  title: Cozy Christmas Animals - 50 Adorable Xmas Coloring Pages for Kids - Printed
+    Activity Book
   subtitle: ''
-  audience: adults
-  num_images: 24
+  audience: kids
+  num_images: 1
   blank_verso: true
   matter_pages: true
 print:
@@ -58,15 +58,12 @@ prompts:
     vector-like edges.
 
     '
-  cover_style: 'Choose the COLOUR PALETTE, mood and lighting that genuinely fit THIS
-    book''s subject, title and audience - do NOT default to pastel. For example: soft
-    pastels for gentle or cute themes; warm earthy tones for cozy, floral, nature
-    or vintage themes; bright saturated colours for playful, magical, fun kid themes;
-    deep moody colours with dramatic lighting for spooky, dark, fantasy or adventure
-    themes. Commit fully to ONE cohesive palette with a clear, fitting mood. - LINEWORK:
-    keep clean, crisp black outlines defining all characters and elements, matching
-    the coloring book line-art style. - Professional colour grading: luminous, cohesive,
-    polished and premium, never flat, muddy, dull or washed out.'
+  cover_style: 'Choose the ART STYLE, colour palette, mood and lighting that best
+    genuinely fit THIS book''s subject and title - pick whatever suits it and commit
+    to it fully and consistently across the whole cover. - LINEWORK: keep clean, crisp
+    black outlines defining all characters and elements, matching the coloring book
+    line-art style. - Professional colouring: luminous, cohesive, polished and appealing,
+    never flat, muddy, dull or washed out. NO photorealism, NO glossy 3D plastic render.'
   front_cover: 'A premium, full-colour FRONT COVER illustration for {audience_article}
     {audience_adj} coloring book.
 
@@ -88,21 +85,23 @@ prompts:
     one light mood. No split bands, strips, panels, boxed sections or dividing lines.
 
 
-    TITLE "{title}": spell it EXACTLY, letter for letter. Draw the title as a real
-    hand-lettered object that lives INSIDE the scene - painted signage, a wooden or
-    metal sign, an awning, a shopfront board or lettering that naturally belongs in
-    this world - wearing the SAME outline, shading, colour palette and lighting as
-    the artwork, with the scenery passing behind the letters so it reads as part of
-    the picture, NOT as flat text laid on top and NOT on a separate plain colour bar
-    or blank strip. Place it across the upper part (2-3 centred lines if long), large,
-    with a bold dark outline and strong colour so it stays clearly legible even while
-    it blends into the illustration.
+    TITLE "{title}": spell it EXACTLY, letter for letter. Draw the title as large,
+    hand-lettered environmental typography integrated directly into the scenery, as
+    if the letters themselves are part of the illustrated world. No sign or separate
+    surface behind the text. The scenery sits only BEHIND the letters; nothing may
+    overlap, cross in front of, weave through or grow onto the lettering. Keep the
+    letters fully clear and unobstructed, always clean on top of the artwork. Place
+    the title anywhere on the cover that looks best (break into 2-3 centred lines
+    if long), but keep EVERY letter at least 8% of the cover width in from the left,
+    right, top and bottom edges - no letter touches or comes near any edge. Draw it
+    large, with a THICK BLACK OUTLINE and a STRONG, HIGH-CONTRAST letter colour so
+    it stays clearly legible.
 
 
     FULL BLEED: the illustration and its coloured background fill the ENTIRE cover
-    to all four edges - no border, frame, keyline, empty margin or blank/cream strip
-    anywhere; colour reaches every corner. Only the characters'' faces stay comfortably
-    in from the edges.
+    to all four edges - no border, frame, keyline, empty margin or blank unpainted
+    strip anywhere; colour reaches every corner. Only the characters'' faces stay
+    comfortably in from the edges.
 
 
     ART STYLE: {style}
@@ -268,7 +267,8 @@ prompts:
       100% exact visual fidelity. Do NOT generate or modify any artwork or text on
       the book cover. Keep the cover design identical to the attached image. Square
       1:1 aspect ratio.'
-subjects: []
+subjects:
+- A sleepy fox wearing a Santa hat curls up inside a large wrapped gift box.
 cover_text:
   back_blurb: '
 
@@ -305,4 +305,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: gothic-autumn-magic-halloween-coloring-book-for-adults-stres
+_book: cozy-christmas-animals-50-adorable-xmas-coloring-pages-for-k

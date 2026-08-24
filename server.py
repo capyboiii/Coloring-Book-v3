@@ -636,6 +636,48 @@ def create_book(payload: dict):
     return {"status": "success", "slug": slug, "title": title, "config": result["config"], "lulu_specs": result["lulu_specs"]}
 
 
+@app.post("/api/export/csv")
+def export_shopify_csv(payload: dict):
+    """Xuất CSV Shopify. payload: {slugs:[...]} hoặc {slug:"..."}.
+    Không có slug -> export mọi cuốn đã có PDF/bìa."""
+    from bookgen import shopify_export, storage
+    slugs = payload.get("slugs")
+    if not slugs and payload.get("slug"):
+        slugs = [payload["slug"]]
+    if not slugs:
+        slugs = sorted(
+            d.name for d in book_main.BOOKS_DIR.iterdir()
+            if d.is_dir() and (d / "01_raw" / "cover_front.png").exists())
+    if not slugs:
+        raise HTTPException(status_code=400, detail="Không có sách nào để export.")
+    csv_text = shopify_export.export_csv(list(slugs), book_main, storage)
+    return StreamingResponse(
+        iter([csv_text]), media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="shopify-products.csv"'})
+
+
+@app.post("/api/ideas/generate")
+def generate_ideas(payload: dict):
+    """1 keyword + audience -> Gemini đẻ 10 cặp {cover_title, seo_title}."""
+    keyword = (payload.get("keyword") or "").strip()
+    if not keyword:
+        raise HTTPException(status_code=400, detail="Keyword required")
+    audience = payload.get("audience", "kids")
+    count = int(payload.get("count") or 10)
+
+    cfg = book_main.load_cfg(ROOT / "config.yaml")
+    prompt = book_main.ideas_prompt(keyword, audience)
+    try:
+        # với web driver, page chỉ mở trong context -> phải dùng "with".
+        with book_main.make_driver(cfg) as driver:
+            raw_resp = driver.ask_text(prompt)
+        ideas = book_main.parse_ideas(raw_resp, count)
+        return {"status": "success", "ideas": ideas}
+    except Exception as e:
+        logger.error(f"Error generating ideas: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/subjects/generate")
 async def generate_subjects(payload: dict):
     cfg = book_main.load_cfg(ROOT / "config.yaml")

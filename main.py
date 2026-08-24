@@ -226,6 +226,75 @@ def cover_title(cfg: dict) -> str:
     return raw.upper()
 
 
+# ---------------------------------------------------------------- ý tưởng sách
+def ideas_prompt(keyword: str, audience: str) -> str:
+    """Prompt bảo Gemini đẻ 10 chủ đề sách tô màu từ 1 keyword.
+
+    Trả JSON [{cover_title, seo_title}]: cover_title = tên ngắn lên bìa,
+    seo_title = tiêu đề dài chuẩn SEO (tool dùng nó để nghĩ scene + đăng listing).
+    """
+    aud = "adults" if str(audience).strip().lower().startswith("adult") else "children"
+    return (
+        f"From keyword: {keyword}\n"
+        f"Target audience: {aud}\n"
+        "Generate 10 coloring book topics that fit the keyword and target audience above.\n"
+        "Return the result strictly in the following JSON format (no explanation, no markdown):\n"
+        '[\n  {"cover_title": "Title displayed on the book cover", '
+        '"seo_title": "SEO title for the backend", '
+        '"seo_description": "SEO meta description for the product listing"}\n]\n'
+        "Rules:\n"
+        "cover_title: A clean, natural phrase. It can include the words \"Coloring Book\". "
+        "Do not use hyphens, commas, colons, or other special characters "
+        "(example: \"Cozy Hawaii Vacation Coloring Book\", \"Sunny Beach Day\").\n"
+        "seo_title: Include the main keyword; optimize for SEO; clearly state the audience "
+        "(Kids or Adults); use hyphens to separate phrases; make each title different in "
+        "style and structure. You can use variations such as: "
+        "\"Cozy Hawaii Cute Vacation Coloring Book - 48 Coloring Pages for Kids and Adults\", "
+        "\"Tropical Summer Coloring Book - Black and White Printed Book for Kids\", "
+        "\"Cute Beach Fun Coloring Book - Printed Black and White Coloring Book for Kids\". "
+        "Feel free to include phrases like: \"Coloring Book\", \"Printed Book\", "
+        "\"Black and White Coloring Book\", \"Coloring Pages\".\n"
+        "seo_description: A natural, keyword-rich meta description of about 140-160 characters "
+        "that sells the book; include the main keyword and the audience, describe what is "
+        "inside (theme, style, who it is for), and end with a light call to action. "
+        "Plain sentence text, no line breaks.\n"
+        "Topics must match the selected target audience.\n"
+        "Return only the JSON, nothing else."
+    )
+
+
+def parse_ideas(raw: str, want: int = 10) -> list[dict]:
+    """Bóc list [{cover_title, seo_title}] từ câu trả lời của Gemini.
+
+    Chịu được ```json fence, chữ thừa quanh mảng. Bỏ phần tử thiếu field.
+    Làm sạch cover_title (bỏ ký tự đặc biệt kiểu -,:| cho đúng luật).
+    """
+    import re
+    m = re.search(r"\[.*\]", raw or "", re.S)
+    if not m:
+        raise ValueError("Gemini không trả về JSON hợp lệ.")
+    items = json.loads(m.group(0))
+    if not isinstance(items, list):
+        raise ValueError("Kết quả không phải danh sách JSON.")
+    out: list[dict] = []
+    for it in items:
+        if not isinstance(it, dict):
+            continue
+        cover = str(it.get("cover_title", "")).strip()
+        seo = str(it.get("seo_title", "")).strip()
+        desc = re.sub(r"\s+", " ", str(it.get("seo_description", "")).strip())
+        if not cover or not seo:
+            continue
+        # cover_title: bỏ ký tự đặc biệt, gộp khoảng trắng
+        cover = re.sub(r"[\-–—:,|/\\]+", " ", cover)
+        cover = re.sub(r"\s+", " ", cover).strip()
+        out.append({"cover_title": cover, "seo_title": seo,
+                    "seo_description": desc})
+    if not out:
+        raise ValueError("Không có ý tưởng hợp lệ nào trong kết quả.")
+    return out[:want]
+
+
 def effective_pure_bw(cfg: dict) -> bool:
     """Có threshold 1-bit hay giữ grayscale khử răng cưa.
 

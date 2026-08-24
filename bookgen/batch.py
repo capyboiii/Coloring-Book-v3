@@ -208,13 +208,26 @@ class BatchRunner:
 
     # ---------------------------------------------------------- khởi động
 
-    def start(self, titles: list[str], num_images: int | None = None) -> dict:
+    def start(self, titles: list, num_images: int | None = None) -> dict:
         with self._lock:
             if self._running:
                 raise RuntimeError("Đang có batch chạy dở. Dừng nó trước đã.")
 
-        titles = [t.strip() for t in titles if t and t.strip()]
-        if not titles:
+        # Nhận cả list string (như cũ) lẫn list dict {seo_title, cover_title}.
+        # title dùng để dựng sách + nghĩ scene (chính là seo_title); cover_title
+        # (nếu có) là tên ngắn hiện trên bìa.
+        items: list[dict] = []
+        for t in titles:
+            if isinstance(t, dict):
+                seo = str(t.get("seo_title") or t.get("title") or "").strip()
+                cover = str(t.get("cover_title") or "").strip()
+                desc = str(t.get("seo_description") or "").strip()
+            else:
+                seo, cover, desc = str(t).strip(), "", ""
+            if seo:
+                items.append({"title": seo, "cover_title": cover,
+                              "seo_description": desc})
+        if not items:
             raise ValueError("Danh sách chủ đề rỗng.")
 
         # Chụp config MỘT LẦN, dùng chung cho cả batch.
@@ -224,12 +237,14 @@ class BatchRunner:
 
         books = []
         used: set[str] = set()
-        for title in titles:
+        for it in items:
+            title, cover, desc = it["title"], it["cover_title"], it["seo_description"]
             slug = self._unique_slug(title, used)
             used.add(slug)
-            self._prepare_book(base_cfg, slug, title)
+            self._prepare_book(base_cfg, slug, title, cover, desc)
             books.append({
-                "slug": slug, "title": title, "status": QUEUED,
+                "slug": slug, "title": title, "cover_title": cover,
+                "seo_description": desc, "status": QUEUED,
                 "error": None, "started_at": None, "finished_at": None,
                 "images": 0, "expected": base_cfg["book"]["num_images"] + 2,
             })
@@ -317,9 +332,10 @@ class BatchRunner:
             i += 1
         return slug
 
-    def _prepare_book(self, base_cfg: dict, slug: str, title: str) -> None:
+    def _prepare_book(self, base_cfg: dict, slug: str, title: str,
+                      cover_title: str = "", seo_description: str = "") -> None:
         """Tạo thư mục + state.json cho một cuốn. Không đụng config.yaml."""
-        cfg = self._cfg_for(base_cfg, slug, title)
+        cfg = self._cfg_for(base_cfg, slug, title, cover_title, seo_description)
         P = self.bm.paths_of(cfg)
         P["raw_dir"].mkdir(parents=True, exist_ok=True)
 
@@ -334,12 +350,25 @@ class BatchRunner:
         state.setdefault("done", [])
         self.bm.save_state(P["state_file"], state)
 
-    def _cfg_for(self, base_cfg: dict, slug: str, title: str) -> dict:
+    def _cfg_for(self, base_cfg: dict, slug: str, title: str,
+                 cover_title: str = "", seo_description: str = "") -> dict:
         cfg = copy.deepcopy(base_cfg)
         cfg["_book"] = slug
         cfg.setdefault("book", {})
         cfg["book"]["title"] = title
         cfg["book"]["subtitle"] = ""
+        # cover_title: tên ngắn hiện trên bìa. Rỗng thì bỏ hẳn để cover_title()
+        # tự cắt từ title như thường; có thì ép dùng đúng chuỗi này.
+        if cover_title:
+            cfg["book"]["cover_title"] = cover_title
+        else:
+            cfg["book"].pop("cover_title", None)
+        # seo_description: Gemini viết sẵn -> lưu để export CSV điền thẳng cột
+        # SEO Description (thay vì template). Rỗng thì bỏ.
+        if seo_description:
+            cfg["book"]["seo_description"] = seo_description
+        else:
+            cfg["book"].pop("seo_description", None)
         # QUAN TRỌNG: config.yaml còn giữ subjects của cuốn làm gần nhất. Không
         # xoá thì cmd_generate sẽ lấy lại đúng list đó cho MỌI cuốn trong batch.
         cfg["subjects"] = []
@@ -462,6 +491,42 @@ class BatchRunner:
         # đều có chung cách xử lý đúng: dừng lại, đừng đốt các cuốn còn lại.
         return "systemic" if gained_total == 0 else "incomplete"
 
+    def _make_previews(self, slug: str, cfg: dict, logp: Path) -> None:
+        """Gen 5 ảnh preview marketing cho một cuốn (dùng Gemini, tuần tự).
+
+        Không bắt buộc: preview hỏng KHÔNG làm cuốn sách hỏng - vẫn dựng PDF bình
+        thường. Có thể tắt bằng config batch.previews = false.
+        """
+        if not (self._base_cfg.get("batch") or {}).get("previews", True):
+            return
+        if self._stop.is_set():
+            return
+        from bookgen.cancel import request_cancel, reset_cancel
+
+        reset_cancel()
+        timed_out = threading.Event()
+
+        def _fire() -> None:
+            timed_out.set()
+            log.error("[BATCH] (%s) Preview quá %.0f phút -> cắt.",
+                      slug, self._timeout_sec() / 60)
+            request_cancel()
+
+        watchdog = threading.Timer(self._timeout_sec(), _fire)
+        watchdog.daemon = True
+        watchdog.start()
+        try:
+            with _book_log(logp):
+                log.info("[BATCH] (%s) Bước 1b: gen ảnh preview marketing...", slug)
+                self.bm.cmd_preview(cfg)
+                log.info("[BATCH] (%s) Xong preview.", slug)
+        except Exception as e:  # noqa: BLE001 - preview lỗi không được làm chết cuốn
+            log.warning("[BATCH] (%s) Preview lỗi (bỏ qua, sách vẫn dựng): %s",
+                        slug, e)
+        finally:
+            watchdog.cancel()
+            reset_cancel()
+
     # ---------------------------------------------------------- lane GEMINI
 
     def _gemini_lane(self) -> None:
@@ -473,7 +538,9 @@ class BatchRunner:
                     continue
 
                 slug, title = book["slug"], book["title"]
-                cfg = self._cfg_for(self._base_cfg, slug, title)
+                cfg = self._cfg_for(self._base_cfg, slug, title,
+                                    book.get("cover_title", ""),
+                                    book.get("seo_description", ""))
                 logp = self.bm.BOOKS_DIR / slug / "run.log"
 
                 self._set(slug, status=GENERATING, started_at=time.time())
@@ -482,6 +549,9 @@ class BatchRunner:
                 outcome = self._generate_book(slug, cfg, logp)
 
                 if outcome == "complete":
+                    # Preview marketing cũng dùng Gemini -> làm ngay tại lane này
+                    # (tuần tự, không giành profile với cuốn sau), rồi mới đẩy CPU.
+                    self._make_previews(slug, cfg, logp)
                     self._cpu_q.put((slug, cfg))
                     log.info("[BATCH] (%s) Đủ ảnh -> đẩy sang lane CPU.", slug)
                     continue
