@@ -1,9 +1,8 @@
 book:
-  title: Gothic Autumn Magic Halloween Coloring Book for Adults Stress Relief and
-    Relaxation
+  title: Chihuahua Love – Relaxing Coloring Book for Dog Fans of All Ages
   subtitle: ''
-  audience: adults
-  num_images: 24
+  audience: kids
+  num_images: 5
   blank_verso: true
   matter_pages: true
 print:
@@ -58,59 +57,119 @@ prompts:
     vector-like edges.
 
     '
-  cover_style: 'Choose the COLOUR PALETTE, mood and lighting that genuinely fit THIS
-    book''s subject, title and audience - do NOT default to pastel. For example: soft
-    pastels for gentle or cute themes; warm earthy tones for cozy, floral, nature
-    or vintage themes; bright saturated colours for playful, magical, fun kid themes;
-    deep moody colours with dramatic lighting for spooky, dark, fantasy or adventure
-    themes. Commit fully to ONE cohesive palette with a clear, fitting mood. - LINEWORK:
-    keep clean, crisp black outlines defining all characters and elements, matching
-    the coloring book line-art style. - Professional colour grading: luminous, cohesive,
-    polished and premium, never flat, muddy, dull or washed out.'
+  cover_style: 'vibrant yet soft pastel colors, warm and charming atmosphere, dreamy
+    lighting, highly detailed, eye-catching composition, aesthetic, high quality illustration.
+    - LINEWORK: keep clean, crisp black outlines defining all characters and elements,
+    matching the coloring book line-art style. - Professional color grading: luminous,
+    cohesive, polished and premium, never flat, muddy, dull, or washed out.'
   front_cover: 'A premium, full-colour FRONT COVER illustration for {audience_article}
     {audience_adj} coloring book.
 
 
-    SUBJECT - build the cover ONLY from this, and add nothing from a different species
-    or setting:
+    THIS BOOK''S SUBJECT - build the cover only from this:
 
     {subject_hint}
 
+    Every character, creature and object must belong to that subject. Do NOT add a
+    fox, a
 
-    FEW CHARACTERS: show just ONE to THREE main characters, drawn large, clear and
-    charming - a clean, uncluttered composition with a strong focal point. Do NOT
-    crowd it with repeated copies to fill space.
+    rabbit, a bear, a squirrel, a deer or an owl unless it genuinely belongs, and
+    never a different species.
 
+    KEEP IT SIMPLE - FEW CHARACTERS: feature only a SMALL focal group, about ONE to
+    THREE main characters total, drawn large, clear and charming. Do NOT crowd the
+    cover with many repeated characters, and do NOT fill empty space by adding extra
+    copies of the subject. A clean, uncluttered composition with a strong focal point
+    is the goal. Do NOT fall back on a generic green forest or flower meadow unless
+    the
 
-    COMPOSITION: {cover_layout} Arrange it however looks most beautiful, as a single
-    unified scene or a natural grouping of the characters, but it MUST read as ONE
-    continuous illustration on one shared background - one art style, one palette,
-    one light mood. No split bands, strips, panels, boxed sections or dividing lines.
-
-
-    TITLE "{title}": spell it EXACTLY, letter for letter. Draw the title as a real
-    hand-lettered object that lives INSIDE the scene - painted signage, a wooden or
-    metal sign, an awning, a shopfront board or lettering that naturally belongs in
-    this world - wearing the SAME outline, shading, colour palette and lighting as
-    the artwork, with the scenery passing behind the letters so it reads as part of
-    the picture, NOT as flat text laid on top and NOT on a separate plain colour bar
-    or blank strip. Place it across the upper part (2-3 centred lines if long), large,
-    with a bold dark outline and strong colour so it stays clearly legible even while
-    it blends into the illustration.
+    scenes above are actually set there.
 
 
-    FULL BLEED: the illustration and its coloured background fill the ENTIRE cover
-    to all four edges - no border, frame, keyline, empty margin or blank/cream strip
-    anywhere; colour reaches every corner. Only the characters'' faces stay comfortably
-    in from the edges.
+    LAYOUT: {cover_layout}
+
+
+    COMPOSITION - arrange the cover in whatever way looks most beautiful, charming
+    and eye-catching for a coloring book cover. You are FREE to choose the layout:
+    it may be a single unified scene, OR a tasteful grouped arrangement / soft vignette
+    composition - for example the main characters gathered together as a lovely group,
+    with smaller supporting characters, props or gentle decorative vignettes softly
+    arranged around them.
+
+    Whatever layout you pick, keep the WHOLE cover visually COHESIVE: one consistent
+    art style, one colour palette and one light mood throughout, so it reads as ONE
+    polished, harmonious design - not random, clashing clip-art. Avoid an ugly rigid
+    grid of hard boxes or a messy scrapbook; any groupings or vignettes should blend
+    softly and pleasingly into each other or into a shared background.
+
+    ONE CONTINUOUS PICTURE - IMPORTANT: the whole cover must be a SINGLE continuous
+    illustration on one shared background. Do NOT split it into separate horizontal
+    bands, strips, header bars, panels or boxed-off sections, and do NOT draw any
+    dividing line, rule, seam or inner frame that cuts the artwork into pieces. The
+    top of the cover flows into the middle and bottom as one seamless image; grouped
+    characters and soft vignettes may sit within it but must NOT become separate fenced-off
+    compartments.
+
+
+    TITLE "{title}" - spell it EXACTLY, letter for letter. Draw it as a real object
+    living
+
+    inside this scene, not as text laid on top: the same bold black hand-drawn outline,
+    the
+
+    same coloured-pencil shading and the same palette as the artwork.
+
+
+    KEEP THE TITLE CLEAN AND SEPARATE: NO flowers, leaves, vines, branches, tendrils
+    or motifs may weave through, overlap, touch or cover any letter. The lettering
+    stands completely clear of all foliage, with clean breathing space around the
+    words so every letter reads instantly. Scenery may sit BEHIND the title band,
+    but nothing may cross in FRONT of the letters or grow onto them.
+
+
+    Place the title in the upper part of the cover, with a clear band of illustration
+
+    ABOVE it at least as tall as one line of the lettering, so artwork is always the
+    first
+
+    thing at the top. Never let a letter touch or come near any edge. If the title
+    is long,
+
+    break it into two or three shorter centred lines.
+
+
+    KEEP IT READABLE THE RIGHT WAY: give the letters a thick dark outline and strong
+    solid
+
+    colour so they stand out against a fully detailed background, the way hand-painted
+
+    lettering reads on a mural. NEVER whiten, fade, blur, lighten, empty or simplify
+    anything
+
+    behind or around the words, in ANY shape - no white patch, no cloud, no oval,
+    no halo, no
+
+    glow, no mist, no panel, no banner, no box, no drop shadow.
+
+
+    FULL BLEED - IMPORTANT: the illustration and its coloured background must fill
+    the ENTIRE cover completely, running right off all four edges (full bleed). Do
+    NOT draw any border, outline, frame, keyline, rectangle or box around the cover,
+    and do NOT leave any empty margin, blank strip or unpainted band along ANY edge
+    - no plain cream/white border of any kind. Colour reaches every corner. Only the
+    main characters and their faces stay comfortably in from the very edges.
 
 
     ART STYLE: {style}
 
 
-    Draw ONLY the illustration and the title - no border or frame, no guide/crop marks,
-    no barcode, ISBN, price, logo, author name, watermark, or any words other than
-    "{title}".
+    Draw ONLY the illustration and the title. No border, no frame, no outline box,
+    no keyline, no guide lines, no dashed lines, no crop marks,
+
+    no rulers, no labels, no captions, no annotations, no barcode, no ISBN, no price,
+    no logo,
+
+    no author name, no watermark, and no words of any kind other than "{title}".
 
 
     Vertical portrait orientation, aspect ratio 8.625:11.25, maximum resolution.'
@@ -268,7 +327,15 @@ prompts:
       100% exact visual fidelity. Do NOT generate or modify any artwork or text on
       the book cover. Keep the cover design identical to the attached image. Square
       1:1 aspect ratio.'
-subjects: []
+subjects:
+- A happy Chihuahua wearing a flower crown sits inside a giant teacup surrounded by
+  floating butterflies.
+- A sleepy Chihuahua curled up with a plush teddy bear on a soft, fluffy pillow.
+- A playful Chihuahua peeking out of a big sunhat in a bright sunflower garden.
+- A joyful Chihuahua in a cozy knit sweater chasing gentle soap bubbles in a grassy
+  yard.
+- A calm Chihuahua floating on an inflatable flamingo pool ring while wearing heart-shaped
+  sunglasses.
 cover_text:
   back_blurb: '
 
@@ -305,4 +372,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: gothic-autumn-magic-halloween-coloring-book-for-adults-stres
+_book: chihuahua-love-relaxing-coloring-book-for-dog-fans-of-all-ag

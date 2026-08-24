@@ -175,14 +175,17 @@ AUDIENCE_PROFILES = {
                            "comfortable to colour in - NOT densely filled edge to "
                            "edge, NOT a busy mandala or zentangle pattern.",
         "cover_style": (
-            "soft watercolor style mixed with realistic details, vibrant "
-            "yet soft pastel colors, warm and charming atmosphere, dreamy lighting, "
-            "highly detailed, eye-catching, aesthetic, high quality illustration. "
-            "- LINEWORK: keep fine, intricate, precise black outlines with elaborate "
-            "ornamental detail, matching the detailed line-art inside the book. "
-            "- A warm cream / soft ivory background, not stark white. "
-            "- The colouring is professionally graded, luminous and cohesive, "
-            "polished, elegant and premium, never flat, muddy, dull, garish or neon."
+            "Choose the COLOUR PALETTE, mood and lighting that genuinely fit THIS book's "
+            "subject, title and grown-up audience - do NOT default to pastel. For example: "
+            "soft muted tones for calm or mindful themes; warm earthy or vintage tones for "
+            "cozy, floral or nature themes; rich jewel tones for elegant or decorative "
+            "themes; deep moody colours with dramatic lighting for gothic, dark, fantasy or "
+            "dramatic themes. Commit fully to ONE cohesive, mature palette with a clear, "
+            "fitting mood. "
+            "- LINEWORK: keep fine, intricate, precise black outlines with elaborate ornamental "
+            "detail, matching the detailed line-art inside the book. "
+            "- Professional color grading: luminous, cohesive, aesthetic, polished, elegant "
+            "and premium, never flat, muddy, dull, or washed out."
         ),
     },
 }
