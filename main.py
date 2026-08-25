@@ -174,19 +174,9 @@ AUDIENCE_PROFILES = {
                            "children's page but keeping clear, open areas that are "
                            "comfortable to colour in - NOT densely filled edge to "
                            "edge, NOT a busy mandala or zentangle pattern.",
-        "cover_style": (
-            "Choose the COLOUR PALETTE, mood and lighting that genuinely fit THIS book's "
-            "subject, title and grown-up audience - do NOT default to pastel. For example: "
-            "soft muted tones for calm or mindful themes; warm earthy or vintage tones for "
-            "cozy, floral or nature themes; rich jewel tones for elegant or decorative "
-            "themes; deep moody colours with dramatic lighting for gothic, dark, fantasy or "
-            "dramatic themes. Commit fully to ONE cohesive, mature palette with a clear, "
-            "fitting mood. "
-            "- LINEWORK: keep fine, intricate, precise black outlines with elaborate ornamental "
-            "detail, matching the detailed line-art inside the book. "
-            "- Professional color grading: luminous, cohesive, aesthetic, polished, elegant "
-            "and premium, never flat, muddy, dull, or washed out."
-        ),
+        # None -> dùng chung prompts.cover_style của config (kiểu vibrant cartoon
+        # + glossy + grain, áp cho cả kids lẫn adults theo yêu cầu).
+        "cover_style": None,
     },
 }
 
@@ -390,19 +380,28 @@ def finalize_cover(cfg: dict, raw_path: Path) -> None:
     if not raw_path.exists():
         return
     pr = cfg.get("print") or {}
-    if not pr.get("cover_remove_watermark", True):
+    do_wm = bool(pr.get("cover_remove_watermark", True))
+    grain = float(pr.get("cover_grain", 0.0) or 0.0)
+    if not do_wm and grain <= 0:
         return
-    marker = raw_path.with_suffix(raw_path.suffix + ".wmok")
+    # Marker GỘP: watermark + grain làm 1 lần cho mỗi bản raw. Gen lại bìa ->
+    # raw mtime mới hơn marker -> làm lại cả hai.
+    marker = raw_path.with_suffix(raw_path.suffix + ".fxok")
     if marker.exists() and marker.stat().st_mtime >= raw_path.stat().st_mtime:
-        return                      # đã xoá cho đúng bản raw này rồi
+        return
     from bookgen import imaging
-    center = tuple(pr.get("cover_watermark_center") or (0.866, 0.899))
-    size = tuple(pr.get("cover_watermark_size") or (0.023, 0.026))
     try:
-        imaging.remove_watermark(raw_path, center, size)
+        if do_wm:
+            center = tuple(pr.get("cover_watermark_center") or (0.866, 0.899))
+            size = tuple(pr.get("cover_watermark_size") or (0.023, 0.026))
+            imaging.remove_watermark(raw_path, center, size)
+        if grain > 0:
+            gmode = str(pr.get("cover_grain_mode", "tone") or "tone")
+            gsize = float(pr.get("cover_grain_size", 1.0) or 1.0)
+            imaging.add_grain(raw_path, amount=grain, mode=gmode, size=gsize)
         marker.write_text("1", encoding="utf-8")
     except Exception as e:  # noqa: BLE001
-        log.warning("Xoá watermark bìa lỗi (bỏ qua): %s", e)
+        log.warning("Hậu kỳ bìa (watermark/grain) lỗi (bỏ qua): %s", e)
 
 
 def finalize_preview(cfg: dict, dest: Path) -> None:

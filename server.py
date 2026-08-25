@@ -636,6 +636,31 @@ def create_book(payload: dict):
     return {"status": "success", "slug": slug, "title": title, "config": result["config"], "lulu_specs": result["lulu_specs"]}
 
 
+@app.post("/api/r2/upload")
+def upload_to_r2(payload: dict):
+    """Đẩy PDF + ảnh (bìa + preview) của sách lên Cloudflare R2.
+    payload: {slugs:[...]} / {slug:"..."} / bỏ trống = mọi cuốn đã có PDF."""
+    from bookgen import storage
+    slugs = payload.get("slugs") or ([payload["slug"]] if payload.get("slug") else None)
+    if not slugs:
+        slugs = sorted(
+            d.name for d in book_main.BOOKS_DIR.iterdir()
+            if d.is_dir() and (d / "03_pdf").exists())
+    results = []
+    for slug in slugs:
+        try:
+            mani = storage.upload_book(slug)
+            results.append({"slug": slug, "ok": True,
+                            "variants": len(mani.get("variants", [])),
+                            "images": mani.get("images", {})})
+        except Exception as e:  # noqa: BLE001
+            logger.error(f"R2 upload lỗi {slug}: {e}")
+            results.append({"slug": slug, "ok": False, "error": str(e)})
+    ok = sum(1 for r in results if r["ok"])
+    return {"status": "success", "uploaded": ok, "total": len(results),
+            "results": results}
+
+
 @app.post("/api/export/csv")
 def export_shopify_csv(payload: dict):
     """Xuất CSV Shopify. payload: {slugs:[...]} hoặc {slug:"..."}.

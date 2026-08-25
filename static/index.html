@@ -523,6 +523,29 @@
 
         <div id="batch-progress" style="margin-top: 14px;"></div>
       </div>
+
+      <!-- Publish: đẩy R2 + xuất CSV Shopify -->
+      <div class="card" style="margin-top: 1.5rem;">
+        <div class="card-title">
+          <span>☁️ Đẩy Lên R2 &amp; Xuất CSV</span>
+          <span class="badge">PUBLISH</span>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.55; margin-bottom: 10px;">
+          Đẩy <b>PDF (in Lulu) + ảnh bìa + 5 preview</b> lên Cloudflare R2, rồi xuất
+          <b>CSV Shopify</b> (dùng 5 preview làm ảnh sản phẩm). URL PDF nằm trong manifest
+          cục bộ mỗi cuốn để sau này hệ thống đơn hàng đưa Lulu fulfill.
+        </div>
+        <div class="form-group">
+          <label>Slug sách (mỗi dòng một slug — bỏ trống = mọi cuốn đã có PDF)</label>
+          <textarea id="publish-slugs" rows="3" placeholder="cozy-christmas-animals-...&#10;little-elves-workshop-..."></textarea>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+          <button class="btn btn-primary" id="btn-r2-upload" onclick="uploadToR2()">☁️ Đẩy Lên R2</button>
+          <button class="btn btn-secondary" onclick="exportCsv()">📄 Xuất CSV</button>
+          <button class="btn btn-success" id="btn-publish-all" onclick="uploadThenCsv()">🚀 Đẩy R2 + Xuất CSV</button>
+        </div>
+        <div id="publish-result" style="margin-top: 14px; font-size: 0.82rem;"></div>
+      </div>
     </div>
 
     <!-- TAB 4: GALLERY & PDF DOWNLOADS -->
@@ -607,6 +630,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=7"></script>
+  <script src="app.js?v=8"></script>
 </body>
 </html>

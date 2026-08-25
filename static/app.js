@@ -636,6 +636,61 @@ async function startBatchFromIdeas() {
   }
 }
 
+// ---------------------------------------------------------- Publish: R2 + CSV
+function publishSlugs() {
+  return document.getElementById('publish-slugs').value
+    .split('\n').map(s => s.trim()).filter(Boolean);
+}
+
+async function uploadToR2() {
+  const slugs = publishSlugs();
+  const box = document.getElementById('publish-result');
+  const btn = document.getElementById('btn-r2-upload');
+  btn.disabled = true;
+  box.innerHTML = '⏳ Đang đẩy lên R2...';
+  try {
+    const res = await fetch('/api/r2/upload', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(slugs.length ? { slugs } : {})
+    });
+    const data = await res.json();
+    if (!res.ok) { box.innerHTML = '❌ Lỗi: ' + (data.detail || 'không rõ'); return false; }
+    const rows = (data.results || []).map(r =>
+      `<div>${r.ok ? '✅' : '❌'} ${r.slug}${r.ok ? ` (${r.variants} biến thể)` : ' — ' + (r.error||'')}</div>`).join('');
+    box.innerHTML = `<b>Đẩy R2: ${data.uploaded}/${data.total} cuốn</b>${rows}`;
+    logToTerminal(`[R2] Đẩy ${data.uploaded}/${data.total} cuốn lên R2.`);
+    return data.uploaded > 0;
+  } catch (err) {
+    box.innerHTML = '❌ Lỗi kết nối: ' + err.message; return false;
+  } finally { btn.disabled = false; }
+}
+
+async function exportCsv() {
+  const slugs = publishSlugs();
+  try {
+    const res = await fetch('/api/export/csv', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(slugs.length ? { slugs } : {})
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      alert('Lỗi xuất CSV: ' + (d.detail || res.status)); return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'shopify-products.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    logToTerminal('[CSV] Đã xuất shopify-products.csv.');
+  } catch (err) { alert('Lỗi kết nối: ' + err.message); }
+}
+
+async function uploadThenCsv() {
+  const ok = await uploadToR2();
+  if (ok) await exportCsv();
+}
+
 async function startBatch() {
   const titles = document.getElementById('batch-titles').value
     .split('\n').map(s => s.trim()).filter(Boolean);

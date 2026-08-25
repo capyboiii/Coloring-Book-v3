@@ -12,6 +12,102 @@ log = logging.getLogger(__name__)
 Image.MAX_IMAGE_PIXELS = None
 
 
+def add_grain(path: Path, amount: float = 0.05, mono: bool = True,
+              mode: str = "overlay", size: float = 1.0) -> Path:
+    """Phu mot lop grain len anh, ghi de tai cho.
+
+    amount = do dam (0..0.3). mode:
+      * "overlay" (mac dinh) -> lop hat xam blend overlay, giong VAN GIAY IN:
+        dam ma MIN, khong san; hat theo tong anh nen tu nhien.
+      * "add" -> noise cong truc tiep (co trong so midtone), de sang salt-pepper
+        khi amount cao.
+    mono=True -> grain kieu phim/giay (cung mot nhieu cho 3 kenh).
+    """
+    import numpy as np
+
+    amount = max(0.0, min(0.6, float(amount)))
+    if amount <= 0:
+        return path
+    im = Image.open(path).convert("RGB")
+    arr = np.asarray(im).astype(np.float32)
+    h, w = arr.shape[:2]
+    sigma = amount * 255.0
+    ch = 1 if mono else 3
+    # size = kich thuoc HAT (px). >1 -> tao noise o do phan giai thap roi phong
+    # to len -> moi hat phu nhieu pixel (hat to hon).
+    size = max(1.0, float(size))
+    if size > 1.0:
+        # NOISE DA TANG (fractal): tron nhieu co hat -> co cum to, cum nho,
+        # khong deu tam tap -> tu nhien nhu grain phim/giay that. Noi suy BICUBIC
+        # cho bien hat muot, khong bi vuong/kim cuong nhu bilinear.
+        octaves = [(size * 2.0, 0.55), (size, 1.0), (size / 2.0, 0.45)]
+        noise = np.zeros((h, w, ch), np.float32)
+        wsum = 0.0
+        for sc, wgt in octaves:
+            sc = max(1.0, sc)
+            nh, nw = max(1, int(h / sc)), max(1, int(w / sc))
+            small = np.random.normal(0.0, 255.0, (nh, nw, ch)).astype(np.float32)
+            for c in range(ch):
+                layer = Image.fromarray(
+                    np.clip(128.0 + small[:, :, c], 0, 255).astype("uint8"))
+                layer = layer.resize((w, h), Image.BICUBIC)
+                noise[:, :, c] += (np.asarray(layer).astype(np.float32)
+                                   - 128.0) * wgt
+            wsum += wgt
+        # chuan hoa ve dung do dam mong muon (sigma)
+        std = noise.std() or 1.0
+        noise = noise / std * sigma
+    else:
+        noise = np.random.normal(0.0, sigma, (h, w, ch)).astype(np.float32)
+
+    if mode == "tone":
+        # Grain CUNG MAU NEN, chi sang/toi hon 1 bac: NHAN he so (giu nguyen
+        # hue + do bao hoa) thay vi cong (cong se day ve trang/den, mat mau).
+        # Huong theo tong: nen sang -> hat sang hon, nen toi -> hat toi hon ->
+        # tuong phan thap, hoa vao nen du nen mau gi.
+        nim = Image.fromarray(
+            np.clip(128.0 + noise[:, :, 0], 0, 255).astype("uint8"))
+        nim = nim.filter(ImageFilter.GaussianBlur(1.1))
+        mag = np.abs(np.asarray(nim).astype(np.float32) - 128.0) / 255.0
+        luma = (0.299 * arr[:, :, 0] + 0.587 * arr[:, :, 1]
+                + 0.114 * arr[:, :, 2]) / 255.0
+        direction = 2.0 * luma - 1.0                 # +1 sang, -1 toi, 0 giua
+        factor = 1.0 + mag * direction               # nhan -> doi SHADE cung hue
+        out = arr * factor[:, :, None]
+    elif mode == "soft":
+        # Grain MEM: lam mo hat thanh mang huu co (nhu van giay/canvas), roi
+        # modulate do sang RAT NHE quanh 1.0 va GIU NGUYEN MAU (nhan deu 3 kenh).
+        # Khong phai cham sac -> nhin nhu texture giay, khong bui ban.
+        nim = Image.fromarray(
+            np.clip(128.0 + noise[:, :, 0], 0, 255).astype("uint8"))
+        nim = nim.filter(ImageFilter.GaussianBlur(1.3))
+        soft = (np.asarray(nim).astype(np.float32) - 128.0)   # (h,w) mem
+        factor = 1.0 + (soft / 255.0)                          # quanh 1.0
+        out = arr * factor[:, :, None]
+    elif mode == "ink":
+        # Grain MOT CHIEU (chi lam TOI), kieu van muc in. Khong bao gio tao cham
+        # trang tren nen den -> khong lap lanh/bui. |noise| nhan voi anh: dot hoi
+        # toi deu, dam o vung sang, gan nhu vo hinh o vung da toi.
+        d = np.abs(noise[:, :, :1])                # luong lam toi (>=0)
+        out = arr * (1.0 - d / 255.0)
+    elif mode == "overlay":
+        # Lop hat xam quanh 128, blend OVERLAY. Day CA 2 CHIEU -> tren nen sang
+        # ra cham den, nen den ra cham trang (tuong phan voi nen).
+        b = arr / 255.0
+        t = np.clip(128.0 + noise, 0, 255) / 255.0            # lop hat
+        out = np.where(t < 0.5, 2.0 * b * t,
+                       1.0 - 2.0 * (1.0 - b) * (1.0 - t)) * 255.0
+    else:
+        luma = (0.299 * arr[:, :, 0] + 0.587 * arr[:, :, 1]
+                + 0.114 * arr[:, :, 2]) / 255.0
+        weight = np.clip(1.0 - (2.0 * luma - 1.0) ** 2, 0.0, 1.0)
+        weight = 0.15 + 0.85 * weight
+        out = arr + noise * weight[:, :, None]
+
+    Image.fromarray(np.clip(out, 0, 255).astype("uint8")).save(path)
+    return path
+
+
 def remove_watermark(path: Path,
                      center: tuple[float, float] = (0.870, 0.902),
                      size: tuple[float, float] = (0.034, 0.041)) -> Path:

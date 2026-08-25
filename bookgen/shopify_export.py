@@ -124,7 +124,8 @@ def _book_data(slug: str, book_main, storage) -> dict:
     prev_urls = []
     if base:
         prev_dir = P.get("preview_dir") or (P["raw_dir"].parent / "04_previews")
-        prev_urls = [f"{base}/{pfx}/{slug}/" + os.path.basename(p)
+        # Preview đẩy R2 dưới dạng .webp -> URL trong CSV cũng .webp.
+        prev_urls = [f"{base}/{pfx}/{slug}/" + Path(p).stem + ".webp"
                      for p in sorted(glob.glob(prev_dir.as_posix() + "/preview_*.png"))]
 
     return {

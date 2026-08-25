@@ -61,6 +61,14 @@ def _load_env() -> None:
             os.environ.setdefault(k.strip(), v.strip('"').strip("'"))
 
 
+def _clean(v: str) -> str:
+    """Làm sạch 1 giá trị env: bỏ chú thích cùng dòng (từ '#' trở đi), khoảng
+    trắng, nháy và dấu '/' thừa. Chống trường hợp .env ghi kèm comment khiến
+    prefix/base nuốt cả câu chú thích -> key R2 sai bét."""
+    v = (v or "").split("#", 1)[0]
+    return v.strip().strip('"').strip("'").strip().strip("/")
+
+
 def cfg() -> dict:
     _load_env()
     account = os.environ.get("R2_ACCOUNT_ID", "")
@@ -75,11 +83,11 @@ def cfg() -> dict:
         "bucket_pdf": os.environ.get("R2_BUCKET_PDF") or main_bucket,
         "key_id": os.environ.get("R2_ACCESS_KEY_ID", ""),
         "secret": os.environ.get("R2_SECRET_ACCESS_KEY", ""),
-        "public_base": os.environ.get("R2_PUBLIC_BASE", "").rstrip("/"),
+        "public_base": _clean(os.environ.get("R2_PUBLIC_BASE", "")),
         # PDF in: prefix riêng, mặc định "books". Ảnh preview: R2_FOLDER (images).
-        "prefix_pdf": os.environ.get("R2_PREFIX_PDF", "books").strip("/"),
-        "prefix_img": os.environ.get(
-            "R2_PREFIX_PREVIEW", os.environ.get("R2_FOLDER", "images")).strip("/"),
+        "prefix_pdf": _clean(os.environ.get("R2_PREFIX_PDF", "books")) or "books",
+        "prefix_img": _clean(os.environ.get(
+            "R2_PREFIX_PREVIEW", os.environ.get("R2_FOLDER", "images"))) or "images",
         "presign_days": int(os.environ.get("R2_PRESIGN_DAYS", "7")),
     }
 
@@ -146,9 +154,26 @@ def sha256_hex(path: Path) -> str:
     return h.hexdigest()
 
 
+def to_webp(png: Path, quality: int = 82) -> Path:
+    """Nén 1 ảnh PNG -> WEBP (cùng thư mục, .webp). Idempotent theo mtime."""
+    from PIL import Image
+
+    out = png.with_suffix(".webp")
+    if out.exists() and out.stat().st_mtime >= png.stat().st_mtime:
+        return out
+    with Image.open(png) as im:
+        im.convert("RGB").save(out, "WEBP", quality=quality, method=6)
+    return out
+
+
 def _content_type(path: Path) -> str:
-    if path.suffix.lower() == ".pdf":
-        return "application/pdf"           # ép, tránh máy đoán ra octet-stream
+    ext = path.suffix.lower()
+    # Ép thủ công vì mimetypes trên Windows hay trả None cho pdf/webp
+    # -> octet-stream khiến browser tải về thay vì hiển thị.
+    forced = {".pdf": "application/pdf", ".webp": "image/webp",
+              ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}
+    if ext in forced:
+        return forced[ext]
     return mimetypes.guess_type(str(path))[0] or "application/octet-stream"
 
 
@@ -308,7 +333,7 @@ def build_manifest(slug: str) -> dict:
     if (raw / "cover_front.png").exists() and base:
         images["cover_front"] = f"{base}/{pfx_img}/{slug}/cover_front.png"
     if base:
-        pv = [f"{base}/{pfx_img}/{slug}/{p.name}"
+        pv = [f"{base}/{pfx_img}/{slug}/{p.stem}.webp"
               for p in sorted(prev.glob("preview_*.png"))]
         if pv:
             images["previews"] = pv
@@ -371,13 +396,15 @@ def upload_book(slug: str) -> dict:
         upload(cvr, v["cover_key"], meta)
 
     # 2) Ảnh marketing (public). Bỏ qua debug_*.png.
+    #    Preview -> NÉN WEBP trước khi đẩy (nhẹ hơn PNG nhiều, tải nhanh trên web).
     raw = P["raw_dir"]
     prev = P.get("preview_dir") or (pdf_dir.parent / "04_previews")
     cf = raw / "cover_front.png"
     if cf.exists():
         upload(cf, f"{pfx_img}/{slug}/cover_front.png", skip_if_exists=False)
     for p in sorted(prev.glob("preview_*.png")):
-        upload(p, f"{pfx_img}/{slug}/{p.name}", skip_if_exists=False)
+        wp = to_webp(p)
+        upload(wp, f"{pfx_img}/{slug}/{wp.name}", skip_if_exists=False)
 
     # 3) manifest.json - GHI CỤC BỘ, không đẩy lên R2.
     mp = manifest_path(slug)

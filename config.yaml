@@ -1,9 +1,8 @@
 book:
-  title: Cozy Christmas Animals - 50 Adorable Xmas Coloring Pages for Kids - Printed
-    Activity Book
+  title: xmas
   subtitle: ''
-  audience: kids
-  num_images: 1
+  audience: adults
+  num_images: 5
   blank_verso: true
   matter_pages: true
 print:
@@ -36,6 +35,9 @@ print:
   cover_watermark_size:
   - 0.023
   - 0.026
+  cover_grain: 0.5
+  cover_grain_mode: tone
+  cover_grain_size: 4
 process:
   pure_bw: false
 prompts:
@@ -58,12 +60,11 @@ prompts:
     vector-like edges.
 
     '
-  cover_style: 'Choose the ART STYLE, colour palette, mood and lighting that best
-    genuinely fit THIS book''s subject and title - pick whatever suits it and commit
-    to it fully and consistently across the whole cover. - LINEWORK: keep clean, crisp
-    black outlines defining all characters and elements, matching the coloring book
-    line-art style. - Professional colouring: luminous, cohesive, polished and appealing,
-    never flat, muddy, dull or washed out. NO photorealism, NO glossy 3D plastic render.'
+  cover_style: Bold, vibrant cartoon coloring-book cover art with clean crisp black
+    outlines, rich saturated colours and cel-shaded gradients, fun and eye-catching.
+    GLOSSY finish is welcome where it suits - shiny highlights, candy-like sheen and
+    a little 3D pop are allowed. Colour palette and mood chosen to fit THIS book subject.
+    Professional, polished and appealing, never muddy or washed out. NO photorealism.
   front_cover: 'A premium, full-colour FRONT COVER illustration for {audience_article}
     {audience_adj} coloring book.
 
@@ -85,17 +86,14 @@ prompts:
     one light mood. No split bands, strips, panels, boxed sections or dividing lines.
 
 
-    TITLE "{title}": spell it EXACTLY, letter for letter. Draw the title as large,
-    hand-lettered environmental typography integrated directly into the scenery, as
-    if the letters themselves are part of the illustrated world. No sign or separate
-    surface behind the text. The scenery sits only BEHIND the letters; nothing may
-    overlap, cross in front of, weave through or grow onto the lettering. Keep the
-    letters fully clear and unobstructed, always clean on top of the artwork. Place
-    the title anywhere on the cover that looks best (break into 2-3 centred lines
-    if long), but keep EVERY letter at least 8% of the cover width in from the left,
-    right, top and bottom edges - no letter touches or comes near any edge. Draw it
-    large, with a THICK BLACK OUTLINE and a STRONG, HIGH-CONTRAST letter colour so
-    it stays clearly legible.
+    TITLE "{title}": spell it EXACTLY, letter for letter. Draw the title as BIG, bold
+    BUBBLE lettering that pops out on TOP of the artwork - chunky rounded letters
+    with a THICK dark outline, bright high-contrast fill, glossy 3D shine and highlights,
+    and a subtle drop shadow so it lifts off the scene. It does NOT need to blend
+    into the scenery; it can sit boldly in front as eye-catching cover typography.
+    Place it anywhere that looks best (2-3 centred lines if long), but keep every
+    letter at least 8% of the cover width in from all four edges. Keep the lettering
+    fully readable, with nothing covering the letters.
 
 
     FULL BLEED: the illustration and its coloured background fill the ENTIRE cover
@@ -267,8 +265,7 @@ prompts:
       100% exact visual fidelity. Do NOT generate or modify any artwork or text on
       the book cover. Keep the cover design identical to the attached image. Square
       1:1 aspect ratio.'
-subjects:
-- A sleepy fox wearing a Santa hat curls up inside a large wrapped gift box.
+subjects: []
 cover_text:
   back_blurb: '
 
@@ -305,4 +302,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: cozy-christmas-animals-50-adorable-xmas-coloring-pages-for-k
+_book: xmas
