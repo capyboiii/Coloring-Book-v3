@@ -1,16 +1,16 @@
 """Xuất sách -> CSV nhập sản phẩm Shopify.
 
-Một sách = 1 dòng chính (bìa, Image Position 1) + N dòng ảnh preview (2..N+1),
+Một sách = 2 dòng variant (24 & 48 Coloring Pages) + N dòng ảnh preview,
 gom bằng Handle. Dữ liệu lấy từ state.json của cuốn + URL ảnh public trên R2.
 
 Quy tắc field (theo yêu cầu):
   * Handle          = slug(cover_title) + đuôi random
   * Title           = seo_title
   * Body (HTML)     = template thông số sách (khổ, số trang, đóng, giấy, bìa)
-  * Product Category= Home > For Adults / Home > For Kids
+  * Product Category= Coloring Books & Pads (phải khớp danh mục hệ thống)
   * SEO Description = state.book.seo_description (Gemini viết) nếu có
-  * Giá: mọi cột liên quan price = 50, các cột variant khác để trống
-  * SKU: sinh theo cơ chế ở gen_sku()
+  * Giá: theo VARIANTS_SPEC (USD/CAD/GBP + Compare At), cột variant khác để trống
+  * SKU: gen_sku() + hậu tố -24P / -48P
 """
 from __future__ import annotations
 
@@ -39,15 +39,24 @@ COLUMNS = [
     "Variant Compare At Price GBP", "Is Trademark",
 ]
 
-# Mọi cột "giá" -> để 50 hết.
-PRICE_COLS = [
-    "Variant Price", "Variant Compare At Price", "Variant Price CAD",
-    "Variant Price GBP", "Variant Compare At Price CAD",
-    "Variant Compare At Price GBP",
+# 2 biến thể mỗi cuốn: 24 & 48 trang, kèm bảng giá USD/CAD/GBP.
+VARIANTS_SPEC = [
+    {"name": "24 Coloring Pages", "sku_suffix": "-24P",
+     "price": "19.95", "compare_at": "24.95",
+     "price_cad": "27.93", "compare_at_cad": "34.93",
+     "price_gbp": "14.76", "compare_at_gbp": "18.46"},
+    {"name": "48 Coloring Pages", "sku_suffix": "-48P",
+     "price": "24.95", "compare_at": "29.95",
+     "price_cad": "34.93", "compare_at_cad": "41.93",
+     "price_gbp": "18.46", "compare_at_gbp": "22.16"},
 ]
 
-DEFAULT_PRICE = "50"
 VENDOR = os.environ.get("SHOP_VENDOR", "Crayona Hub")
+
+# Danh mục sản phẩm PHẢI khớp danh mục có sẵn trên hệ thống import,
+# nếu không sản phẩm sẽ kẹt ở trạng thái draft (không publish được).
+# Mỗi cuốn bốc ngẫu nhiên 1 trong các danh mục dưới đây.
+PRODUCT_CATEGORIES = ["Coloring Books & Pads", "Arts & Crafts"]
 
 _STOP = {"the", "a", "an", "and", "of", "for", "to", "coloring", "colouring",
          "book", "pages", "page"}
@@ -135,45 +144,80 @@ def _book_data(slug: str, book_main, storage) -> dict:
     }
 
 
+def _price_cells(spec: dict) -> dict:
+    """Map cấu hình giá của 1 biến thể -> các cột giá trong CSV."""
+    return {
+        "Variant Price": spec["price"],
+        "Variant Compare At Price": spec["compare_at"],
+        "Variant Price CAD": spec["price_cad"],
+        "Variant Price GBP": spec["price_gbp"],
+        "Variant Compare At Price CAD": spec["compare_at_cad"],
+        "Variant Compare At Price GBP": spec["compare_at_gbp"],
+    }
+
+
 def _rows_for(d: dict) -> list[dict]:
-    aud_label = "For Adults" if str(d["audience"]).lower().startswith("adult") else "For Kids"
-    handle = gen_handle(d["cover_title"])
-    sku = gen_sku(d["cover_title"], d["audience"], d["slug"])
+    """1 cuốn = 2 dòng variant (24 & 48 trang) + các dòng ảnh preview còn lại."""
+    handle = slugify(d["seo_title"]) or gen_handle(d["cover_title"])
+    base_sku = gen_sku(d["cover_title"], d["audience"], d["slug"])
 
     def blank() -> dict:
         return {c: "" for c in COLUMNS}
 
-    main = blank()
     # Ảnh sản phẩm: CHỈ 5 ảnh preview (không dùng cover_front).
     imgs = d["prev_urls"]
-    main.update({
+    # Ảnh đại diện từng biến thể: 24 trang -> preview_2, 48 trang -> preview_1.
+    variant_imgs = [
+        imgs[1] if len(imgs) > 1 else (imgs[0] if imgs else ""),
+        imgs[0] if imgs else "",
+    ]
+
+    # Dòng 1: biến thể 24 trang, mang toàn bộ thông tin sản phẩm + ảnh vị trí 1.
+    v1 = blank()
+    v1.update({
         "Handle": handle,
         "Title": d["seo_title"],
         "Body (HTML)": body_html(d["pages"]),
         "Vendor": VENDOR,
-        "Product Category": f"Home > {aud_label}",
-        "Type": "Coloring Book",
-        "Tags": f"Coloring Book, {aud_label}",
+        "Product Category": secrets.choice(PRODUCT_CATEGORIES),
+        "Type": "",
+        "Tags": "",
         "Published": "TRUE",
-        "Option1 Name": "Title",
-        "Option1 Value": "Default Title",
-        "Variant SKU": sku,
+        "Option1 Name": "Pages",
+        "Option1 Value": VARIANTS_SPEC[0]["name"],
+        "Variant SKU": f"{base_sku}{VARIANTS_SPEC[0]['sku_suffix']}",
         "Image Src": imgs[0] if imgs else "",
         "Image Position": "1" if imgs else "",
         "Image Alt Text": f"{d['cover_title']} preview 1" if imgs else "",
         "Gift Card": "FALSE",
         "SEO Title": d["seo_title"],
         "SEO Description": d["seo_description"],
+        "Variant Image": variant_imgs[0],
         "Status": "active",
         "Is Trademark": "FALSE",
     })
-    # Giá: mọi cột price = 50 (các cột variant khác để trống theo yêu cầu).
-    for c in PRICE_COLS:
-        main[c] = DEFAULT_PRICE
+    v1.update(_price_cells(VARIANTS_SPEC[0]))
 
-    rows = [main]
+    # Dòng 2: biến thể 48 trang, chỉ Handle + Option + SKU + giá (+ ảnh vị trí 2).
+    v2 = blank()
+    v2.update({
+        "Handle": handle,
+        "Option1 Name": "Pages",
+        "Option1 Value": VARIANTS_SPEC[1]["name"],
+        "Variant SKU": f"{base_sku}{VARIANTS_SPEC[1]['sku_suffix']}",
+        "Variant Image": variant_imgs[1],
+    })
+    v2.update(_price_cells(VARIANTS_SPEC[1]))
+    if len(imgs) > 1:
+        v2.update({
+            "Image Src": imgs[1],
+            "Image Position": "2",
+            "Image Alt Text": f"{d['cover_title']} preview 2",
+        })
+
+    rows = [v1, v2]
     # Các ảnh preview còn lại: mỗi ảnh 1 dòng, chỉ Handle + Image*.
-    for i, u in enumerate(imgs[1:], start=2):
+    for i, u in enumerate(imgs[2:], start=3):
         r = blank()
         r.update({"Handle": handle, "Image Src": u, "Image Position": str(i),
                   "Image Alt Text": f"{d['cover_title']} preview {i}"})

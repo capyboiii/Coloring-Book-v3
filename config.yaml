@@ -1,8 +1,8 @@
 book:
-  title: xmas
+  title: halloween
   subtitle: ''
-  audience: adults
-  num_images: 5
+  audience: kids
+  num_images: 48
   blank_verso: true
   matter_pages: true
 print:
@@ -17,7 +17,7 @@ print:
   min_pages: 32
   cover_wrap: 0.25
   pod_package_id: 0850X1100BWSTDPB060UW444MXX
-  spine_width: 0.182
+  spine_width: 0.29
   full_bleed_interior: false
   interior_border: true
   interior_border_width: 1.5
@@ -35,9 +35,9 @@ print:
   cover_watermark_size:
   - 0.023
   - 0.026
-  cover_grain: 0.5
+  cover_grain: 0.35
   cover_grain_mode: tone
-  cover_grain_size: 4
+  cover_grain_size: 1
 process:
   pure_bw: false
 prompts:
@@ -265,7 +265,9 @@ prompts:
       100% exact visual fidelity. Do NOT generate or modify any artwork or text on
       the book cover. Keep the cover design identical to the attached image. Square
       1:1 aspect ratio.'
-subjects: []
+subjects:
+- A carved jack-o'-lantern resting on a wooden porch step surrounded by fallen leaves
+  and a curious black cat.
 cover_text:
   back_blurb: '
 
@@ -302,4 +304,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: xmas
+_book: halloween

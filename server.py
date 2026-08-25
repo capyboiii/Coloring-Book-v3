@@ -676,8 +676,10 @@ def export_shopify_csv(payload: dict):
     if not slugs:
         raise HTTPException(status_code=400, detail="Không có sách nào để export.")
     csv_text = shopify_export.export_csv(list(slugs), book_main, storage)
+    # BOM để Excel nhận đúng UTF-8 (không có BOM Excel đọc theo ANSI -> lỗi font).
     return StreamingResponse(
-        iter([csv_text]), media_type="text/csv; charset=utf-8",
+        iter([("\ufeff" + csv_text).encode("utf-8")]),
+        media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": 'attachment; filename="shopify-products.csv"'})
 
 

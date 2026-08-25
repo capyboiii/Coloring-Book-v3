@@ -12,6 +12,58 @@ log = logging.getLogger(__name__)
 Image.MAX_IMAGE_PIXELS = None
 
 
+def _hf_std(im: Image.Image) -> float:
+    """Do "do chi tiet" cua anh = lech chuan cua thanh phan tan so cao.
+
+    Dung lam thuoc do khach quan cho grain: hat cang nhieu -> so nay cang lon.
+    """
+    import numpy as np
+    g = im.convert("L")
+    a = np.asarray(g, np.float32)
+    b = np.asarray(g.filter(ImageFilter.GaussianBlur(1.2)), np.float32)
+    return float((a - b).std())
+
+
+def auto_grain_params(path: Path, ratio: float = 0.35) -> tuple[float, float]:
+    """Tu chon (amount, size) sao cho HAT HOA VAO ANH, khong lan at anh.
+
+    Y tuong: grain nen ti le voi luong chi tiet san co cua anh.
+      * Anh nhieu net (nhieu chi tiet)  -> chiu duoc hat manh hon.
+      * Anh phang, mang mau lon         -> hat nhe, neu khong se lo ro nhu bui.
+    ratio = ti le do hat so voi chi tiet goc (0.35 -> hat bang ~35% chi tiet).
+
+    Size hat scale theo do phan giai de khi IN ra hat luon trong cung mot co,
+    khong phu thuoc anh 1000px hay 3000px.
+    """
+    import tempfile
+
+    im = Image.open(path).convert("RGB")
+    long_edge = max(im.size)
+    size = max(1.0, round(long_edge / 1600.0, 2))
+
+    # Do & hieu chinh tren mot O CAT 640px o giua anh (CAT chu khong THU NHO:
+    # thu nho lam sac net gia tao, thang do se sai hoan toan).
+    cx, cy = im.size[0] // 2, im.size[1] // 2
+    r = min(320, cx, cy)
+    sm = im.crop((cx - r, cy - r, cx + r, cy + r))
+    base = _hf_std(sm) or 1.0
+    target = min(7.0, max(1.5, ratio * base))        # luong hat muon them vao
+
+    amount = 0.08
+    with tempfile.TemporaryDirectory() as td:
+        probe = Path(td) / "probe.png"
+        for _ in range(5):
+            sm.save(probe)
+            add_grain(probe, amount=amount, mode="tone", size=size)
+            got = _hf_std(Image.open(probe)) ** 2 - base ** 2
+            got = got ** 0.5 if got > 0.01 else 0.01
+            if abs(got - target) / target < 0.05:
+                break
+            # mu 0.8: mode "tone" phan hoi duoi tuyen tinh -> tranh vot qua.
+            amount = max(0.01, min(0.6, amount * (target / got) ** 0.8))
+    return round(amount, 3), size
+
+
 def add_grain(path: Path, amount: float = 0.05, mono: bool = True,
               mode: str = "overlay", size: float = 1.0) -> Path:
     """Phu mot lop grain len anh, ghi de tai cho.
@@ -21,9 +73,16 @@ def add_grain(path: Path, amount: float = 0.05, mono: bool = True,
         dam ma MIN, khong san; hat theo tong anh nen tu nhien.
       * "add" -> noise cong truc tiep (co trong so midtone), de sang salt-pepper
         khi amount cao.
+      * "auto" -> TU CHON do dam + co hat cho hoa voi anh; luc nay `amount`
+        la RATIO (0.35 = hat bang ~35% luong chi tiet san co cua anh).
     mono=True -> grain kieu phim/giay (cung mot nhieu cho 3 kenh).
     """
     import numpy as np
+
+    if mode == "auto":
+        # amount luc nay dong vai tro RATIO (do hai hoa), khong phai do dam.
+        amount, size = auto_grain_params(path, ratio=float(amount) or 0.35)
+        mode = "tone"
 
     amount = max(0.0, min(0.6, float(amount)))
     if amount <= 0:
@@ -40,7 +99,8 @@ def add_grain(path: Path, amount: float = 0.05, mono: bool = True,
         # NOISE DA TANG (fractal): tron nhieu co hat -> co cum to, cum nho,
         # khong deu tam tap -> tu nhien nhu grain phim/giay that. Noi suy BICUBIC
         # cho bien hat muot, khong bi vuong/kim cuong nhu bilinear.
-        octaves = [(size * 2.0, 0.55), (size, 1.0), (size / 2.0, 0.45)]
+        # Ít tầng "cụm to" (loang) hơn, nặng tầng mịn -> grain đều, min hon.
+        octaves = [(size * 1.5, 0.25), (size, 1.0), (size / 2.0, 0.7)]
         noise = np.zeros((h, w, ch), np.float32)
         wsum = 0.0
         for sc, wgt in octaves:
