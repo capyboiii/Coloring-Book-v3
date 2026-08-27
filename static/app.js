@@ -97,6 +97,8 @@ function syncConfigToUI() {
   document.getElementById('book-subtitle').value = book.subtitle || "";
   const audEl = document.getElementById('book-audience');
   if (audEl) audEl.value = book.audience || "kids";
+  const csEl = document.getElementById('book-cover-style');
+  if (csEl) csEl.value = book.cover_style || "glossy";
   document.getElementById('book-num-images').value = book.num_images || 30;
   document.getElementById('blank-verso').value = book.blank_verso !== false ? "true" : "false";
 
@@ -354,6 +356,7 @@ async function saveConfigFromUI() {
       title: document.getElementById('book-title').value,
       subtitle: document.getElementById('book-subtitle').value,
       audience: document.getElementById('book-audience')?.value || "kids",
+      cover_style: document.getElementById('book-cover-style')?.value || "glossy",
       num_images: parseInt(document.getElementById('book-num-images').value),
       matter_pages: document.getElementById('matter-pages-select')?.value !== "false",
       blank_verso: document.getElementById('blank-verso').value === "true"
@@ -552,26 +555,46 @@ function escHtml(s) {
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function ideaRowHtml(cover, seo, desc) {
-  return `<div class="idea-row" style="border:1px solid var(--border,#ddd);border-radius:8px;padding:8px;margin-bottom:8px;">
-    <div style="display:grid;grid-template-columns:1fr 1.4fr auto;gap:8px;align-items:center;">
-      <input class="idea-cover" value="${escHtml(cover)}" placeholder="cover_title (tên bìa)">
-      <input class="idea-seo" value="${escHtml(seo)}" placeholder="seo_title (tiêu đề SEO)">
-      <button class="btn btn-danger" style="padding:6px 10px;" onclick="this.closest('.idea-row').remove()">✕</button>
+function ideaRowHtml(cover, seo, desc, num) {
+  const badge = num ? `<span class="idea-num">${num}</span>` : '';
+  return `<div class="idea-row">
+    ${badge}
+    <div class="idea-head">
+      <div class="idea-field">
+        <label>Tên bìa (cover title)</label>
+        <input class="idea-cover" value="${escHtml(cover)}" placeholder="VD: Sunny Hawaii Coloring Book">
+      </div>
+      <button class="idea-del" title="Xoá chủ đề này" onclick="this.closest('.idea-row').remove(); renumberIdeas()">✕</button>
     </div>
-    <input class="idea-desc" value="${escHtml(desc)}" placeholder="seo_description (mô tả SEO ~150 ký tự)" style="margin-top:6px;width:100%;">
+    <div class="idea-field">
+      <label>Tiêu đề SEO (seo title)</label>
+      <input class="idea-seo" value="${escHtml(seo)}" placeholder="Hook – 48 Pages – Chi tiết – For Kids">
+    </div>
+    <div class="idea-field">
+      <label>Mô tả SEO (~150 ký tự)</label>
+      <input class="idea-desc" value="${escHtml(desc)}" placeholder="Mô tả bán hàng, có keyword + đối tượng + call-to-action.">
+    </div>
   </div>`;
 }
 
 function renderIdeas(ideas) {
   const box = document.getElementById('ideas-list');
-  box.innerHTML = ideas.map(it => ideaRowHtml(it.cover_title || '', it.seo_title || '', it.seo_description || '')).join('');
+  box.innerHTML = ideas.map((it, i) =>
+    ideaRowHtml(it.cover_title || '', it.seo_title || '', it.seo_description || '', i + 1)
+  ).join('');
   document.getElementById('ideas-actions').style.display = ideas.length ? 'grid' : 'none';
+  renumberIdeas();
+}
+
+function renumberIdeas() {
+  document.querySelectorAll('#ideas-list .idea-row .idea-num')
+    .forEach((el, i) => { el.textContent = i + 1; });
 }
 
 function addIdeaRow() {
   const box = document.getElementById('ideas-list');
-  box.insertAdjacentHTML('beforeend', ideaRowHtml('', '', ''));
+  const n = box.querySelectorAll('.idea-row').length + 1;
+  box.insertAdjacentHTML('beforeend', ideaRowHtml('', '', '', n));
   document.getElementById('ideas-actions').style.display = 'grid';
 }
 
@@ -642,12 +665,13 @@ function publishSlugs() {
     .split('\n').map(s => s.trim()).filter(Boolean);
 }
 
-async function uploadToR2() {
-  const slugs = publishSlugs();
+async function uploadToR2(forceAll = false) {
+  const slugs = forceAll ? [] : publishSlugs();
   const box = document.getElementById('publish-result');
   const btn = document.getElementById('btn-r2-upload');
   btn.disabled = true;
-  box.innerHTML = '⏳ Đang đẩy lên R2...';
+  box.innerHTML = forceAll ? '⏳ Đang đẩy TẤT CẢ sách trong folder lên R2...'
+                           : '⏳ Đang đẩy lên R2...';
   try {
     const res = await fetch('/api/r2/upload', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -665,8 +689,8 @@ async function uploadToR2() {
   } finally { btn.disabled = false; }
 }
 
-async function exportCsv() {
-  const slugs = publishSlugs();
+async function exportCsv(forceAll = false) {
+  const slugs = forceAll ? [] : publishSlugs();
   try {
     const res = await fetch('/api/export/csv', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -689,6 +713,13 @@ async function exportCsv() {
 async function uploadThenCsv() {
   const ok = await uploadToR2();
   if (ok) await exportCsv();
+}
+
+// R2 + CSV cho TẤT CẢ sách trong folder books (bỏ qua ô nhập slug).
+async function uploadThenCsvAll() {
+  if (!confirm('Đẩy R2 + xuất CSV cho TẤT CẢ sách trong folder books (mọi cuốn đã có PDF)?\n\nCuốn chưa xong sẽ tự bị bỏ qua.')) return;
+  const ok = await uploadToR2(true);
+  if (ok) await exportCsv(true);
 }
 
 async function startBatch() {

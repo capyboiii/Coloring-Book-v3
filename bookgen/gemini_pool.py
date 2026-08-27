@@ -41,6 +41,12 @@ from bookgen.gemini_driver import (
 
 log = logging.getLogger(__name__)
 
+# Trần thời gian cho bước nâng ảnh lên bản gốc. Vượt mốc treo của lane (120s)
+# thì cả ảnh bị bỏ và gen lại -> thà giữ bản xem trước còn hơn.
+# 60s = đủ cho hai lần bấm nút download (22s mỗi lần + thao tác hover/click),
+# vẫn cách xa mốc 120s.
+FULLRES_BUDGET_SEC = 60
+
 
 # --------------------------------------------------------------- throttle
 
@@ -994,7 +1000,12 @@ class GeminiPool:
                 await loc.hover(timeout=2_000)      # nút chỉ hiện khi rê chuột
             except Exception:  # noqa: BLE001
                 pass
-            async with page.expect_download(timeout=30_000) as info:
+            # 22s: đây là ĐƯỜNG DUY NHẤT lấy được bản gốc, nên không cắt gắt.
+            # Trên log thật lần nào ăn thì file về trong 5-15s; cắt xuống 8s
+            # không tiết kiệm được mấy mà lại đánh rơi ảnh 2336px xuống còn
+            # 1024px - đúng thứ sinh ra cảnh báo "phải phóng 2.9 lần".
+            # Hai lần bấm 22s vẫn nằm gọn dưới mốc treo 120s của lane.
+            async with page.expect_download(timeout=22_000) as info:
                 await loc.click(timeout=5_000, force=True)
             dl = await info.value
             dest.parent.mkdir(parents=True, exist_ok=True)
@@ -1039,15 +1050,28 @@ class GeminiPool:
         """Nếu ảnh vừa bắt (bản xem trước) nhỏ, thử lấy BẢN GỐC và giữ bản lớn hơn.
 
         Ảnh inline trong chat Gemini là bản nén ~800-1024px. Bản gốc (2K+, 3-6MB)
-        chỉ nạp khi mở ảnh/bấm Tải xuống. Ở đây: đo cạnh dài; nếu < ngưỡng thì
-        thử _download_via_toolbar rồi _grab_full_image vào file tạm, chỉ THAY THẾ
-        khi bản mới lớn hơn thật. Thất bại thì im lặng giữ nguyên bản xem trước.
+        CHỈ lấy được qua nút 'Tải ảnh kích thước đầy đủ' - đó là đường duy nhất,
+        nên ở đây chỉ bấm nút đó (tối đa 2 lần), tải vào file tạm và chỉ THAY THẾ
+        khi bản mới lớn hơn thật. Thất bại thì giữ nguyên bản xem trước.
         """
         if self.raw_min_long_edge <= 0:
             return
         cur = self._long_edge(dest)
         if cur >= self.raw_min_long_edge:
             return
+
+        # NGÂN SÁCH THỜI GIAN cho cả bước nâng. Bốn cách dự phòng nối đuôi nhau
+        # có thể ngốn hơn 120s -> vượt mốc "treo" của lane, cả ảnh bị bỏ và gen
+        # lại từ đầu (~3 phút). Hết ngân sách thì dừng, giữ bản xem trước: ảnh
+        # 1024px vẫn dùng được, mất 3 phút thì không.
+        deadline = time.monotonic() + FULLRES_BUDGET_SEC
+
+        def _out_of_time(step: str) -> bool:
+            if time.monotonic() < deadline:
+                return False
+            log.info("[fullres] %s: hết ngân sách %ds ở bước %s -> giữ bản %dpx.",
+                     dest.name, FULLRES_BUDGET_SEC, step, cur)
+            return True
 
         urls = await self._image_urls(page)
         log.info("[fullres] %s: bản bắt %dpx < %d, thử nâng. %d URL ứng viên.",
@@ -1081,29 +1105,21 @@ class GeminiPool:
         except Exception as e:  # noqa: BLE001
             log.info("[fullres] nút-download lỗi: %s", e)
 
-        # 2) fetch thẳng URL với =s0 (chỉ ăn nếu là lh3, blob thì trượt).
-        for url in urls[:3]:
+        # KHÔNG CÒN ĐƯỜNG NÀO KHÁC. Ba nhánh dự phòng cũ (=s0/url, viewer,
+        # toolbar) đã bị bỏ: trên log thật, =s0/url chỉ trả về 1024-1184px tức
+        # vẫn là bản xem trước, còn viewer/toolbar chưa từng thành công lần nào.
+        # Chúng chỉ đốt thời gian sau khi đường thật đã trượt, đẩy job qua mốc
+        # treo 120s -> mất cả ảnh, phải gen lại.
+        #
+        # Vì đây là đường DUY NHẤT, thà thử lại nó lần nữa còn hơn bỏ cuộc:
+        # bấm lại rẻ hơn nhiều so với gen lại cả ảnh (~3 phút + quota).
+        if not _out_of_time("bấm lại"):
+            log.info("[fullres] %s: thử bấm lại nút download (lần 2).", dest.name)
             try:
-                if await self._download(page, url, tmp) and _consider("=s0/url"):
+                if await self._download_fullsize_button(page, tmp) and _consider("nút-download-2"):
                     return
             except Exception as e:  # noqa: BLE001
-                log.debug("[fullres] fetch url lỗi: %s", e)
-
-        # 3) Mở viewer rồi bấm nút Tải xuống trong đó.
-        for url in urls[:2]:
-            try:
-                if await self._grab_full_image(page, url, tmp) and _consider("viewer"):
-                    return
-            except Exception as e:  # noqa: BLE001
-                log.info("[fullres] viewer lỗi: %s", e)
-
-        # 3) Nút Tải xuống trên thanh công cụ nổi của ảnh inline.
-        for url in urls[:2]:
-            try:
-                if await self._download_via_toolbar(page, url, tmp) and _consider("toolbar"):
-                    return
-            except Exception as e:  # noqa: BLE001
-                log.debug("[fullres] toolbar lỗi: %s", e)
+                log.info("[fullres] nút-download lần 2 lỗi: %s", e)
 
         log.warning("[fullres] %s: không lấy được bản lớn hơn %dpx, giữ bản xem trước.",
                     dest.name, cur)

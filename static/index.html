@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Coloring Book Generator - Lulu POD Studio</title>
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=6">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -99,6 +99,19 @@
             <select id="book-audience" onchange="saveConfigFromUI()">
               <option value="kids">Trẻ em 4-8 tuổi (nét to, mảng lớn, dễ thương)</option>
               <option value="adults">Người lớn (nét tinh xảo, chi tiết dày)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Phong cách bìa (Cover style) — quyết định cách vẽ ảnh bìa & grain</label>
+            <select id="book-cover-style" onchange="saveConfigFromUI()">
+              <option value="glossy">Glossy — cartoon bóng loáng, cel-shade (mặc định)</option>
+              <option value="watercolor">Watercolor — màu nước loang mềm</option>
+              <option value="flat_vector">Flat vector — màu phẳng, hiện đại</option>
+              <option value="gouache">Gouache poster — màu đặc, matte cao cấp</option>
+              <option value="vintage">Vintage — storybook cổ điển 50s-60s</option>
+              <option value="colored_pencil">Colored pencil — bút chì màu, tả thực nhẹ</option>
+              <option value="papercut">Papercut — cắt giấy nhiều lớp</option>
             </select>
           </div>
 
@@ -544,6 +557,9 @@
           <button class="btn btn-secondary" onclick="exportCsv()">📄 Xuất CSV</button>
           <button class="btn btn-success" id="btn-publish-all" onclick="uploadThenCsv()">🚀 R2 + CSV</button>
         </div>
+        <div style="margin-top: 10px;">
+          <button class="btn btn-success" style="width:100%;" id="btn-publish-all-folder" onclick="uploadThenCsvAll()">📦 R2 + CSV — TẤT CẢ sách trong folder books</button>
+        </div>
         <div id="publish-result" style="margin-top: 14px; font-size: 0.82rem;"></div>
       </div>
     </div>
@@ -630,6 +646,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=9"></script>
+  <script src="app.js?v=12"></script>
 </body>
 </html>

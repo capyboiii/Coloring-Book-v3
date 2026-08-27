@@ -1,8 +1,9 @@
 book:
-  title: halloween
+  title: Whispers of the Dead Coloring Pages – 48 Gothic Skull Designs – For Adults
   subtitle: ''
-  audience: kids
-  num_images: 48
+  audience: adults
+  cover_style: glossy
+  num_images: 1
   blank_verso: true
   matter_pages: true
 print:
@@ -17,24 +18,24 @@ print:
   min_pages: 32
   cover_wrap: 0.25
   pod_package_id: 0850X1100BWSTDPB060UW444MXX
-  spine_width: 0.29
+  spine_width: 0.182
   full_bleed_interior: false
   interior_border: true
   interior_border_width: 1.5
   preview_remove_watermark: true
   preview_watermark_center:
-  - 0.881
+  - 0.883
   - 0.882
   preview_watermark_size:
   - 0.028
-  - 0.032
+  - 0.025
   cover_remove_watermark: true
   cover_watermark_center:
   - 0.866
-  - 0.899
+  - 0.898
   cover_watermark_size:
+  - 0.03
   - 0.023
-  - 0.026
   cover_grain: 0.35
   cover_grain_mode: tone
   cover_grain_size: 1
@@ -65,6 +66,61 @@ prompts:
     GLOSSY finish is welcome where it suits - shiny highlights, candy-like sheen and
     a little 3D pop are allowed. Colour palette and mood chosen to fit THIS book subject.
     Professional, polished and appealing, never muddy or washed out. NO photorealism.
+  cover_styles:
+    glossy:
+      art: 'ART STYLE - GLOSSY CARTOON: bold, vibrant cartoon coloring-book cover
+        art with clean crisp black outlines, rich saturated colours and cel-shaded
+        gradients. Glossy finish with shiny highlights, candy-like sheen and a little
+        3D pop. Professional, polished and eye-catching, never muddy or washed out.
+        NO photorealism.'
+      title: bright high-contrast fill with glossy 3D shine, highlights and a subtle
+        drop shadow so it lifts off the scene.
+      grain: 0.35
+    watercolor:
+      art: 'ART STYLE - SOFT WATERCOLOR: delicate hand-painted look. Translucent washes,
+        soft colour bleeds and blooms, wet-on-wet gradients, visible watercolour paper
+        texture. Light, airy and dreamy with soft edges. Fine loose ink outlines,
+        not heavy. NO gloss, NO plastic sheen, NO 3D pop, NO airbrush. Real watercolour
+        on paper. NO photorealism.'
+      title: gentle watercolour-textured matte fill with a soft shadow for readability.
+      grain: 0.1
+    flat_vector:
+      art: 'ART STYLE - FLAT VECTOR: clean modern flat-design cartoon. Solid flat
+        colour blocks, simple crisp shapes, minimal shading, bold uniform outlines.
+        Bright and cheerful, graphic and tidy. NO texture, NO gloss, NO 3D, NO gradients
+        beyond simple flat tones. NO photorealism.'
+      title: flat solid-colour fill with a clean bold outline and a simple flat drop
+        shadow.
+      grain: 0.35
+    gouache:
+      art: 'ART STYLE - GOUACHE POSTER: rich opaque gouache painting. Dense flat-but-painterly
+        colour, smooth matte coverage, visible brush strokes, bold poster-like shapes.
+        Warm and premium. Matte finish, NO gloss, NO plastic sheen, NO 3D pop. NO
+        photorealism.'
+      title: bold painted matte fill with a strong outline and a soft shadow.
+      grain: 0.1
+    vintage:
+      art: 'ART STYLE - VINTAGE STORYBOOK: retro 1950s-60s storybook illustration.
+        Warm nostalgic muted palette, slightly aged paper texture, screen-print /
+        halftone feel, charming hand-drawn lines. Cozy classic mood. Matte, NO gloss,
+        NO 3D, NO photorealism.'
+      title: retro hand-lettered matte fill with a warm outline and a gentle vintage
+        shadow.
+      grain: 0.1
+    colored_pencil:
+      art: 'ART STYLE - COLORED PENCIL: detailed hand-drawn coloured-pencil illustration.
+        Fine layered pencil strokes, soft realistic shading, gentle paper grain, warm
+        natural colours. Semi-realistic but still friendly. Matte, NO gloss, NO plastic
+        3D, NO digital airbrush.'
+      title: soft pencil-shaded matte fill with a hand-drawn outline and a light shadow.
+      grain: 0.1
+    papercut:
+      art: 'ART STYLE - PAPERCUT COLLAGE: layered cut-paper collage look. Flat paper
+        shapes stacked in layers with soft realistic drop shadows between layers,
+        subtle paper texture, clean edges. Crafty and charming. Matte, NO gloss, NO
+        airbrush. NO photorealism.'
+      title: cut-paper style letters with soft layer shadows and a matte finish.
+      grain: 0.1
   front_cover: 'A premium, full-colour FRONT COVER illustration for {audience_article}
     {audience_adj} coloring book.
 
@@ -88,18 +144,20 @@ prompts:
 
     TITLE "{title}": spell it EXACTLY, letter for letter. Draw the title as BIG, bold
     BUBBLE lettering that pops out on TOP of the artwork - chunky rounded letters
-    with a THICK dark outline, bright high-contrast fill, glossy 3D shine and highlights,
-    and a subtle drop shadow so it lifts off the scene. It does NOT need to blend
-    into the scenery; it can sit boldly in front as eye-catching cover typography.
-    Place it anywhere that looks best (2-3 centred lines if long), but keep every
-    letter at least 8% of the cover width in from all four edges. Keep the lettering
-    fully readable, with nothing covering the letters.
+    with a THICK dark outline. {title_style} It does NOT need to blend into the scenery;
+    it can sit boldly in front as eye-catching cover typography. Place it anywhere
+    that looks best (2-3 centred lines if long), but keep every letter at least 8%
+    of the cover width in from all four edges. Keep the lettering fully readable,
+    with nothing covering the letters.
 
 
     FULL BLEED: the illustration and its coloured background fill the ENTIRE cover
     to all four edges - no border, frame, keyline, empty margin or blank unpainted
     strip anywhere; colour reaches every corner. Only the characters'' faces stay
     comfortably in from the edges.
+
+
+    {cover_detail}
 
 
     ART STYLE: {style}
@@ -265,9 +323,7 @@ prompts:
       100% exact visual fidelity. Do NOT generate or modify any artwork or text on
       the book cover. Keep the cover design identical to the attached image. Square
       1:1 aspect ratio.'
-subjects:
-- A carved jack-o'-lantern resting on a wooden porch step surrounded by fallen leaves
-  and a curious black cat.
+subjects: []
 cover_text:
   back_blurb: '
 
@@ -284,9 +340,9 @@ api:
 browser:
   headless: true
   gemini_url: https://gemini.google.com/app
-  generation_timeout: 60
+  generation_timeout: 120
   recycle_tab_every: 1
-  stall_timeout: 120
+  stall_timeout: 180
   max_requeue: 2
   delay_between_prompts:
   - 3
@@ -304,4 +360,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: halloween
+_book: whispers-of-the-dead-coloring-pages-48-gothic-skull-designs-

@@ -35,10 +35,44 @@ import copy
 import json
 import logging
 import queue
+import sys
 import threading
 import time
 from pathlib import Path
 from typing import Any
+
+log_prio = logging.getLogger(__name__)
+
+
+def _lower_thread_priority() -> None:
+    """Hạ ưu tiên CHÍNH LUỒNG ĐANG CHẠY xuống mức thấp (chỉ Windows).
+
+    Lane CPU (phóng ảnh 300 DPI + dựng PDF) chạy song song với lane Gemini, mà
+    lane Gemini thực chất là Chrome ở tiến trình khác. Khi cả hai cùng ăn CPU,
+    Chrome bị bỏ đói -> mỗi ảnh chậm thêm ~40% (đo trên log: 31s/ảnh lúc rảnh
+    so với 51s/ảnh khi lane CPU đang chạy).
+
+    Hạ ưu tiên ở mức LUỒNG chứ không phải tiến trình: client Playwright nằm
+    cùng tiến trình Python này nên hạ cả tiến trình sẽ tự bắn vào chân mình.
+    Lane CPU vẫn chạy hết tốc khi máy rảnh, chỉ nhường khi có tranh chấp.
+    """
+    if not sys.platform.startswith("win"):
+        return
+    try:
+        import ctypes
+
+        THREAD_PRIORITY_LOWEST = -2
+        k32 = ctypes.windll.kernel32
+        # HANDLE là 64-bit: không khai báo restype thì ctypes cắt còn 32-bit và
+        # SetThreadPriority nhận phải handle rác -> im lặng không có tác dụng.
+        k32.GetCurrentThread.restype = ctypes.c_void_p
+        k32.SetThreadPriority.argtypes = [ctypes.c_void_p, ctypes.c_int]
+        handle = k32.GetCurrentThread()
+        ok = k32.SetThreadPriority(handle, THREAD_PRIORITY_LOWEST)
+        if not ok:
+            log_prio.debug("Không hạ được ưu tiên luồng lane CPU.")
+    except Exception as e:  # noqa: BLE001
+        log_prio.debug("Hạ ưu tiên luồng lỗi (bỏ qua): %s", e)
 
 log = logging.getLogger("bookgen.batch")
 
@@ -586,6 +620,8 @@ class BatchRunner:
     # ---------------------------------------------------------- lane CPU
 
     def _cpu_lane(self) -> None:
+        # Nhường CPU cho Chrome của lane Gemini khi hai lane chạy chồng nhau.
+        _lower_thread_priority()
         while True:
             item = self._cpu_q.get()
             if item is None:

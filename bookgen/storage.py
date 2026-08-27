@@ -367,6 +367,48 @@ def manifest_path(slug: str) -> Path:
     return book_main.BOOKS_DIR / slug / "manifest.json"
 
 
+def check_ready(slug: str, need_uploaded: bool = False) -> list[str]:
+    """Kiểm cuốn sách đã làm xong tới đâu. Trả về DANH SÁCH THỨ CÒN THIẾU.
+
+    Rỗng = đủ điều kiện. Có cái này vì cả hai đầu ra đều hỏng ÂM THẦM nếu thiếu:
+      * đẩy R2 : build_manifest() gặp thiếu PDF thì bỏ qua, vẫn báo thành công
+                 với 0 biến thể -> tưởng xong mà bucket chẳng có gì.
+      * xuất CSV: URL ảnh dựng từ file CỤC BỘ, chưa upload thì listing lên sàn
+                 toàn ảnh 404.
+
+    need_uploaded=True (dùng cho CSV) đòi thêm manifest.json - bằng chứng cuốn
+    đã thực sự lên R2.
+    """
+    import main as book_main
+
+    missing = []
+    try:
+        c = _book_cfg(slug)
+        P = book_main.paths_of(c)
+    except Exception as e:  # noqa: BLE001
+        return [f"không đọc được cấu hình sách ({e})"]
+
+    raw = P["raw_dir"]
+    if not (raw / "cover_front.png").exists():
+        missing.append("ảnh bìa (cover_front.png)")
+
+    prev = P.get("preview_dir") or (P["pdf_dir"].parent / "04_previews")
+    n_prev = len(list(prev.glob("preview_*.png"))) if prev.exists() else 0
+    if n_prev == 0:
+        missing.append("ảnh preview")
+
+    n_var = sum(1 for _vid, sub in VARIANTS
+                if (P["pdf_dir"] / sub / "interior.pdf").exists()
+                and (P["pdf_dir"] / sub / "cover.pdf").exists())
+    if n_var == 0:
+        missing.append("PDF (interior + cover)")
+
+    if need_uploaded and not manifest_path(slug).exists():
+        missing.append("chưa đẩy lên R2 (thiếu manifest.json)")
+
+    return missing
+
+
 def upload_book(slug: str) -> dict:
     """Đẩy PDF + ảnh của một cuốn lên R2, ghi manifest CỤC BỘ.
 

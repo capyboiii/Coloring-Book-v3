@@ -439,6 +439,15 @@ class GeminiDriver:
         self.timeout = b.get("generation_timeout", 240)
         self.delay_range = b.get("delay_between_prompts", [8, 20])
         self.max_retries = b.get("max_retries", 3)
+        # Extension MonkeyX (cài tay vào profile qua setup_extension.bat). Chỉ cần
+        # KHÔNG truyền --disable-extensions lúc launch là nó chạy. extension_dir ở
+        # đây chỉ dùng để kiểm tra có manifest hay không - xem gemini_pool.py.
+        ext = b.get("extension_dir") or ""
+        self.extension_dir = Path(ext).resolve() if ext else None
+        if self.extension_dir and not (self.extension_dir / "manifest.json").exists():
+            log.warning("browser.extension_dir không có manifest.json: %s -> bỏ qua.",
+                        self.extension_dir)
+            self.extension_dir = None
         self._pw = None
         self._ctx = None
         self.page: Page | None = None
@@ -454,6 +463,11 @@ class GeminiDriver:
             "--no-first-run",
         ]
         
+        # Playwright tự nhét "--disable-extensions" mỗi lần khởi động; cờ đó tắt
+        # luôn MonkeyX đã cài tay -> phải bảo Playwright BỎ QUA chính nó thì
+        # userscript mới chạy được. Không có extension thì giữ mặc định.
+        ignore_default = ["--disable-extensions"] if self.extension_dir else []
+
         for retry in range(10):
             try:
                 self._ctx = self._pw.chromium.launch_persistent_context(
@@ -462,6 +476,7 @@ class GeminiDriver:
                     channel="chrome",
                     viewport={"width": 1440, "height": 960},
                     args=launch_args,
+                    ignore_default_args=ignore_default,
                 )
                 break
             except Exception as e:
@@ -564,14 +579,74 @@ class GeminiDriver:
 
     # ---------- gửi prompt ----------
 
+    def _send_via_extension(self, text: str) -> bool:
+        """Giao prompt cho userscript MonkeyX gõ & bấm gửi (bản đồng bộ).
+
+        Cùng giao thức với gemini_pool.py::_send_via_extension: chờ mxReady, chèn
+        thẻ ẩn #__mx_job chứa prompt, chờ mxStatus = 'clicked'/'error'. Userscript
+        dùng execCommand('insertText') - đúng đường bàn phím thật đi qua, nên Quill
+        của Gemini cập nhật model nội bộ (đường el.innerText cũ chỉ sửa DOM).
+
+        Trả False nếu extension vắng mặt / báo lỗi TRƯỚC khi bấm -> send_prompt
+        quay về đường Playwright cũ. Userscript chỉ ghi 'error' khi CHƯA bấm, nên
+        nhánh dự phòng không bao giờ thành cú bấm thứ hai.
+        """
+        try:
+            self.page.wait_for_function(
+                "() => document.documentElement.dataset.mxReady === '1'",
+                timeout=15_000)
+        except PWTimeout:
+            log.warning("Userscript MonkeyX không có mặt trên tab này "
+                        "-> dùng đường Playwright.")
+            return False
+
+        self.page.evaluate("""(txt) => {
+            const r = document.documentElement;
+            delete r.dataset.mxStatus;
+            delete r.dataset.mxError;
+            const old = document.getElementById('__mx_job');
+            if (old) old.remove();
+            const n = document.createElement('div');
+            n.id = '__mx_job';
+            n.style.display = 'none';
+            n.textContent = txt;
+            r.appendChild(n);
+        }""", text)
+
+        try:
+            self.page.wait_for_function(
+                "() => ['clicked','error']"
+                ".includes(document.documentElement.dataset.mxStatus || '')",
+                timeout=40_000)
+        except PWTimeout:
+            log.warning("Userscript không phản hồi sau 40s -> dùng đường Playwright.")
+            return False
+
+        status, err = self.page.evaluate(
+            "() => [document.documentElement.dataset.mxStatus,"
+            "       document.documentElement.dataset.mxError || '']")
+        if status != "clicked":
+            log.warning("Userscript báo lỗi (%s) -> dùng đường Playwright.", err)
+            return False
+
+        log.info("Userscript MonkeyX đã gõ & gửi prompt (%d ký tự).", len(text))
+        return True
+
     def send_prompt(self, text: str) -> None:
         box = self._find(SELECTORS["prompt_box"], timeout=30_000)
+
+        # Ưu tiên gửi qua MonkeyX. ĐÃ BẤM RỒI THÌ KHÔNG chạy tiếp đường Playwright
+        # (tránh gửi prompt lần hai / bấm trúng nút Stop).
+        clean_text = flatten(text)
+        if self.extension_dir and self._send_via_extension(clean_text):
+            self.page.wait_for_timeout(400)
+            return
+
         box.click()
         self.page.keyboard.press("Control+A")
         self.page.keyboard.press("Delete")
-        
+
         # Dán trực tiếp toàn bộ prompt siêu tốc thay vì gõ từng phím
-        clean_text = flatten(text)
         try:
             box.evaluate("(el, txt) => { el.innerText = txt; el.dispatchEvent(new Event('input', {bubbles: true, composed: true})); }", clean_text)
         except Exception:
@@ -579,7 +654,7 @@ class GeminiDriver:
                 box.fill(clean_text)
             except Exception:
                 self.page.keyboard.type(clean_text, delay=1)
-                
+
         self._wake_editor(box)
         self.page.wait_for_timeout(400)
         if not self._click_send(box):

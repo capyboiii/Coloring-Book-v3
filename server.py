@@ -216,11 +216,13 @@ def sync_book_config(slug: str) -> dict:
     audience = state.get("audience") or book_meta.get("audience") or cfg.get("book", {}).get("audience", "kids")
     num_images = state.get("num_images") or book_meta.get("num_images") or cfg.get("book", {}).get("num_images", 30)
     blank_verso = state.get("blank_verso") if state.get("blank_verso") is not None else book_meta.get("blank_verso", True)
+    cover_style = state.get("cover_style") or book_meta.get("cover_style") or cfg.get("book", {}).get("cover_style", "glossy")
 
     cfg.setdefault("book", {})
     cfg["book"]["title"] = title
     cfg["book"]["subtitle"] = subtitle
     cfg["book"]["audience"] = audience
+    cfg["book"]["cover_style"] = cover_style
     cfg["book"]["num_images"] = num_images
     cfg["book"]["blank_verso"] = blank_verso
     
@@ -351,6 +353,18 @@ def update_config(data: dict):
             if "title" in data["book"]: state["title"] = data["book"]["title"]
             if "subtitle" in data["book"]: state["subtitle"] = data["book"]["subtitle"]
             if "audience" in data["book"]: state["audience"] = data["book"]["audience"]
+            if "cover_style" in data["book"]:
+                new_style = data["book"]["cover_style"]
+                # Đổi style thì XOÁ prompt bìa đã đóng băng. Prompt custom được đông
+                # cứng từ template lúc trước (nướng cả ART STYLE + kiểu chữ vào text),
+                # và endpoint gen/inspector ưu tiên nó HƠN việc render lại theo style.
+                # Không xoá thì đổi style bao nhiêu cũng vô ích - bìa vẫn ra style cũ.
+                if state.get("cover_style") != new_style:
+                    prompts = state.get("prompts") or {}
+                    prompts.pop("front_cover_custom", None)
+                    prompts.pop("back_cover_custom", None)
+                    state["prompts"] = prompts
+                state["cover_style"] = new_style
             if "num_images" in data["book"]: state["num_images"] = data["book"]["num_images"]
             if "blank_verso" in data["book"]: state["blank_verso"] = data["book"]["blank_verso"]
         if "print" in data:
@@ -611,21 +625,28 @@ def create_book(payload: dict):
     slug = book_main.slugify(title)
     book_main.set_current_book(slug)
     
+    # Style bìa của cuốn MỚI: lấy từ payload, mặc định glossy. KHÔNG kế thừa giá
+    # trị rơi rớt trong config.yaml (của cuốn làm gần nhất) - nếu không, sách mới
+    # tự dưng mang style của cuốn trước cho tới khi người dùng đụng vào dropdown.
+    cover_style = (payload.get("cover_style") or "glossy").strip()
+
     cfg = book_main.load_cfg(ROOT / "config.yaml")
     cfg["book"]["title"] = title
     cfg["book"]["subtitle"] = payload.get("subtitle", "")
     cfg["book"]["audience"] = payload.get("audience", "kids")
+    cfg["book"]["cover_style"] = cover_style
     cfg["book"]["num_images"] = int(payload.get("num_images", 30))
     cfg["subjects"] = []
     cfg["_book"] = slug
-    
+
     P = book_main.paths_of(cfg)
     P["raw_dir"].mkdir(parents=True, exist_ok=True)
-    
+
     state = book_main.load_state(P["state_file"])
     state["title"] = title
     state["subtitle"] = payload.get("subtitle", "")
     state["audience"] = payload.get("audience", "kids")
+    state["cover_style"] = cover_style
     state["num_images"] = int(payload.get("num_images", 30))
     state["blank_verso"] = True
     state["book"] = cfg["book"]
@@ -649,6 +670,13 @@ def upload_to_r2(payload: dict):
     results = []
     for slug in slugs:
         try:
+            # Chặn TRƯỚC khi upload: thiếu PDF/ảnh thì upload_book vẫn chạy trót
+            # lọt và báo thành công với 0 biến thể -> phải nói thẳng là chưa xong.
+            miss = storage.check_ready(slug)
+            if miss:
+                results.append({"slug": slug, "ok": False,
+                                "error": "chưa làm xong: " + ", ".join(miss)})
+                continue
             mani = storage.upload_book(slug)
             results.append({"slug": slug, "ok": True,
                             "variants": len(mani.get("variants", [])),
@@ -675,7 +703,23 @@ def export_shopify_csv(payload: dict):
             if d.is_dir() and (d / "01_raw" / "cover_front.png").exists())
     if not slugs:
         raise HTTPException(status_code=400, detail="Không có sách nào để export.")
-    csv_text = shopify_export.export_csv(list(slugs), book_main, storage)
+
+    # Chỉ export cuốn ĐÃ lên R2: URL ảnh trong CSV trỏ thẳng vào bucket, cuốn
+    # chưa upload sẽ tạo listing toàn ảnh 404 trên sàn.
+    ready, skipped = [], []
+    for slug in slugs:
+        miss = storage.check_ready(slug, need_uploaded=True)
+        (skipped.append(f"{slug} ({', '.join(miss)})") if miss
+         else ready.append(slug))
+    if not ready:
+        raise HTTPException(
+            status_code=400,
+            detail="Không cuốn nào sẵn sàng để export. " + "; ".join(skipped))
+    if skipped:
+        logger.warning("Export CSV bỏ qua %d cuốn chưa xong: %s",
+                       len(skipped), "; ".join(skipped))
+
+    csv_text = shopify_export.export_csv(list(ready), book_main, storage)
     # BOM để Excel nhận đúng UTF-8 (không có BOM Excel đọc theo ANSI -> lỗi font).
     return StreamingResponse(
         iter([("\ufeff" + csv_text).encode("utf-8")]),
@@ -685,7 +729,7 @@ def export_shopify_csv(payload: dict):
 
 @app.post("/api/ideas/generate")
 def generate_ideas(payload: dict):
-    """1 keyword + audience -> Gemini đẻ 10 cặp {cover_title, seo_title}."""
+    """1 keyword + audience + count -> Gemini đẻ `count` cặp {cover_title, seo_title}."""
     keyword = (payload.get("keyword") or "").strip()
     if not keyword:
         raise HTTPException(status_code=400, detail="Keyword required")
@@ -693,7 +737,9 @@ def generate_ideas(payload: dict):
     count = int(payload.get("count") or 10)
 
     cfg = book_main.load_cfg(ROOT / "config.yaml")
-    prompt = book_main.ideas_prompt(keyword, audience)
+    # Số trang lấy từ payload (nếu UI gửi) rồi mới đến config -> title khớp sách thật.
+    pages = int(payload.get("pages") or cfg["book"].get("num_images") or 48)
+    prompt = book_main.ideas_prompt(keyword, audience, pages, count)
     try:
         # với web driver, page chỉ mở trong context -> phải dùng "with".
         with book_main.make_driver(cfg) as driver:

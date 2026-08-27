@@ -198,17 +198,27 @@ def remove_watermark(path: Path,
 
     H, W = img.shape[:2]
 
+    # Dau sao Gemini KHONG phai da giac canh thang - 4 canh CONG LOM (kieu
+    # sparkle/astroid bien the). Ban cu noi tip voi diem lom bang duong THANG
+    # nen mask phinh ra o giua canh, vua ho watermark vua an lem nen xung quanh.
+    #
+    # Dung superellipse-star: (|cos t|^n, |sin t|^n). So mu n dat DUONG CONG khop
+    # dung ti le lom do thuc te tren anh nen den: tip=47.5px, lom=26px -> 0.547.
+    # r_diag/r_tip = sqrt(2)*0.707^n = 0.547  ->  n ~ 2.74.
+    STAR_EXP = 2.74
+
     def star_mask(h, w, cx, cy, rx, ry):
-        outer = [(0, -1), (1, 0), (0, 1), (-1, 0)]
-        pts = []
-        for i in range(4):
-            ox, oy = outer[i]
-            pts.append((cx + ox * rx, cy + oy * ry))
-            nx, ny = outer[(i + 1) % 4]
-            pts.append((cx + (ox + nx) * rx * 0.34, cy + (oy + ny) * ry * 0.34))
+        t = np.linspace(0, 2 * np.pi, 160, endpoint=False)
+        ct, st = np.cos(t), np.sin(t)
+        xs = cx + np.sign(ct) * np.abs(ct) ** STAR_EXP * rx
+        ys = cy + np.sign(st) * np.abs(st) ** STAR_EXP * ry
+        pts = np.stack([xs, ys], axis=1).astype(np.int32)
         m = np.zeros((h, w), np.uint8)
-        cv2.fillPoly(m, [np.array(pts, np.int32)], 255)
-        return cv2.dilate(m, np.ones((3, 3), np.uint8))
+        cv2.fillPoly(m, [pts], 255)
+        # Dilate 7x7 (~3px): duong cong om SAT loi sao, can non it de bat phan
+        # glow mo ngay ngoai mep crisp. Do tren nen den: dilate 3 con sot vet mo
+        # (max gray 39), dilate 7 het sach (max gray 10 = nhieu nen).
+        return cv2.dilate(m, np.ones((7, 7), np.uint8))
 
     # Cua so nho quanh dau sao (SHIFTMAP quet ca anh thi rat cham).
     wx0, wy0 = int(W * 0.72), int(H * 0.78)
@@ -364,6 +374,36 @@ def _levels(img: Image.Image, black: int = 12, white: int = 244) -> Image.Image:
     return img.point(lut)
 
 
+def wipe_watermark_roi(img: Image.Image,
+                       center: tuple[float, float] = (0.866, 0.899),
+                       size: tuple[float, float] = (0.075, 0.075),
+                       white_from: int = 225) -> Image.Image:
+    """Xoa dau sao Gemini tren TRANG NET (anh xam), tra ve anh moi.
+
+    Chi dung cho line art: nen la trang thuan, net that luon < 100. Dau sao la
+    lop trang mo -> pixel roi vao dai 225..254. Day ca dai do ve 255 trong MOT
+    O NHO quanh vi tri Gemini dong dau -> xoa SACH ma khong bia noi dung, khong
+    dung toi phan con lai cua trang.
+
+    KHONG dung cho anh mau/bia: o do nen co gradient, nguong nay se an ca chi
+    tiet that (xem remove_watermark() - phai inpaint).
+    """
+    import numpy as np
+
+    a = np.asarray(img.convert("L")).copy()
+    h, w = a.shape
+    cx, cy = int(center[0] * w), int(center[1] * h)
+    rx, ry = int(size[0] * w), int(size[1] * h)
+    x0, x1 = max(0, cx - rx), min(w, cx + rx)
+    y0, y1 = max(0, cy - ry), min(h, cy + ry)
+    if x0 >= x1 or y0 >= y1:
+        return img
+    roi = a[y0:y1, x0:x1]
+    roi[roi >= white_from] = 255
+    a[y0:y1, x0:x1] = roi
+    return Image.fromarray(a, mode="L")
+
+
 def process_lineart(
     src: Path,
     dest: Path,
@@ -372,6 +412,7 @@ def process_lineart(
     threshold: int = 165,
     pure_bw: bool = False,
     sharpen: bool = True,
+    wipe_wm: bool = True,
 ) -> Path:
     img = Image.open(src)
     if img.mode in ("RGBA", "LA", "P"):
@@ -380,6 +421,11 @@ def process_lineart(
         bg.paste(img, mask=img.split()[-1])
         img = bg
     img = img.convert("L")
+
+    # Xoa dau sao Gemini NGAY DAU, khi toa do tuong doi con dung: cac buoc sau
+    # (crop le trang, cat ti le) deu lam vi tri goc anh xe dich.
+    if wipe_wm:
+        img = wipe_watermark_roi(img)
 
     src_w = img.width
     # cutoff nhỏ thôi: cắt mạnh sẽ nuốt mất các nét xám nhạt

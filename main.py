@@ -165,6 +165,10 @@ AUDIENCE_PROFILES = {
                            "areas that are easy to colour in.",
         # None -> dùng prompts.cover_style hiện có (bản cho trẻ em).
         "cover_style": None,
+        # Mức chi tiết cho BÌA (token {cover_detail}). Kids: gọn, mảng lớn.
+        "cover_detail": "DETAIL LEVEL: keep the cover clean and simple with bold, "
+                        "clear shapes, large forms and minimal clutter, easy for a "
+                        "young child to read at a glance.",
     },
     "adults": {
         "desc": "adults",
@@ -177,6 +181,14 @@ AUDIENCE_PROFILES = {
         # None -> dùng chung prompts.cover_style của config (kiểu vibrant cartoon
         # + glossy + grain, áp cho cả kids lẫn adults theo yêu cầu).
         "cover_style": None,
+        # Bìa cho NGƯỜI LỚN: đẩy mức chi tiết cao, tinh xảo, sang trọng - không
+        # trẻ con. Nhiều lớp, hoạ tiết trang trí, chiều sâu hậu cảnh phong phú.
+        "cover_detail": "DETAIL LEVEL: render rich, intricate and sophisticated "
+                        "detail throughout - fine textures, layered elements, "
+                        "ornamental accents, and elaborate background depth aimed at "
+                        "a mature adult audience. Refined and elegant, NOT childish, "
+                        "NOT simplistic; keep it polished and uncluttered, never "
+                        "muddy or overcrowded.",
     },
 }
 
@@ -189,10 +201,68 @@ def audience_of(cfg: dict) -> dict:
     return AUDIENCE_PROFILES.get(audience_key(cfg), AUDIENCE_PROFILES["kids"])
 
 
+def _selected_cover_style_key(cfg: dict) -> str:
+    """Key phong cách bìa đang chọn.
+
+    NGUỒN CHÂN LÝ LÀ state.json CỦA CUỐN ĐANG CHỌN. Các endpoint gen đọc config.yaml
+    THÔ (không qua sync_book_config), mà config.yaml giữ book.cover_style của cuốn
+    làm GẦN NHẤT - tin vào nó thì bấm sinh lại bìa cuốn A sẽ dùng style của cuốn B.
+    Nên ưu tiên state (giống cách subjects được lấy từ state), rồi mới tới config.
+    """
+    try:
+        state = load_state(paths_of(cfg)["state_file"])
+        k = (state.get("cover_style")
+             or (state.get("book") or {}).get("cover_style") or "").strip()
+        if k:
+            return k
+    except Exception as e:  # noqa: BLE001
+        log.debug("Không đọc được cover_style từ state (%s).", e)
+    return (cfg.get("book", {}).get("cover_style") or "").strip()
+
+
+def _cover_style_entry(cfg: dict) -> dict:
+    """Bản ghi phong cách bìa đang chọn từ prompts.cover_styles.
+
+    Trả {} nếu không tìm thấy -> caller tự fallback về prompts.cover_style cũ.
+    """
+    key = _selected_cover_style_key(cfg)
+    styles = cfg.get("prompts", {}).get("cover_styles") or {}
+    entry = styles.get(key)
+    return entry if isinstance(entry, dict) else {}
+
+
 def cover_style_of(cfg: dict) -> str:
-    """Phong cách nghệ thuật bìa theo đối tượng (kids lấy từ prompts.cover_style)."""
+    """Đoạn ART STYLE của bìa. Ưu tiên override theo đối tượng, rồi tới style đã
+    chọn (book.cover_style), cuối cùng fallback prompts.cover_style cũ."""
     prof = audience_of(cfg)
-    return prof.get("cover_style") or cfg.get("prompts", {}).get("cover_style", "")
+    if prof.get("cover_style"):
+        return prof["cover_style"]
+    entry = _cover_style_entry(cfg)
+    if entry.get("art"):
+        return entry["art"]
+    return cfg.get("prompts", {}).get("cover_style", "")
+
+
+def cover_title_style(cfg: dict) -> str:
+    """Mô tả kiểu chữ tiêu đề theo phong cách đang chọn (token {title_style})."""
+    entry = _cover_style_entry(cfg)
+    return entry.get("title") or ("bright high-contrast fill with glossy 3D shine, "
+                                  "highlights and a subtle drop shadow so it lifts "
+                                  "off the scene.")
+
+
+def cover_grain_of(cfg: dict) -> float:
+    """Mức grain hậu kỳ cho bìa: ưu tiên grain của style, fallback print.cover_grain."""
+    entry = _cover_style_entry(cfg)
+    if entry.get("grain") is not None:
+        try:
+            return float(entry["grain"])
+        except (TypeError, ValueError):
+            pass
+    try:
+        return float((cfg.get("print") or {}).get("cover_grain", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def cover_title(cfg: dict) -> str:
@@ -217,39 +287,97 @@ def cover_title(cfg: dict) -> str:
 
 
 # ---------------------------------------------------------------- ý tưởng sách
-def ideas_prompt(keyword: str, audience: str) -> str:
+def ideas_prompt(keyword: str, audience: str, pages: int = 48, count: int = 10) -> str:
     """Prompt bảo Gemini đẻ 10 chủ đề sách tô màu từ 1 keyword.
 
     Trả JSON [{cover_title, seo_title}]: cover_title = tên ngắn lên bìa,
     seo_title = tiêu đề dài chuẩn SEO (tool dùng nó để nghĩ scene + đăng listing).
+
+    seo_title đúc theo công thức KHỐI ngăn bằng en dash, rút từ các listing đang
+    bán tốt:  HOOK [+ theme] Coloring Pages – <pages> <danh từ> – <chi tiết> –
+    For Kids/Adults. Ép Gemini đổi hình dạng giữa các title (3 hay 4 khối, theme
+    nằm khối 1 hay khối 2) để cả batch không ra 10 câu cùng một khuôn.
     """
     aud = "adults" if str(audience).strip().lower().startswith("adult") else "children"
     return (
-        f"From keyword: {keyword}\n"
-        f"Target audience: {aud}\n"
-        "Generate 10 coloring book topics that fit the keyword and target audience above.\n"
-        "Return the result strictly in the following JSON format (no explanation, no markdown):\n"
-        '[\n  {"cover_title": "Title displayed on the book cover", '
-        '"seo_title": "SEO title for the backend", '
-        '"seo_description": "SEO meta description for the product listing"}\n]\n'
-        "Rules:\n"
-        "cover_title: A clean, natural phrase. It can include the words \"Coloring Book\". "
-        "Do not use hyphens, commas, colons, or other special characters "
-        "(example: \"Cozy Hawaii Vacation Coloring Book\", \"Sunny Beach Day\").\n"
-        "seo_title: Include the main keyword; optimize for SEO; clearly state the audience "
-        "(Kids or Adults); use hyphens to separate phrases; make each title different in "
-        "style and structure. You can use variations such as: "
-        "\"Cozy Hawaii Cute Vacation Coloring Book - 48 Coloring Pages for Kids and Adults\", "
-        "\"Tropical Summer Coloring Book - Black and White Printed Book for Kids\", "
-        "\"Cute Beach Fun Coloring Book - Printed Black and White Coloring Book for Kids\". "
-        "Feel free to include phrases like: \"Coloring Book\", \"Printed Book\", "
-        "\"Black and White Coloring Book\", \"Coloring Pages\".\n"
-        "seo_description: A natural, keyword-rich meta description of about 140-160 characters "
-        "that sells the book; include the main keyword and the audience, describe what is "
-        "inside (theme, style, who it is for), and end with a light call to action. "
-        "Plain sentence text, no line breaks.\n"
-        "Topics must match the selected target audience.\n"
-        "Return only the JSON, nothing else."
+f"From keyword: {keyword}\n"
+f"Target audience: {aud}\n"
+f"Generate {count} coloring book topics that fit the keyword and target audience above.\n"
+"Return the result strictly in the following JSON format (no explanation, no markdown):\n"
+'[\n  {"cover_title": "Title displayed on the book cover", '
+'"seo_title": "SEO title for the backend", '
+'"seo_description": "SEO meta description for the product listing"}\n]\n'
+"Rules:\n"
+
+"cover_title: MUST be the theme/subject phrase followed by the words "
+"\"Coloring Book\", and MUST end with \"Coloring Book\". "
+"Keep it short, clean, natural, and suitable for displaying on a book cover. "
+"Do not use hyphens, commas, colons, ampersands, or other special characters. "
+"Examples: \"Cozy Hawaii Vacation Coloring Book\", "
+"\"Sunny Beach Day Coloring Book\", "
+"\"Magical Forest Animals Coloring Book\".\n"
+
+"seo_title: Follow EXACTLY this 4-block structure:\n"
+"[Main Topic] Coloring Book – [Supporting Keywords] – Printable Digital Download – [Audience]\n"
+"Use an en dash surrounded by spaces (\" – \") ONLY to separate the 4 blocks. "
+"Do not use a plain hyphen, colon, or another symbol as a block separator.\n"
+
+"  BLOCK 1 = [Main Topic] Coloring Book. "
+"Use the main topic/theme naturally, followed by the exact words "
+"\"Coloring Book\". The block MUST contain \"Coloring Book\". "
+"Examples: \"Tropical Hawaii Coloring Book\", "
+"\"Haunted Mansion Coloring Book\", "
+"\"Cute Dinosaur Coloring Book\".\n"
+
+"  BLOCK 2 = [Supporting Keywords]. "
+"Describe 2-4 concrete and visually recognizable things, scenes, characters, "
+"objects, or elements that buyers can expect to find inside the coloring book. "
+"Use natural phrases rather than a random list of SEO keywords. "
+"Join items with \"&\" or commas. "
+"Examples: \"Beaches, Palm Trees & Sea Turtles\", "
+"\"Skulls, Ghosts & Gothic Scenes\", "
+"\"Cute Dinosaurs, Volcanoes & Prehistoric Scenes\".\n"
+"Do not include generic or irrelevant keywords. "
+"Supporting keywords MUST be directly related to the main topic.\n"
+
+"  BLOCK 3 = exactly \"Printable Digital Download\". "
+"Do not modify, reorder, pluralize, or replace these words.\n"
+
+"  BLOCK 4 = [Audience]. "
+"Use exactly \"For Kids\" or \"For Adults\", matching the target audience. "
+"Do not use any other audience wording.\n"
+
+"seo_title additional rules:\n"
+"- The main keyword must appear naturally in BLOCK 1.\n"
+"- Do not repeat the main keyword unnecessarily in BLOCK 2.\n"
+"- Supporting keywords must describe actual content that fits the topic.\n"
+"- Vary the supporting keywords across the titles so the batch is not repetitive.\n"
+"- Never reuse the exact same supporting keyword set twice within the batch.\n"
+"- Do not use exaggerated marketing claims such as \"Best\", \"Amazing\", "
+"\"Ultimate\", \"Perfect\", or \"Number One\".\n"
+"- Do not keyword-stuff.\n"
+"- The title must sound like a real product title while remaining SEO-friendly.\n"
+"- Keep every seo_title under 140 characters.\n"
+"- Every seo_title MUST contain exactly 3 instances of the en-dash block separator "
+"\" – \".\n"
+
+"seo_description: Write a natural, keyword-rich meta description of about "
+"140-160 characters that sells the product. "
+"Include the main keyword, target audience, and relevant content inside the book. "
+"Describe the theme and style naturally. "
+"End with a light call to action such as \"Download and start coloring today.\" "
+"or another natural call to action. "
+"Plain sentence text only, with no line breaks.\n"
+
+"Topics must match the selected target audience.\n"
+"Each topic must be meaningfully different from the others in the batch. "
+"Do not generate minor variations of the same topic.\n"
+
+"Before returning the result, internally verify that every object contains "
+"cover_title, seo_title, and seo_description, that the JSON is valid, "
+"and that every seo_title follows the exact 4-block structure.\n"
+
+"Return only the JSON, nothing else."
     )
 
 
@@ -348,9 +476,12 @@ def cover_prompt_extras(cfg: dict) -> dict:
     else:
         hint = f"- scenes about {cfg.get('book', {}).get('title', 'the book subject')}"
     adj = audience_of(cfg)["adj"]
+    prof = audience_of(cfg)
     return {"subject_hint": hint, "cover_layout": rnd.choice(COVER_LAYOUTS),
             "audience_adj": adj,
-            "audience_article": "an" if adj[:1].lower() in "aeiou" else "a"}
+            "audience_article": "an" if adj[:1].lower() in "aeiou" else "a",
+            "title_style": cover_title_style(cfg),
+            "cover_detail": prof.get("cover_detail", "")}
 
 
 def cover_safe_pct(cfg: dict) -> int:
@@ -381,7 +512,7 @@ def finalize_cover(cfg: dict, raw_path: Path) -> None:
         return
     pr = cfg.get("print") or {}
     do_wm = bool(pr.get("cover_remove_watermark", True))
-    grain = float(pr.get("cover_grain", 0.0) or 0.0)
+    grain = cover_grain_of(cfg)
     if not do_wm and grain <= 0:
         return
     # Marker GỘP: watermark + grain làm 1 lần cho mỗi bản raw. Gen lại bìa ->
@@ -415,8 +546,14 @@ def finalize_preview(cfg: dict, dest: Path) -> None:
     from bookgen import imaging
     pr = cfg.get("print") or {}
 
-    # 1) Xoá dấu sao Gemini góc phải-dưới TRƯỚC khi phóng to (làm ở ảnh nhỏ cho
-    #    nhanh; ROI theo tỉ lệ nên kích thước nào cũng đúng). Bật/tắt qua config.
+    # 1) Ép về 1:1 rồi phóng lên đúng size x size (mặc định 2000x2000) cho sàn TMĐT
+    size_px = int(pr.get("preview_min_px", 2000))
+    if size_px > 0:
+        imaging.square_upscale(dest, size_px)
+
+    # 2) Xoá dấu sao Gemini góc phải-dưới SAU khi đã phóng to về 2000x2000. Crop
+    #    1:1 dịch chuyển vị trí watermark so với ảnh gốc, nên toạ độ tỉ lệ phải đo
+    #    trên ảnh ĐÃ vuông này. ROI theo tỉ lệ nên kích thước px không ảnh hưởng.
     if pr.get("preview_remove_watermark", True):
         center = tuple(pr.get("preview_watermark_center") or (0.870, 0.902))
         size = tuple(pr.get("preview_watermark_size") or (0.031, 0.037))
@@ -424,11 +561,6 @@ def finalize_preview(cfg: dict, dest: Path) -> None:
             imaging.remove_watermark(dest, center, size)
         except Exception as e:  # noqa: BLE001
             log.warning("Xoá watermark lỗi (bỏ qua): %s", e)
-
-    # 2) Ép về 1:1 rồi phóng lên đúng size x size (mặc định 2000x2000) cho sàn TMĐT
-    size_px = int(pr.get("preview_min_px", 2000))
-    if size_px > 0:
-        imaging.square_upscale(dest, size_px)
 
 
 def generate_single(cfg: dict, key: str, prompt: str, dest: Path,

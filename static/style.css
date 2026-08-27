@@ -996,3 +996,94 @@ main.container {
   border-radius: var(--radius-md) !important;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4) !important;
 }
+
+/* ==========================================
+   9. IDEA CARDS (gợi ý chủ đề)
+   ========================================== */
+.idea-row {
+  position: relative;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--primary);
+  border-radius: var(--radius-md);
+  padding: 14px 16px 14px 46px;
+  margin-bottom: 12px;
+  transition: border-color .15s ease, background .15s ease, transform .1s ease;
+}
+.idea-row:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-accent);
+  border-left-color: var(--primary-hover);
+}
+.idea-num {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--primary-glow);
+  color: var(--primary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+}
+.idea-field { margin-bottom: 10px; }
+.idea-field:last-child { margin-bottom: 0; }
+.idea-field > label {
+  display: block;
+  font-size: 0.64rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 3px;
+  font-weight: 600;
+}
+.idea-row input {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  padding: 8px 11px;
+  font-size: 0.85rem;
+  font-family: var(--font-main);
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.idea-row input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+.idea-row input.idea-cover { font-weight: 600; }
+.idea-row input.idea-desc {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+.idea-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+.idea-head .idea-field { flex: 1; margin-bottom: 0; }
+.idea-del {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-dim);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  transition: all .15s ease;
+}
+.idea-del:hover {
+  background: rgba(217, 83, 79, 0.14);
+  border-color: var(--accent-rose);
+  color: var(--accent-rose);
+}
