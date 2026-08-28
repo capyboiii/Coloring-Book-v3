@@ -127,24 +127,47 @@ def make_driver(cfg: dict):
 # danh sách để model tự chọn - đưa thực đơn thì lần nào nó cũng chọn mục đầu, nên
 # mọi cuốn ra cùng một kiểu tranh.
 COVER_LAYOUTS = [
-    "SCENIC STORYBOOK LAYOUT: two or three of the book's own characters interacting "
-    "playfully, with clear foreground, midground and background depth.",
+    "SCENIC COMPOSITION: arrange two or three of the subject's own characters "
+    "naturally within the scene, using foreground, midground and background depth "
+    "where appropriate.",
 
-    "EMBLEM / VIGNETTE LAYOUT: one hero character framed inside a central decorative "
-    "arch, ribbon or circular vignette, with smaller thematic motifs arranged around it.",
+    "CENTRAL FOCAL COMPOSITION: make one primary subject the clear visual focus, "
+    "with supporting elements naturally arranged around it to create balance and "
+    "visual hierarchy.",
 
-    "FULL-PAGE ACTION SCENE: the characters caught mid-movement in a joyful, energetic "
-    "activity, with props and details filling the scene naturally.",
+    "DYNAMIC ACTION COMPOSITION: capture the subject in an expressive, energetic "
+    "moment, using natural movement, perspective and surrounding details to create "
+    "visual energy.",
 
-    "PORTRAIT CLOSE-UP: one single hero subject drawn large and friendly, filling most "
-    "of the cover, seen close up with rich detail and a simple background behind it.",
+    "PORTRAIT CLOSE-UP: feature one primary subject prominently and at a larger "
+    "scale, with rich detail and a complementary background that supports the "
+    "subject without distracting from it.",
 
-    "WIDE ESTABLISHING VIEW: the characters seen small within one big open landscape of "
-    "their own world, a single sweeping view with a clear horizon and deep distance.",
+    "ARTIST'S CREATIVE FREEDOM: compose the cover however you judge looks most "
+    "striking, beautiful and professional for this subject. Choose the framing, "
+    "perspective, camera angle, scale, depth, environment and background yourself. "
+    "Do not force any particular composition or setting. Let the subject determine "
+    "what works best, while maintaining one unified illustration and a strong focal point.",
 
-    "LOW ANGLE HERO SHOT: the scene viewed from low down and close to the ground, the "
-    "nearest character rising large in the foreground while the rest of the same place "
-    "carries on behind it.",
+    "DRAMATIC PERSPECTIVE: use an interesting perspective, camera angle or sense of "
+    "scale that makes the subject visually compelling. Choose the perspective freely "
+    "according to what best suits the subject.",
+
+    "BALANCED GROUP COMPOSITION: arrange the main subject and its natural supporting "
+    "elements into a visually balanced composition with clear hierarchy, varied scale "
+    "and natural depth.",
+
+    "IMMERSIVE ENVIRONMENTAL COMPOSITION: place the subject naturally within an "
+    "appropriate environment of your own choosing, allowing the scene to have depth "
+    "and atmosphere without forcing a specific type of setting.",
+
+    "SYMMETRICAL OR BALANCED COMPOSITION: use symmetry, near-symmetry or another "
+    "visually balanced arrangement if it suits the subject, creating a strong and "
+    "memorable cover silhouette.",
+
+    "CINEMATIC COMPOSITION: create a polished cinematic arrangement with deliberate "
+    "framing, depth, scale and visual hierarchy. Choose the camera angle and spatial "
+    "arrangement freely based on what looks best for the subject."
 ]
 
 # ĐÃ BỎ hai bố cục cũ - chúng chính là thứ đẻ ra bìa chắp vá:
@@ -169,6 +192,14 @@ AUDIENCE_PROFILES = {
         "cover_detail": "DETAIL LEVEL: keep the cover clean and simple with bold, "
                         "clear shapes, large forms and minimal clutter, easy for a "
                         "young child to read at a glance.",
+        # Khối nhân vật (token {char_direction}) + kiểu chữ tiêu đề ({title_shape}).
+        "char_direction": "FEW CHARACTERS: show just ONE to THREE main characters, "
+                          "drawn large, clear and charming - a clean, uncluttered "
+                          "composition with a strong focal point. Do NOT crowd it "
+                          "with repeated copies to fill space.",
+        "title_shape": "Draw the title as BIG, bold BUBBLE lettering that pops out "
+                       "on TOP of the artwork - chunky rounded letters with a THICK "
+                       "dark outline.",
     },
     "adults": {
         "desc": "adults",
@@ -189,6 +220,18 @@ AUDIENCE_PROFILES = {
                         "a mature adult audience. Refined and elegant, NOT childish, "
                         "NOT simplistic; keep it polished and uncluttered, never "
                         "muddy or overcrowded.",
+        # Adults: cho phép nhiều nhân vật + cảnh dày chi tiết, KHÔNG sơ sài trẻ con;
+        # tiêu đề dùng typography tinh xảo, KHÔNG chữ bong bóng.
+        "char_direction": "CHARACTERS & SCENE: feature the main subject rendered "
+                          "with refined, intricate detail; you may include several "
+                          "characters and rich supporting elements for a fuller, "
+                          "sophisticated scene, while keeping one clear focal point. "
+                          "Avoid a sparse, over-simplified or childish layout.",
+        "title_shape": "Draw the title as BIG, elegant and refined display "
+                       "typography on TOP of the artwork - a sophisticated font "
+                       "(clean serif, engraved or tasteful hand-lettering) with a "
+                       "crisp outline. Do NOT use childish bubble or chunky rounded "
+                       "cartoon letters.",
     },
 }
 
@@ -481,7 +524,9 @@ def cover_prompt_extras(cfg: dict) -> dict:
             "audience_adj": adj,
             "audience_article": "an" if adj[:1].lower() in "aeiou" else "a",
             "title_style": cover_title_style(cfg),
-            "cover_detail": prof.get("cover_detail", "")}
+            "cover_detail": prof.get("cover_detail", ""),
+            "char_direction": prof.get("char_direction", ""),
+            "title_shape": prof.get("title_shape", "")}
 
 
 def cover_safe_pct(cfg: dict) -> int:

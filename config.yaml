@@ -1,9 +1,9 @@
 book:
-  title: Whispers of the Dead Coloring Pages – 48 Gothic Skull Designs – For Adults
+  title: Default Book
   subtitle: ''
-  audience: adults
+  audience: kids
   cover_style: glossy
-  num_images: 1
+  num_images: 30
   blank_verso: true
   matter_pages: true
 print:
@@ -18,7 +18,7 @@ print:
   min_pages: 32
   cover_wrap: 0.25
   pod_package_id: 0850X1100BWSTDPB060UW444MXX
-  spine_width: 0.182
+  spine_width: 0.29
   full_bleed_interior: false
   interior_border: true
   interior_border_width: 1.5
@@ -131,9 +131,7 @@ prompts:
     {subject_hint}
 
 
-    FEW CHARACTERS: show just ONE to THREE main characters, drawn large, clear and
-    charming - a clean, uncluttered composition with a strong focal point. Do NOT
-    crowd it with repeated copies to fill space.
+    {char_direction}
 
 
     COMPOSITION: {cover_layout} Arrange it however looks most beautiful, as a single
@@ -142,13 +140,11 @@ prompts:
     one light mood. No split bands, strips, panels, boxed sections or dividing lines.
 
 
-    TITLE "{title}": spell it EXACTLY, letter for letter. Draw the title as BIG, bold
-    BUBBLE lettering that pops out on TOP of the artwork - chunky rounded letters
-    with a THICK dark outline. {title_style} It does NOT need to blend into the scenery;
-    it can sit boldly in front as eye-catching cover typography. Place it anywhere
-    that looks best (2-3 centred lines if long), but keep every letter at least 8%
-    of the cover width in from all four edges. Keep the lettering fully readable,
-    with nothing covering the letters.
+    TITLE "{title}": spell it EXACTLY, letter for letter. {title_shape} {title_style}
+    It does NOT need to blend into the scenery; it can sit boldly in front as eye-catching
+    cover typography. Place it anywhere that looks best (2-3 centred lines if long),
+    but keep every letter at least 8% of the cover width in from all four edges. Keep
+    the lettering fully readable, with nothing covering the letters.
 
 
     FULL BLEED: the illustration and its coloured background fill the ENTIRE cover
@@ -338,7 +334,7 @@ api:
   - 2
   - 5
 browser:
-  headless: true
+  headless: false
   gemini_url: https://gemini.google.com/app
   generation_timeout: 120
   recycle_tab_every: 1
@@ -360,4 +356,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: whispers-of-the-dead-coloring-pages-48-gothic-skull-designs-
+_book: default-book
