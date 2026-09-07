@@ -562,6 +562,35 @@
         </div>
         <div id="publish-result" style="margin-top: 14px; font-size: 0.82rem;"></div>
       </div>
+
+      <!-- CÔNG CỤ RIÊNG: không liên quan luồng sinh sách ở trên -->
+      <div class="card" style="margin-top: 1.5rem;">
+        <div class="card-title">
+          <span>🔄 Chuyển sản phẩm Printsyde → Crayonahub</span>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.55; margin-bottom: 10px;">
+          Công cụ <b>độc lập</b> với luồng làm sách. Nhận bản export printsyde
+          (1 dòng = 1 biến thể, 40 cột) và trả về CSV nhập crayonahub
+          (25 cột, gom theo Handle, ảnh gallery tách dòng riêng).
+          Tự sửa lỗi font <code>â€¢</code> → <code>•</code> và bóc các nhãn nội bộ
+          lọt ra mô tả (<code>Quote: None</code>, <code>Theme: ...</code>).
+          <b>Giữ nguyên SKU</b> — nhà in tra thiết kế bằng mã đó.
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>File export printsyde (.csv / .tsv)</label>
+            <input type="file" id="printsyde-file" accept=".csv,.tsv,.txt,text/csv">
+          </div>
+          <div class="form-group">
+            <label>Product Category trên crayonahub</label>
+            <input type="text" id="printsyde-category" value="Gift Wrap"
+                   placeholder="Gift Wrap">
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;" id="btn-printsyde-convert"
+                onclick="convertPrintsyde()">🔄 Chuyển &amp; Tải CSV</button>
+        <div id="printsyde-result" style="margin-top: 14px; font-size: 0.82rem;"></div>
+      </div>
     </div>
 
     <!-- TAB 4: GALLERY & PDF DOWNLOADS -->
@@ -646,6 +675,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=12"></script>
+  <script src="app.js?v=13"></script>
 </body>
 </html>

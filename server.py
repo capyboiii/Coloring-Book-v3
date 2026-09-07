@@ -691,9 +691,18 @@ def upload_to_r2(payload: dict):
 
 @app.post("/api/export/csv")
 def export_shopify_csv(payload: dict):
-    """Xuất CSV Shopify. payload: {slugs:[...]} hoặc {slug:"..."}.
+    """Xuất CSV nhập sản phẩm. payload: {slugs:[...]} hoặc {slug:"..."},
+    kèm shop: "crayonahub" (mặc định) hoặc "shopify".
     Không có slug -> export mọi cuốn đã có PDF/bìa."""
-    from bookgen import shopify_export, storage
+    from bookgen import crayonahub_export, shopify_export, storage
+
+    # shop="crayonahub" (mặc định): schema 25 cột, hybrid in + digital, URL lấy
+    # từ manifest. shop="shopify": template Shopify 43 cột cũ, chỉ bản in.
+    shop = (payload.get("shop") or "crayonahub").lower()
+    exporter = crayonahub_export if shop == "crayonahub" else shopify_export
+    fname = ("crayonahub-products.csv" if shop == "crayonahub"
+             else "shopify-products.csv")
+
     slugs = payload.get("slugs")
     if not slugs and payload.get("slug"):
         slugs = [payload["slug"]]
@@ -719,12 +728,68 @@ def export_shopify_csv(payload: dict):
         logger.warning("Export CSV bỏ qua %d cuốn chưa xong: %s",
                        len(skipped), "; ".join(skipped))
 
-    csv_text = shopify_export.export_csv(list(ready), book_main, storage)
+    csv_text = exporter.export_csv(list(ready), book_main, storage)
     # BOM để Excel nhận đúng UTF-8 (không có BOM Excel đọc theo ANSI -> lỗi font).
     return StreamingResponse(
         iter([("\ufeff" + csv_text).encode("utf-8")]),
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": 'attachment; filename="shopify-products.csv"'})
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
+
+@app.post("/api/printsyde/convert")
+async def printsyde_convert(file: UploadFile = File(...),
+                            category: str = Form("")):
+    """Chuyển bản export printsyde -> CSV nhập crayonahub.
+
+    CHỨC NĂNG ĐỘC LẬP: không đụng gì tới luồng sinh sách. Không đọc
+    output/books, không cần R2, không cần manifest - chỉ nhận 1 file vào và
+    trả 1 file ra.
+    """
+    from bookgen import printsyde_import
+
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="File rỗng.")
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        # Bản export lưu từ Excel hay ra CP1252 thay vì UTF-8.
+        text = raw.decode("cp1252", errors="replace")
+
+    src_rows = printsyde_import.read_export(text)
+    if not src_rows:
+        raise HTTPException(status_code=400,
+                            detail="Không đọc được dòng nào. File có đúng là "
+                                   "bản export printsyde không?")
+    missing = [c for c in ("variant_sku", "handle")
+               if c not in (src_rows[0] or {})]
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Thiếu cột bắt buộc: {', '.join(missing)}. "
+                   f"Cột đọc được: {', '.join(list(src_rows[0])[:8])}...")
+
+    cat = (category or "").strip() or printsyde_import.DEFAULT_CATEGORY
+    csv_text = printsyde_import.to_csv(src_rows, cat)
+
+    n_prod = len({r.get("product_id") or r.get("handle") for r in src_rows})
+    n_nodesign = sum(1 for r in src_rows
+                     if not (r.get("variant_design_urls") or "").strip())
+    logger.info("Printsyde -> crayonahub: %d biến thể / %d sản phẩm, "
+                "%d biến thể không có design", len(src_rows), n_prod, n_nodesign)
+
+    # Số liệu trả qua header để UI hiện được mà không phải đọc lại file.
+    return StreamingResponse(
+        iter([("﻿" + csv_text).encode("utf-8")]),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": 'attachment; filename="crayonahub-import.csv"',
+            "X-Source-Variants": str(len(src_rows)),
+            "X-Source-Products": str(n_prod),
+            "X-No-Design": str(n_nodesign),
+            "Access-Control-Expose-Headers":
+                "X-Source-Variants, X-Source-Products, X-No-Design",
+        })
 
 
 @app.post("/api/ideas/generate")

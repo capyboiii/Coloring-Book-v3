@@ -30,7 +30,7 @@ import yaml
 ROOT = Path(__file__).parent
 sys.path.insert(0, str(ROOT))
 
-from bookgen import imaging, pdf_builder  # noqa: E402
+from bookgen import digital_pdf, imaging, pdf_builder  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -971,6 +971,25 @@ def build_one_version(cfg: dict, pages_art: list[Path], out_dir: Path,
     used = pdf_builder.cover_geometry(one["print"], pages)["spine"]
     log.info("[%s] %d trang tô màu + %d trang dùng chung -> %d trang ruột, gáy %.4f in.",
              nhan, len(pages_art), len(front_matter) + len(back_matter), pages, used)
+
+    # ---- bản DIGITAL (khách tải về), cắt lại từ interior vừa dựng ----
+    # Bố cục: bìa trước | các trang tô màu | bìa sau. TOÀN BỘ trang dùng chung
+    # của bản in (belongs to, color test, thank you) đều bỏ - khách mua file
+    # PDF chỉ cần tranh để in, hai bìa màu đóng khung hai đầu là đủ.
+    #
+    # Dãy trang-CÓ-HÌNH trong interior xếp đúng thứ tự:
+    #     [front_matter...] [pages_art...] [back_matter...]
+    # nên chỉ cần bỏ phần đầu và phần đuôi, giữ nguyên khúc giữa.
+    n_front, n_art = len(front_matter), len(pages_art)
+    drop = set(range(n_front))
+    drop |= {n_front + n_art + i for i in range(len(back_matter))}
+    try:
+        digital_pdf.build_digital(interior, fc if fc.exists() else None,
+                                  out_dir / "digital.pdf", one, drop,
+                                  back_cover_img=bc if bc.exists() else None)
+    except Exception as e:  # noqa: BLE001 - thiếu bản digital KHÔNG chặn bản in
+        log.warning("[%s] Không dựng được bản digital: %s", nhan, e)
+
     return interior, cover, pages, used
 
 
@@ -1045,10 +1064,13 @@ def cmd_check(cfg: dict) -> bool:
     errors: list[str] = []
     warnings: list[str] = []
 
-    for name in ("interior.pdf", "cover.pdf"):
+    for name in ("interior.pdf", "cover.pdf", "digital.pdf"):
         f = P["pdf_dir"] / name
         if not f.exists():
-            errors.append(f"Thiếu {name}")
+            # digital.pdf thiếu KHÔNG chặn: cuốn vẫn bán được bản in, và sách
+            # cũ dựng trước khi có build_digital thì không có file này.
+            (warnings if name == "digital.pdf" else errors).append(
+                f"Thiếu {name}")
             continue
         r = PdfReader(str(f))
         box = r.pages[0].mediabox

@@ -694,7 +694,7 @@ async function exportCsv(forceAll = false) {
   try {
     const res = await fetch('/api/export/csv', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(slugs.length ? { slugs } : {})
+      body: JSON.stringify({ shop: 'crayonahub', ...(slugs.length ? { slugs } : {}) })
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
@@ -703,11 +703,55 @@ async function exportCsv(forceAll = false) {
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = 'shopify-products.csv';
+    a.href = url; a.download = 'crayonahub-products.csv';
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
-    logToTerminal('[CSV] Đã xuất shopify-products.csv.');
+    logToTerminal('[CSV] Đã xuất crayonahub-products.csv.');
   } catch (err) { alert('Lỗi kết nối: ' + err.message); }
+}
+
+// --- Printsyde -> Crayonahub. Công cụ riêng, KHÔNG dính luồng sinh sách. ---
+async function convertPrintsyde() {
+  const input = document.getElementById('printsyde-file');
+  const box = document.getElementById('printsyde-result');
+  const btn = document.getElementById('btn-printsyde-convert');
+  const f = input.files && input.files[0];
+  if (!f) { box.innerHTML = '❌ Chưa chọn file export printsyde.'; return; }
+
+  const fd = new FormData();
+  fd.append('file', f);
+  fd.append('category', document.getElementById('printsyde-category').value || '');
+
+  btn.disabled = true;
+  box.innerHTML = '⏳ Đang chuyển...';
+  try {
+    const res = await fetch('/api/printsyde/convert', { method: 'POST', body: fd });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      box.innerHTML = '❌ Lỗi: ' + (d.detail || res.status); return;
+    }
+    const nVar = res.headers.get('X-Source-Variants') || '?';
+    const nProd = res.headers.get('X-Source-Products') || '?';
+    const nNoDesign = parseInt(res.headers.get('X-No-Design') || '0', 10);
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'crayonahub-import.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+
+    let html = `<b>✅ Xong:</b> ${nVar} biến thể / ${nProd} sản phẩm → crayonahub-import.csv`;
+    if (nNoDesign > 0) {
+      html += `<div style="margin-top:6px; color: var(--accent-amber, #d97706);">`
+            + `⚠️ ${nNoDesign}/${nVar} biến thể không có <code>variant_design_urls</code>. `
+            + `Nếu nhà in tra thiết kế bằng SKU thì không sao — SKU đã giữ nguyên.</div>`;
+    }
+    box.innerHTML = html;
+    logToTerminal(`[PRINTSYDE] ${nProd} sản phẩm -> crayonahub-import.csv`);
+  } catch (err) {
+    box.innerHTML = '❌ Lỗi kết nối: ' + err.message;
+  } finally { btn.disabled = false; }
 }
 
 async function uploadThenCsv() {

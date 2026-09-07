@@ -287,6 +287,7 @@ def _book_cfg(slug: str) -> dict:
 def build_manifest(slug: str) -> dict:
     """Dựng manifest từ file trên đĩa. KHÔNG cần R2, test được ngoại tuyến."""
     import main as book_main
+    from pypdf import PdfReader
 
     c = _book_cfg(slug)
     P = book_main.paths_of(c)
@@ -310,7 +311,7 @@ def build_manifest(slug: str) -> dict:
         ikey = f"{pfx_pdf}/{slug}/{isha}/interior.pdf"
         ckey = f"{pfx_pdf}/{slug}/{csha}/cover.pdf"
         m = _measure(idir, cvr, c["print"])
-        variants.append({
+        v = {
             "id": vid,
             **m,
             "interior_key": ikey,
@@ -320,7 +321,21 @@ def build_manifest(slug: str) -> dict:
             "interior_sha256": isha,
             "cover_sha256": csha,
             "interior_bytes": idir.stat().st_size,
-        })
+        }
+        # Bản digital (file giao cho khách mua PDF). Có thể thiếu ở sách CŨ
+        # dựng trước khi có build_digital -> khi đó biến thể chỉ bán bản in.
+        dig = pdf_dir / sub / "digital.pdf"
+        if dig.exists():
+            dsha = sha256_hex(dig)
+            dkey = f"{pfx_pdf}/{slug}/{dsha}/digital.pdf"
+            v.update({
+                "digital_key": dkey,
+                "digital_url": f"{base}/{dkey}" if base else None,
+                "digital_sha256": dsha,
+                "digital_bytes": dig.stat().st_size,
+                "digital_pages": len(PdfReader(str(dig)).pages),
+            })
+        variants.append(v)
 
     if not variants:
         raise FileNotFoundError(
@@ -436,6 +451,9 @@ def upload_book(slug: str) -> dict:
         meta = {"slug": slug, "variant": vid, "page-count": v["page_count"]}
         upload(idir, v["interior_key"], meta)
         upload(cvr, v["cover_key"], meta)
+        if v.get("digital_key"):
+            upload(pdf_dir / sub / "digital.pdf", v["digital_key"],
+                   {"slug": slug, "variant": vid, "kind": "digital"})
 
     # 2) Ảnh marketing (public). Bỏ qua debug_*.png.
     #    Preview -> NÉN WEBP trước khi đẩy (nhẹ hơn PNG nhiều, tải nhanh trên web).

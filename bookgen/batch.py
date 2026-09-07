@@ -633,7 +633,7 @@ class BatchRunner:
                 with _book_log(logp):
                     log.info("[BATCH] (%s) Bước 2: xử lý 300 DPI...", slug)
                     self.bm.cmd_process(cfg)
-                    log.info("[BATCH] (%s) Bước 3: dựng PDF Lulu...", slug)
+                    log.info("[BATCH] (%s) Bước 3: dựng PDF Lulu + bản digital...", slug)
                     self.bm.cmd_build(cfg)   # đã gồm check ở đuôi
                 self._set(slug, status=DONE, finished_at=time.time())
                 log.info("[BATCH] (%s) HOÀN TẤT.", slug)
