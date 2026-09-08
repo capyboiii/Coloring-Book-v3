@@ -59,8 +59,18 @@ echo    Nhap userscript ^>  %ROOT%static\gemini-sender.user.js
 echo.
 pause
 
-call :setup ".chrome-account1"
-call :setup ".chrome-account2"
+REM Doc DANH SACH profile tu config.yaml (khong hardcode nua). Them account
+REM moi trong config la file nay tu chay cho no, khong phai sua tay.
+set "FOUND="
+for /f "usebackq delims=" %%p in (`python -c "import yaml; [print(p.rstrip('/').split('/')[-1]) for p in (yaml.safe_load(open(r'%ROOT%config.yaml',encoding='utf-8')).get('browser',{}).get('profiles') or [])]"`) do (
+    set "FOUND=1"
+    call :setup "%%p"
+)
+if not defined FOUND (
+    echo  [!] Khong doc duoc profile nao tu config.yaml (browser.profiles rong?).
+    echo      Kiem tra config.yaml, hoac cai python + pyyaml.
+    pause
+)
 
 echo.
 echo  ============================================================

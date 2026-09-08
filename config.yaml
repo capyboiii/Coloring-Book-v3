@@ -1,9 +1,9 @@
 book:
-  title: cute dragon
+  title: cute cat
   subtitle: ''
-  audience: kids
-  cover_style: gouache
-  num_images: 3
+  audience: adults
+  cover_style: vintage
+  num_images: 5
   blank_verso: true
   matter_pages: true
 print:
@@ -319,10 +319,7 @@ prompts:
       100% exact visual fidelity. Do NOT generate or modify any artwork or text on
       the book cover. Keep the cover design identical to the attached image. Square
       1:1 aspect ratio.'
-subjects:
-- A baby dragon sitting in a field of giant daisies wearing a flower crown.
-- A chubby little dragon joyfully splashing in a puddle of rainwater.
-- A tiny winged dragon curled up asleep on top of a soft, fluffy cloud.
+subjects: []
 cover_text:
   back_blurb: '
 
@@ -352,6 +349,7 @@ browser:
   profiles:
   - ./.chrome-account1
   - ./.chrome-account2
+  - ./.chrome-account3
   concurrency_per_profile: 1
   extension_dir: C:/Users/Admin/Downloads/monkeyx_1
 paths:
@@ -359,4 +357,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: cute-dragon
+_book: cute-cat

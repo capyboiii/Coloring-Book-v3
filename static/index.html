@@ -571,10 +571,14 @@
         <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.55; margin-bottom: 10px;">
           Công cụ <b>độc lập</b> với luồng làm sách. Nhận bản export printsyde
           (1 dòng = 1 biến thể, 40 cột) và trả về CSV nhập crayonahub
-          (25 cột, gom theo Handle, ảnh gallery tách dòng riêng).
-          Tự sửa lỗi font <code>â€¢</code> → <code>•</code> và bóc các nhãn nội bộ
-          lọt ra mô tả (<code>Quote: None</code>, <code>Theme: ...</code>).
-          <b>Giữ nguyên SKU</b> — nhà in tra thiết kế bằng mã đó.
+          (25 cột, gom theo Handle, ảnh gallery tách dòng riêng). Trong một lượt:
+          <br>• sửa mojibake <code>â€¢</code>→<code>•</code>, Markdown <code>**</code>, repr Python lọt vào mô tả
+          <br>• dựng lại mô tả: bóc nhãn nội bộ, gộp nhãn đồng nghĩa, thêm khối
+          <b>Choose your roll</b>, gắn emoji làm dấu đầu dòng
+          <br>• đổi tên thuộc tính <code>Size</code>→<code>Roll format</code>,
+          <code>Paper</code>→<code>Paper format</code> để storefront dựng <b>hàng nút</b>
+          thay vì dropdown
+          <br>• <b>Giữ nguyên SKU</b> — nhà in tra thiết kế bằng mã đó.
         </div>
         <div class="form-row">
           <div class="form-group">
