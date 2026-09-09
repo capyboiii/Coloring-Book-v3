@@ -93,12 +93,37 @@ SELECTORS = {
         ".image-panel img",
     ],
     "download_button": [
-        # Nút "Tải ảnh kích thước đầy đủ" trong viewer - ID ổn định nhất.
+        # 1. DOM mới nhất: gem-icon-button & button bên trong
+        'gem-icon-button[data-test-id="download-generated-image-button"] button',
         '[data-test-id="download-generated-image-button"] button',
+        'gem-icon-button[data-test-id="download-generated-image-button"]',
         '[data-test-id="download-generated-image-button"]',
-        'download-generated-image-button button',
-        # Fallback theo aria-label (UI tiếng Việt: "Tải hình ảnh ... đầy đủ xuống").
+        # 1b. DOM split-button (nút chính tải, mũi tên chọn kích thước ở bên)
+        '[data-test-id="download-generated-image-button"] .split-button-main',
+        '.split-button-container .split-button-main',
+        # 1c. Nút mat-icon-button độc lập (không bọc gem-icon-button)
+        'button.mat-mdc-icon-button[aria-label*="kích thước đầy đủ" i]',
+        'button.mat-mdc-icon-button[aria-label*="đầy đủ" i]',
+        'button.mat-mdc-icon-button:has(mat-icon[fonticon="download"])',
+        # 2. Theo aria-label chính xác của nút tải kích thước đầy đủ (VI/EN)
+        'button[aria-label*="kích thước đầy đủ" i]',
         'button[aria-label*="đầy đủ" i]',
+        'button[aria-label*="full size" i]',
+        'button[aria-label*="full-size" i]',
+        'button[aria-label*="full resolution" i]',
+        # 3. Theo thuộc tính của gem-icon-button (arialabel / gemtooltip)
+        'gem-icon-button[arialabel*="kích thước đầy đủ" i] button',
+        'gem-icon-button[gemtooltip*="kích thước đầy đủ" i] button',
+        'gem-icon-button[arialabel*="full size" i] button',
+        'gem-icon-button[gemtooltip*="full size" i] button',
+        'gem-icon-button[arialabel*="đầy đủ" i]',
+        'gem-icon-button[gemtooltip*="đầy đủ" i]',
+        # 4. Nút chứa icon download Material Symbols
+        'button:has(mat-icon[data-mat-icon-name="download"])',
+        'button:has(mat-icon[fonticon="download"])',
+        # 5. Fallbacks cũ
+        'download-generated-image-button button',
+        'download-generated-image-button',
         'button[aria-label*="Download" i]',
         'button[aria-label*="Tải" i]',
         'a[download]',

@@ -1,8 +1,9 @@
 book:
-  title: cute cat
+  title: Legends of the Dragon Mandalas Coloring Pages – 48 Pages – Mythical, Fiery,
+    Eastern-Inspired Designs – For Adults
   subtitle: ''
   audience: adults
-  cover_style: vintage
+  cover_style: gouache
   num_images: 5
   blank_verso: true
   matter_pages: true
@@ -319,7 +320,17 @@ prompts:
       100% exact visual fidelity. Do NOT generate or modify any artwork or text on
       the book cover. Keep the cover design identical to the attached image. Square
       1:1 aspect ratio.'
-subjects: []
+subjects:
+- A coiled celestial dragon clutching a glowing flaming pearl within a symmetrical
+  lotus mandala border.
+- An Eastern horned dragon gliding through circular swirling smoke clouds and stylized
+  cresting waves.
+- A fierce dragon head centered inside a geometric ring of blazing solar flares and
+  ornamental scales.
+- Two intertwining serpentine dragons forming a balanced Yin-Yang emblem surrounded
+  by blossom petals.
+- A majestic dragon perched on a mountain peak framed by radiant sunbeams and concentric
+  circular patterns.
 cover_text:
   back_blurb: '
 
@@ -338,6 +349,7 @@ browser:
   gemini_url: https://gemini.google.com/app
   generation_timeout: 120
   recycle_tab_every: 1
+  raw_min_long_edge: 1500
   stall_timeout: 180
   max_requeue: 2
   delay_between_prompts:
@@ -349,7 +361,7 @@ browser:
   profiles:
   - ./.chrome-account1
   - ./.chrome-account2
-  - ./.chrome-account3
+  - ./.chrome-acc3
   concurrency_per_profile: 1
   extension_dir: C:/Users/Admin/Downloads/monkeyx_1
 paths:
@@ -357,4 +369,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: cute-cat
+_book: legends-of-the-dragon-mandalas-coloring-pages-48-pages-mythi

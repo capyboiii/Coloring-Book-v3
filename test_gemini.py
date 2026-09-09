@@ -69,6 +69,29 @@ SEL_IMG = [
     'img[src^="data:image"]',
     "single-image img",
 ]
+SEL_DOWNLOAD = [
+    # DOM mới nhất
+    'gem-icon-button[data-test-id="download-generated-image-button"] button',
+    '[data-test-id="download-generated-image-button"] button',
+    'gem-icon-button[data-test-id="download-generated-image-button"]',
+    '[data-test-id="download-generated-image-button"]',
+    'button[aria-label*="kích thước đầy đủ" i]',
+    'button[aria-label*="đầy đủ" i]',
+    'button[aria-label*="full size" i]',
+    'button[aria-label*="full-size" i]',
+    'button[aria-label*="full resolution" i]',
+    'gem-icon-button[arialabel*="kích thước đầy đủ" i] button',
+    'gem-icon-button[gemtooltip*="kích thước đầy đủ" i] button',
+    'gem-icon-button[arialabel*="full size" i] button',
+    'gem-icon-button[gemtooltip*="full size" i] button',
+    'button:has(mat-icon[data-mat-icon-name="download"])',
+    'button:has(mat-icon[fonticon="download"])',
+    'button:has(mat-icon:has-text("download"))',
+    'download-generated-image-button button',
+    'download-generated-image-button',
+    'button[aria-label*="Download" i]',
+    'button[aria-label*="Tải" i]',
+]
 
 
 def log(msg: str) -> None:
@@ -459,6 +482,78 @@ def do_inspect(use_cdp: bool = False):
             ctx.close()
 
 
+def try_download_fullsize(page, dest: Path) -> bool:
+    """Bấm trực tiếp nút 'Tải hình ảnh có kích thước đầy đủ xuống' trên DOM mới của Gemini."""
+    # 1. Khoanh vùng trong model-response cuối cùng
+    resp = page.locator("model-response, [data-response-index]").last
+    scope = resp if resp.count() > 0 else page
+
+    # 2. Rê chuột vào ảnh trong lượt trả lời cuối để nút on-hover-button hiện lên
+    for sel in SEL_IMG:
+        loc = scope.locator(sel).last
+        try:
+            if loc.count() > 0:
+                loc.scroll_into_view_if_needed(timeout=2_000)
+                box = loc.bounding_box()
+                if box and box["width"] > 50:
+                    cx = box["x"] + box["width"] / 2
+                    cy = box["y"] + box["height"] / 2
+                    page.mouse.move(cx, cy)
+                    page.wait_for_timeout(500)
+                    break
+        except Exception:
+            continue
+
+    # 3. Tìm nút download theo danh sách selector bên trong scope
+    target = None
+    for sel in SEL_DOWNLOAD:
+        loc = scope.locator(sel).first
+        try:
+            if loc.count() > 0 and loc.is_visible():
+                target = loc
+                break
+        except Exception:
+            continue
+
+    if not target:
+        for sel in SEL_DOWNLOAD:
+            loc = scope.locator(sel).first
+            try:
+                if loc.count() > 0:
+                    target = loc
+                    break
+            except Exception:
+                continue
+
+    if not target:
+        log("không thấy nút download trực tiếp, sẽ dùng fallback qua URL.")
+        return False
+
+    try:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        log("bấm nút tải kích thước đầy đủ (chờ download event)...")
+        with page.expect_download(timeout=25_000) as info:
+            b_box = target.bounding_box()
+            if b_box and b_box["width"] > 0 and b_box["height"] > 0:
+                cx = b_box["x"] + b_box["width"] / 2
+                cy = b_box["y"] + b_box["height"] / 2
+                page.mouse.move(cx, cy)
+                page.wait_for_timeout(100)
+                page.mouse.click(cx, cy)
+            else:
+                target.click(timeout=5_000, force=True)
+
+        dl = info.value
+        dl.save_as(str(dest))
+        ok = dest.exists() and dest.stat().st_size > 20_000
+        if ok:
+            log(f"tải thành công bản gốc qua nút: {dest.stat().st_size // 1024} KB")
+        return ok
+    except Exception as e:
+        log(f"nút download không bắt được tải: {e}")
+        return False
+
+
 def download(page, src: str, dest: Path) -> bool:
     dest.parent.mkdir(parents=True, exist_ok=True)
     if src.startswith("data:image"):
@@ -588,7 +683,12 @@ def do_generate(subject: str, timeout: int, use_cdp: bool = False,
             sys.exit(1)
 
         dest = OUT / "test_page.png"
-        if download(page, new[-1], dest):
+        ok = try_download_fullsize(page, dest)
+        if not ok:
+            log("thử tải fallback qua URL preview...")
+            ok = download(page, new[-1], dest)
+
+        if ok:
             from PIL import Image
             with Image.open(dest) as im:
                 w, h = im.size

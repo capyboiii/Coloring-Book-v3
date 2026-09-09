@@ -20,6 +20,8 @@ import base64
 import logging
 import random
 import re
+import shutil
+import sqlite3
 import time
 from pathlib import Path
 
@@ -259,6 +261,50 @@ async def is_user_signed_in_async(page: Page) -> bool:
     return True
 
 
+def _clear_download_state(profile_dir: Path) -> None:
+    """Xoá lịch sử TẢI XUỐNG của profile trước khi mở Chrome (giữ lịch sử duyệt web).
+
+    Chrome ghi mỗi lượt tải vào CSDL Default/History. Khi bảng này đầy các
+    dòng cũ bị đánh dấu danger_type=4 ("có thể nguy hiểm"), MỌI lượt tải mới
+    đều kẹt ở .crdownload và Chrome THOÁT HẲN ngay khi ghi xong file -
+    Playwright báo lại thành "Target page, context or browser has been
+    closed", nên nhìn cứ tưởng lỗi ở code điều khiển.
+
+    Đã đo tay trên bản sao profile thật: cùng một đoạn mã và cùng một file
+    .jpg vặt, profile trắng tải xong bình thường còn profile cũ chết; xoá ba
+    bảng dưới đây thì profile cũ chạy lại được ngay, và bảng urls vẫn nguyên
+    1729 dòng.
+
+    CHỈ đụng ba bảng downloads*. Lịch sử duyệt web (urls, visits), cookie
+    đăng nhập và mật khẩu đều không bị ảnh hưởng.
+    """
+    hist = profile_dir / "Default" / "History"
+    if not hist.exists():
+        return
+    try:
+        con = sqlite3.connect(hist, timeout=5)
+        try:
+            cur = con.cursor()
+            n = cur.execute("SELECT COUNT(*) FROM downloads").fetchone()[0]
+            if not n:
+                return
+            for t in ("downloads_slices", "downloads_url_chains", "downloads"):
+                cur.execute(f"DELETE FROM {t}")
+            con.commit()
+            cur.execute("VACUUM")
+            con.commit()
+        finally:
+            con.close()
+        (profile_dir / "Default" / "History-journal").unlink(missing_ok=True)
+        log.info("Đã xoá %d dòng lịch sử tải xuống của %s (lịch sử duyệt web giữ nguyên).",
+                 n, profile_dir.name)
+    except Exception as e:  # noqa: BLE001
+        # Chrome đang giữ file, hoặc CSDL hỏng thật. Không xoá file History ở
+        # đây: profile này người dùng còn dùng việc khác, mất lịch sử là mất
+        # thật. Cứ chạy tiếp, cùng lắm là lượt tải hỏng như cũ.
+        log.warning("Không dọn được lịch sử tải xuống của %s: %s", profile_dir.name, e)
+
+
 class GeminiPool:
     """N tab Gemini cùng rút việc từ một hàng đợi."""
 
@@ -329,6 +375,7 @@ class GeminiPool:
         self.throttle = Throttle(self.workers)
         self.exhausted_contexts = set()
         self.quota_hit = False
+        self._download_lock = asyncio.Lock()
 
     # ---------- lifecycle ----------
 
@@ -354,6 +401,9 @@ class GeminiPool:
                             "thẳng trên profile gốc.", p_dir.name, actual_dir.name)
             else:
                 log.info("Profile dùng cho phiên này: %s", actual_dir.name)
+
+            _clear_download_state(actual_dir)
+
             launch_args = [
                 "--disable-blink-features=AutomationControlled",
                 "--no-default-browser-check",
@@ -856,30 +906,34 @@ class GeminiPool:
     async def _download_button_rect(self, page: Page) -> dict | None:
         """Tìm nút tải xuống trên thanh công cụ nổi của ảnh.
 
-        Không dựa vào một aria-label cố định: giao diện Gemini đổi theo ngôn
-        ngữ (Download / Tải xuống) và nhiều nút chỉ là icon chữ ligature
-        'download'. Nên dò cả aria-label, data-test-id lẫn nội dung text.
+        Hỗ trợ DOM mới: thẻ gem-icon-button, aria-label, arialabel, gemtooltip,
+        data-test-id, mat-icon[data-mat-icon-name/fonticon].
         """
         try:
             return await page.evaluate(
                 """() => {
                     const looksLikeDownload = (el) => {
-                        const a = (el.getAttribute('aria-label') || '').toLowerCase();
+                        const a = (el.getAttribute('aria-label') || el.getAttribute('arialabel') || el.getAttribute('gemtooltip') || '').toLowerCase();
                         const d = (el.getAttribute('data-test-id') || '').toLowerCase();
                         const t = (el.textContent || '').trim().toLowerCase();
-                        return a.includes('download') || a.includes('tải')
+                        const matIcon = el.querySelector('mat-icon');
+                        const iconName = matIcon ? (matIcon.getAttribute('data-mat-icon-name') || matIcon.getAttribute('fonticon') || matIcon.textContent || '').toLowerCase() : '';
+
+                        return a.includes('download') || a.includes('tải') || a.includes('đầy đủ') || a.includes('full')
                             || d.includes('download')
+                            || iconName.includes('download')
                             || t === 'download' || t === 'file_download'
                             || t === 'save_alt';
                     };
                     const btns = Array.from(
-                        document.querySelectorAll('button, a[download]')
+                        document.querySelectorAll('gem-icon-button, button, a[download]')
                     ).filter(b => {
                         const r = b.getBoundingClientRect();
                         return r.width > 0 && r.height > 0 && looksLikeDownload(b);
                     });
                     if (!btns.length) return null;
-                    const r = btns[btns.length - 1].getBoundingClientRect();
+                    const b = btns[btns.length - 1];
+                    const r = b.getBoundingClientRect();
                     return {x: r.x, y: r.y, w: r.width, h: r.height};
                 }""",
             )
@@ -977,45 +1031,194 @@ class GeminiPool:
             log.debug("Nút tải xuống không dùng được: %s", e)
             return False
 
-    async def _download_fullsize_button(self, page: Page, dest: Path) -> bool:
-        """Bấm THẲNG nút 'Tải ảnh kích thước đầy đủ' trên trang (không cần viewer).
+    async def _download_fullsize_button(self, page: Page, dest: Path, src: str = "") -> bool:
+        """Bấm nút 'Tải hình ảnh có kích thước đầy đủ xuống' và lấy file gốc.
 
-        Nút <download-generated-image-button data-test-id=...> có sẵn ngay trong
-        khung chat sau khi vẽ xong; bấm nó là Gemini tải bản GỐC về. Đây là cách
-        sát thao tác tay nhất và không phụ thuộc việc mở được lightbox.
+        Đường đi đã đo trực tiếp trên Chrome thật:
+
+            hover ảnh -> hiện thanh công cụ
+            bấm nút   -> POST batchexecute?rpcids=c8o8Fe
+                      -> GET  gg-dl/... -> rd-gg-dl/...
+                      -> Chrome ghi file vào thư mục CDP chỉ định (~2 giây)
+
+        HAI CÁI BẪY, cả hai đều từng làm hỏng bước này:
+
+        1. Không lấy nút theo selector khớp đầu tiên. Trong khối trả lời có một
+           nút mat-icon-button khác mang matbadge; bấm nó thì chạy êm nhưng
+           không tải gì. Phải chấm điểm rồi mới chọn.
+
+        2. File Chrome ghi ra GIỮ NGUYÊN đuôi .crdownload. Playwright giữ lại
+           artifact của lượt tải nên Chrome không bao giờ đổi tên - nhưng byte
+           thì đã đủ. Đo thực tế: file .crdownload đó mở ra 1792x2368, 9 MB.
+           Vì vậy ở đây không đoán qua tên file mà MỞ ẢNH RA kiểm chứng.
         """
-        loc = page.locator(
-            '[data-test-id="download-generated-image-button"] button, '
-            '[data-test-id="download-generated-image-button"]').last
-        try:
-            n = await loc.count()
-        except Exception:  # noqa: BLE001
-            n = 0
-        if not n:
-            log.info("[fullres] không thấy nút download trên trang.")
-            return False
-        try:
-            try:
-                await loc.scroll_into_view_if_needed(timeout=2_000)
-                await loc.hover(timeout=2_000)      # nút chỉ hiện khi rê chuột
-            except Exception:  # noqa: BLE001
-                pass
-            # 22s: đây là ĐƯỜNG DUY NHẤT lấy được bản gốc, nên không cắt gắt.
-            # Trên log thật lần nào ăn thì file về trong 5-15s; cắt xuống 8s
-            # không tiết kiệm được mấy mà lại đánh rơi ảnh 2336px xuống còn
-            # 1024px - đúng thứ sinh ra cảnh báo "phải phóng 2.9 lần".
-            # Hai lần bấm 22s vẫn nằm gọn dưới mốc treo 120s của lane.
-            async with page.expect_download(timeout=22_000) as info:
-                await loc.click(timeout=5_000, force=True)
-            dl = await info.value
+        async with self._download_lock:
+            # 1. Hover ảnh để thanh công cụ hiện ra.
+            img_loc = None
+            if src:
+                loc = page.locator(f'img[src="{src}"]').first
+                if await loc.count() > 0:
+                    img_loc = loc
+            if not img_loc:
+                scope = page.locator("model-response, [data-response-index]").last
+                if await scope.count() == 0:
+                    scope = page
+                for img_sel in SELECTORS["generated_image"]:
+                    try:
+                        loc = scope.locator(img_sel).last
+                        if await loc.count() > 0:
+                            img_loc = loc
+                            break
+                    except Exception:
+                        continue
+            if img_loc:
+                try:
+                    await img_loc.scroll_into_view_if_needed(timeout=2_000)
+                    await img_loc.hover(timeout=2_000)
+                    await page.wait_for_timeout(600)
+                except Exception as e_hover:
+                    log.debug("[fullres] hover img: %s", e_hover)
+
+            # 2. Chấm điểm mọi nút trong khối trả lời, chọn đúng nút tải.
+            scope = page.locator("model-response, [data-response-index]").last
+            if await scope.count() == 0:
+                scope = page.locator("body")
+
+            cands = await scope.evaluate(
+                """root => Array.from(root.querySelectorAll('button, [role="button"]'))
+                    .map((b, i) => {
+                        const icon = b.querySelector('mat-icon');
+                        const host = b.closest('[data-test-id]') || b;
+                        return {
+                            i,
+                            aria: (b.getAttribute('aria-label') || '').slice(0, 120),
+                            tip: (host.getAttribute('gemtooltip')
+                                  || host.getAttribute('arialabel') || '').slice(0, 120),
+                            testid: host.getAttribute('data-test-id') || '',
+                            icon: (icon && (icon.getAttribute('fonticon')
+                                   || icon.getAttribute('data-mat-icon-name')
+                                   || icon.textContent.trim())) || '',
+                            badge: b.hasAttribute('matbadgeposition'),
+                        };
+                    })"""
+            ) or []
+
+            def _score(c: dict) -> int:
+                blob = " ".join([c.get("aria", ""), c.get("tip", ""),
+                                 c.get("testid", ""), c.get("icon", "")]).lower()
+                sc = 0
+                if "download" in c.get("icon", "").lower():
+                    sc += 50
+                if "download-generated-image" in c.get("testid", ""):
+                    sc += 60
+                for kw, pt in (("kích thước đầy đủ", 40), ("đầy đủ", 25),
+                               ("full size", 40), ("full-size", 40),
+                               ("full resolution", 40), ("original", 20),
+                               ("download", 20), ("tải", 20)):
+                    if kw in blob:
+                        sc += pt
+                if c.get("badge"):
+                    sc -= 30
+                for bad in ("share", "chia sẻ", "more", "thêm", "copy", "sao chép",
+                            "edit", "chỉnh sửa", "like", "thích", "dislike", "upscale"):
+                    if bad in blob:
+                        sc -= 40
+                return sc
+
+            target_loc = None
+            best = max(cands, key=_score) if cands else None
+            if best is not None and _score(best) > 0:
+                target_loc = scope.locator('button, [role="button"]').nth(best["i"])
+                log.info("[fullres] Nút tải: #%d/%d điểm=%d aria=%r",
+                         best["i"], len(cands), _score(best), best.get("aria"))
+            else:
+                for sel in SELECTORS["download_button"]:
+                    try:
+                        loc = scope.locator(sel).last
+                        if await loc.count() > 0:
+                            target_loc = loc
+                            log.info("[fullres] Không chấm được điểm, dùng selector %r.", sel)
+                            break
+                    except Exception:
+                        continue
+            if target_loc is None:
+                log.info("[fullres] không thấy nút download trên trang.")
+                return False
+
+            # 3. Bảo Chrome ghi file tải về vào thư mục riêng của lần này.
             dest.parent.mkdir(parents=True, exist_ok=True)
-            await dl.save_as(str(dest))
-            ok = dest.exists() and dest.stat().st_size > 20_000
-            log.info("[fullres] nút download: ok=%s (%d KB).", ok,
-                     dest.stat().st_size // 1024 if dest.exists() else 0)
-            return ok
-        except Exception as e:  # noqa: BLE001
-            log.info("[fullres] nút download không bắt được tải: %s", e)
+            dl_dir = dest.parent / f".dl-{int(time.time() * 1000)}"
+            dl_dir.mkdir(parents=True, exist_ok=True)
+
+            # Playwright coi luot tai la "dang do" cho den khi ai do dung toi
+            # doi tuong Download. Neu ta xoa thu muc dich khi no con giu, ca
+            # context sap: "Target page, context or browser has been closed".
+            # Vi vay bat lay Download roi huy TRUOC khi don thu muc.
+            held: list = []
+            page.once("download", lambda d: held.append(d))
+
+            async def _cleanup() -> None:
+                for d in held:
+                    try:
+                        await d.cancel()
+                    except Exception:
+                        pass
+                held.clear()
+                shutil.rmtree(dl_dir, ignore_errors=True)
+
+            try:
+                cdp = await page.context.new_cdp_session(page)
+                await cdp.send("Browser.setDownloadBehavior", {
+                    "behavior": "allow",
+                    "downloadPath": str(dl_dir),
+                    "eventsEnabled": True,
+                })
+            except Exception as e_cdp:  # noqa: BLE001
+                log.info("[fullres] CDP setDownloadBehavior lỗi: %s", e_cdp)
+                await _cleanup()
+                return False
+
+            # 4. Bấm.
+            try:
+                await target_loc.scroll_into_view_if_needed(timeout=2_000)
+                await page.wait_for_timeout(200)
+                await target_loc.click(timeout=5_000)
+            except Exception:
+                try:
+                    await target_loc.evaluate("el => el.click()")
+                except Exception as e_click:  # noqa: BLE001
+                    log.info("[fullres] không bấm được nút: %s", e_click)
+                    await _cleanup()
+                    return False
+
+            # 5. Nhặt ảnh: mở ra kiểm chứng thay vì tin vào tên file. File đang
+            #    ghi dở sẽ hỏng ở Image.verify() và được thử lại ở nhịp sau.
+            for _ in range(30):
+                await asyncio.sleep(1.0)
+                best_f, best_edge = None, 0
+                for f in dl_dir.iterdir():
+                    if not f.is_file() or f.stat().st_size < 20_000:
+                        continue
+                    try:
+                        from PIL import Image
+
+                        with Image.open(f) as im:
+                            im.verify()
+                        with Image.open(f) as im:
+                            e = max(im.size)
+                    except Exception:
+                        continue
+                    if e > best_edge:
+                        best_f, best_edge = f, e
+                if best_f is not None:
+                    shutil.copy2(str(best_f), str(dest))
+                    log.info("[fullres] Tải được bản gốc: %d KB, %dpx.",
+                             dest.stat().st_size // 1024, best_edge)
+                    await _cleanup()
+                    return True
+
+            log.info("[fullres] Hết thời gian chờ mà chưa thấy file tải về.")
+            await _cleanup()
             return False
 
     async def _grab_full_image(self, page: Page, src: str, dest: Path) -> bool:
@@ -1098,9 +1301,11 @@ class GeminiPool:
                 log.info("[fullres] %s: %s không tải được file.", dest.name, tag)
             return False
 
+        target_src = urls[0] if urls else ""
+
         # 1) ĐÁNG TIN NHẤT: bấm thẳng nút 'Tải ảnh đầy đủ' trên trang.
         try:
-            if await self._download_fullsize_button(page, tmp) and _consider("nút-download"):
+            if await self._download_fullsize_button(page, tmp, target_src) and _consider("nút-download"):
                 return
         except Exception as e:  # noqa: BLE001
             log.info("[fullres] nút-download lỗi: %s", e)
@@ -1113,10 +1318,12 @@ class GeminiPool:
         #
         # Vì đây là đường DUY NHẤT, thà thử lại nó lần nữa còn hơn bỏ cuộc:
         # bấm lại rẻ hơn nhiều so với gen lại cả ảnh (~3 phút + quota).
-        if not _out_of_time("bấm lại"):
+        if page.is_closed():
+            log.info("[fullres] %s: trang đã đóng, bỏ lần bấm thứ 2.", dest.name)
+        elif not _out_of_time("bấm lại"):
             log.info("[fullres] %s: thử bấm lại nút download (lần 2).", dest.name)
             try:
-                if await self._download_fullsize_button(page, tmp) and _consider("nút-download-2"):
+                if await self._download_fullsize_button(page, tmp, target_src) and _consider("nút-download-2"):
                     return
             except Exception as e:  # noqa: BLE001
                 log.info("[fullres] nút-download lần 2 lỗi: %s", e)
