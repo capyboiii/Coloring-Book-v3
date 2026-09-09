@@ -1,8 +1,9 @@
 book:
-  title: Default Book
+  title: Polar Bear Holiday Coloring Book – Icebergs, Cozy Sweaters & Snowflakes –
+    Print + Digital Editions – For Children
   subtitle: ''
-  audience: kids
-  cover_style: gouache
+  audience: adults
+  cover_style: glossy
   num_images: 4
   blank_verso: true
   matter_pages: true
@@ -319,7 +320,11 @@ prompts:
       100% exact visual fidelity. Do NOT generate or modify any artwork or text on
       the book cover. Keep the cover design identical to the attached image. Square
       1:1 aspect ratio.'
-subjects: []
+subjects:
+- A happy polar bear wearing a winter scarf while catching snowflakes on its tongue.
+- A small polar bear cub sliding down a snowy hill on a candy cane sled.
+- A friendly polar bear decorating a small pine tree with round ornaments.
+- Two polar bears sharing a mug of hot cocoa with marshmallows under a starry sky.
 cover_text:
   back_blurb: '
 
@@ -358,4 +363,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: default-book
+_book: polar-bear-holiday-coloring-book-icebergs-cozy-sweaters-snow

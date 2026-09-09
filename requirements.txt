@@ -7,3 +7,11 @@ uvicorn
 python-multipart
 boto3
 opencv-contrib-python-headless
+
+# Tuy chon - xoa watermark bia bang LaMa thay vi SHIFTMAP.
+# Thieu thi remove_watermark() tu lui ve SHIFTMAP, khong gay pipeline.
+# Cai bang: pip install --no-deps simple-lama-inpainting
+#   --no-deps la BAT BUOC: ban day du keo opencv-python ve va ha cap
+#   opencv-contrib o tren, lam mat cv2.xphoto.
+# Can them torch (chay GPU thi nhanh hon ca SHIFTMAP).
+# simple-lama-inpainting>=0.1.2

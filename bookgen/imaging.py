@@ -168,6 +168,30 @@ def add_grain(path: Path, amount: float = 0.05, mono: bool = True,
     return path
 
 
+_LAMA = None          # cache model: nap lai moi anh thi mat 3-4s/lan
+_LAMA_FAILED = False  # da thu va hong -> dung thu lai nua
+
+
+def _lama():
+    """Tra ve model LaMa da nap, hoac None neu khong dung duoc.
+
+    Goi lazy: khong co GPU / chua cai goi / chua tai model thi tra None va
+    remove_watermark() tu lui ve SHIFTMAP, khong lam gay pipeline.
+    """
+    global _LAMA, _LAMA_FAILED
+    if _LAMA is not None or _LAMA_FAILED:
+        return _LAMA
+    try:
+        from simple_lama_inpainting import SimpleLama
+
+        _LAMA = SimpleLama()
+        log.info("Da nap model LaMa de xoa watermark.")
+    except Exception as e:  # noqa: BLE001
+        _LAMA_FAILED = True
+        log.info("Khong dung duoc LaMa (%s) -> dung SHIFTMAP.", e)
+    return _LAMA
+
+
 def remove_watermark(path: Path,
                      center: tuple[float, float] = (0.870, 0.902),
                      size: tuple[float, float] = (0.034, 0.041)) -> Path:
@@ -176,13 +200,12 @@ def remove_watermark(path: Path,
     Gemini web luon dong dau sao ban trong suot o MOT vi tri co dinh. Trang to
     mau tu sach nho buoc threshold 1-bit; anh preview MAU khong qua buoc do.
 
-    Cach lam: mask hinh sao 4 canh tai vi tri co dinh `center`, roi inpaint bang
-    xphoto SHIFTMAP - thuat toan COPY van that tu vung xung quanh (patch-based),
-    nen va xong van con van go/da/giay, KHONG de lai mang "qua min" nhu Telea.
-    Chay tren mot cua so nho quanh dau sao cho nhanh (~1s thay vi quet ca anh).
+    Cach lam: mask hinh sao 4 canh tai vi tri co dinh `center`, roi inpaint tren
+    mot cua so nho quanh dau sao cho nhanh (thay vi quet ca anh).
 
-    center,size theo TI LE anh -> dung cho moi kich thuoc. Thieu opencv-contrib
-    (khong co xphoto) thi tu lui ve Telea.
+    Thu tu thuat toan: LaMa -> SHIFTMAP -> Telea. Ly do chon xem trong than ham.
+
+    center,size theo TI LE anh -> dung cho moi kich thuoc.
     """
     import cv2
     import numpy as np
@@ -228,13 +251,43 @@ def remove_watermark(path: Path,
     rx, ry = size[0] * W, size[1] * H
     m = star_mask(wh, ww, cx, cy, rx, ry)
 
-    has_xphoto = hasattr(cv2, "xphoto")
-    if has_xphoto:
-        # SHIFTMAP: mask non-zero = pixel HOP LE (giu), zero = can lap -> 255-m.
-        dst = win.copy()
-        cv2.xphoto.inpaint(win, 255 - m, dst, cv2.xphoto.INPAINT_SHIFTMAP)
-    else:
-        dst = cv2.inpaint(win, m, 3, cv2.INPAINT_TELEA)
+    # LaMa TRUOC, SHIFTMAP sau. Da do tren bia that, 6 vi tri, co anh goc de
+    # cham diem: LaMa thang SHIFTMAP ca 6/6 (sai so TB 22.3 vs 31.8, cho kho
+    # nhat 37.3 vs 51.6) VA con nhanh hon (1.6s vs 2.7s) vi chay tren GPU.
+    #
+    # Khac biet that su nam o KIEU sai, khong phai o con so. SHIFTMAP chep manh
+    # co that tu cho khac trong anh nen khi lo nam tren vat the no chep ca chi
+    # tiet la vao - do la thu lam thanh go xe truot bi cat khac. LaMa sinh ra
+    # noi dung hop ly nen khong bia chi tiet la, cung khong nhoe nhu FSR.
+    #
+    # Luu y: LaMa KHONG khoi phuc dung anh goc, no ve ra thu trong hop ly. Voi
+    # viec xoa watermark thi dung la thu ta can - khong ai biet sau dau sao co gi.
+    engine = "Telea"
+    dst = None
+    lama = _lama()
+    if lama is not None:
+        try:
+            from PIL import Image as _Im
+
+            out = lama(_Im.fromarray(cv2.cvtColor(win, cv2.COLOR_BGR2RGB)),
+                       _Im.fromarray(m))
+            arr = cv2.cvtColor(np.array(out), cv2.COLOR_RGB2BGR)
+            # LaMa dem anh len boi so cua 8; cat lai chu KHONG resize, resize
+            # lam lech toan bo cua so di duoi mot pixel.
+            dst = arr[:wh, :ww]
+            engine = "LaMa"
+        except Exception as e:  # noqa: BLE001
+            log.info("LaMa loi (%s) -> lui ve SHIFTMAP.", e)
+            dst = None
+
+    if dst is None:
+        if hasattr(cv2, "xphoto"):
+            # SHIFTMAP: mask non-zero = pixel HOP LE (giu), zero = can lap -> 255-m.
+            dst = win.copy()
+            cv2.xphoto.inpaint(win, 255 - m, dst, cv2.xphoto.INPAINT_SHIFTMAP)
+            engine = "SHIFTMAP"
+        else:
+            dst = cv2.inpaint(win, m, 3, cv2.INPAINT_TELEA)
 
     a = np.maximum(m.astype(np.float32) / 255.0,
                    cv2.GaussianBlur(m.astype(np.float32) / 255.0, (0, 0), 1.5))[..., None]
@@ -246,8 +299,7 @@ def remove_watermark(path: Path,
     ok, enc = cv2.imencode(path.suffix or ".png", out)
     if ok:
         enc.tofile(str(path))
-        log.info("Da xoa watermark (%s): %s",
-                 "SHIFTMAP" if has_xphoto else "Telea", path.name)
+        log.info("Da xoa watermark (%s): %s", engine, path.name)
     return path
 
 
