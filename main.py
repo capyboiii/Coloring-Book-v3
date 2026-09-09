@@ -188,10 +188,12 @@ AUDIENCE_PROFILES = {
                            "areas that are easy to colour in.",
         # None -> dùng prompts.cover_style hiện có (bản cho trẻ em).
         "cover_style": None,
-        # Mức chi tiết cho BÌA (token {cover_detail}). Kids: gọn, mảng lớn.
-        "cover_detail": "DETAIL LEVEL: keep the cover clean and simple with bold, "
-                        "clear shapes, large forms and minimal clutter, easy for a "
-                        "young child to read at a glance.",
+        # Mức chi tiết cho BÌA (token {cover_detail}). Kids: gọn, mảng lớn, thoáng mắt.
+        "cover_detail": "DETAIL LEVEL: keep the cover charming, clean and easy to read "
+                        "at a glance - bold clear shapes, large forms with a strong focal "
+                        "point, and natural breathing room. The background is a complete, "
+                        "delightful setting with gentle atmospheric depth that supports the "
+                        "main subject without clutter or visual noise.",
         # Khối nhân vật (token {char_direction}) + kiểu chữ tiêu đề ({title_shape}).
         "char_direction": "FEW CHARACTERS: show just ONE to THREE main characters, "
                           "drawn large, clear and charming - a clean, uncluttered "
@@ -212,21 +214,17 @@ AUDIENCE_PROFILES = {
         # None -> dùng chung prompts.cover_style của config (kiểu vibrant cartoon
         # + glossy + grain, áp cho cả kids lẫn adults theo yêu cầu).
         "cover_style": None,
-        # Bìa cho NGƯỜI LỚN: đẩy mức chi tiết cao, tinh xảo, sang trọng - không
-        # trẻ con. Nhiều lớp, hoạ tiết trang trí, chiều sâu hậu cảnh phong phú.
-        "cover_detail": "DETAIL LEVEL: render rich, intricate and sophisticated "
-                        "detail throughout - fine textures, layered elements, "
-                        "ornamental accents, and elaborate background depth aimed at "
-                        "a mature adult audience. Refined and elegant, NOT childish, "
-                        "NOT simplistic; keep it polished and uncluttered, never "
-                        "muddy or overcrowded.",
-        # Adults: cho phép nhiều nhân vật + cảnh dày chi tiết, KHÔNG sơ sài trẻ con;
-        # tiêu đề dùng typography tinh xảo, KHÔNG chữ bong bóng.
-        "char_direction": "CHARACTERS & SCENE: feature the main subject rendered "
-                          "with refined, intricate detail; you may include several "
-                          "characters and rich supporting elements for a fuller, "
-                          "sophisticated scene, while keeping one clear focal point. "
-                          "Avoid a sparse, over-simplified or childish layout.",
+        # Bìa cho NGƯỜI LỚN: tinh xảo, có chiều sâu lớp lang, bố cục thoáng và có tâm điểm rõ ràng.
+        "cover_detail": "DETAIL LEVEL: render sophisticated, refined detail with clear "
+                        "visual hierarchy and atmospheric depth. The main subject is sharp "
+                        "and prominent, while background layers have gentle depth and softer "
+                        "contrast to create dimension without clutter. Maintain natural breathing "
+                        "room so the composition feels elegant, balanced and never overcrowded.",
+        # Adults: chủ thể rõ ràng, các chi tiết phụ bổ trợ hài hòa, không nhồi nhét.
+        "char_direction": "CHARACTERS & SCENE: feature ONE primary subject rendered with "
+                          "refined, intricate detail as the clear focal point, supported by "
+                          "tasteful, harmonious environmental elements. Avoid overcrowding the "
+                          "scene with too many competing characters or excessive props.",
         "title_shape": "Draw the title as BIG, elegant and refined display "
                        "typography on TOP of the artwork - a sophisticated font "
                        "(clean serif, engraved or tasteful hand-lettering) with a "
@@ -242,6 +240,24 @@ def audience_key(cfg: dict) -> str:
 
 def audience_of(cfg: dict) -> dict:
     return AUDIENCE_PROFILES.get(audience_key(cfg), AUDIENCE_PROFILES["kids"])
+
+
+def cover_audience_of(cfg: dict) -> dict:
+    """Hồ sơ đối tượng dùng riêng cho BÌA (mặc định luôn là 'adults').
+
+    Bìa vẽ theo hồ sơ 'kids' ra quá đơn giản - mảng lớn, ít chi tiết - nên đứng
+    cạnh sách khác trên gian hàng thì không bắt mắt. Bìa vì thế luôn dùng hồ sơ
+    'adults': chi tiết tinh xảo, nhiều lớp, typography đẹp.
+
+    RUỘT SÁCH KHÔNG ĐỔI: cmd_generate vẫn dùng audience_of() thật, nên trang tô
+    màu cho trẻ vẫn giữ nét to và mảng rộng dễ tô. Chỉ ảnh bìa đổi.
+
+    Muốn quay lại theo book.audience thì đặt prompts.cover_audience: auto.
+    """
+    key = (cfg.get("prompts", {}).get("cover_audience") or "adults").strip().lower()
+    if key == "auto":
+        return audience_of(cfg)
+    return AUDIENCE_PROFILES.get(key, AUDIENCE_PROFILES["adults"])
 
 
 def _selected_cover_style_key(cfg: dict) -> str:
@@ -277,7 +293,7 @@ def _cover_style_entry(cfg: dict) -> dict:
 def cover_style_of(cfg: dict) -> str:
     """Đoạn ART STYLE của bìa. Ưu tiên override theo đối tượng, rồi tới style đã
     chọn (book.cover_style), cuối cùng fallback prompts.cover_style cũ."""
-    prof = audience_of(cfg)
+    prof = cover_audience_of(cfg)
     if prof.get("cover_style"):
         return prof["cover_style"]
     entry = _cover_style_entry(cfg)
@@ -289,9 +305,12 @@ def cover_style_of(cfg: dict) -> str:
 def cover_title_style(cfg: dict) -> str:
     """Mô tả kiểu chữ tiêu đề theo phong cách đang chọn (token {title_style})."""
     entry = _cover_style_entry(cfg)
+    # KHONG dung "so it lifts off the scene": cum do goi y TACH chu khoi nen, va
+    # model thuc hien bang cach lam nhat ca mang phia sau chu thanh mot quang mo.
+    # "contact shadow tight against the letters" cho cung do noi ma khong loang.
     return entry.get("title") or ("bright high-contrast fill with glossy 3D shine, "
-                                  "highlights and a subtle drop shadow so it lifts "
-                                  "off the scene.")
+                                  "highlights and a crisp contact shadow tight "
+                                  "against the letters.")
 
 
 def cover_grain_of(cfg: dict) -> float:
@@ -558,22 +577,25 @@ def cover_prompt_extras(cfg: dict) -> dict:
                         cfg.get("book", {}).get("title", ""))
 
     if subs:
-        # Bìa chỉ cần 1-2 cảnh trọng tâm (nhiều quá thì bìa rối). Có <=2 thì
-        # dùng hết; nhiều hơn thì bốc 2 cái (tất định theo tên cuốn).
-        n = min(2, len(subs))
-        pick = subs[:n] if len(subs) <= 2 else rnd.sample(subs, n)
-        hint = " ".join(f"- {s}" for s in pick)
+        # Bìa chỉ chọn ĐÚNG 1 cảnh trọng tâm (thay vì gộp 2 cảnh dễ làm xé đôi/rối bố cục).
+        # Bốc 1 cảnh duy nhất tất định theo tên cuốn.
+        pick = rnd.choice(subs)
+        hint = f"- {pick}"
     else:
-        hint = f"- scenes about {cfg.get('book', {}).get('title', 'the book subject')}"
-    adj = audience_of(cfg)["adj"]
-    prof = audience_of(cfg)
+        hint = f"- a scene about {cfg.get('book', {}).get('title', 'the book subject')}"
+    prof = cover_audience_of(cfg)
+    adj = prof["adj"]
     return {"subject_hint": hint, "cover_layout": rnd.choice(COVER_LAYOUTS),
             "audience_adj": adj,
             "audience_article": "an" if adj[:1].lower() in "aeiou" else "a",
             "title_style": cover_title_style(cfg),
             "cover_detail": prof.get("cover_detail", ""),
             "char_direction": prof.get("char_direction", ""),
-            "title_shape": prof.get("title_shape", "")}
+            # KIỂU CHỮ TIÊU ĐỀ theo đối tượng THẬT của sách, không theo hồ sơ bìa.
+            # Tranh bìa thì ép sang 'adults' cho tinh xảo, bắt mắt; nhưng chữ thì
+            # không - sách trẻ em phải giữ chữ bong bóng, đó là thứ báo cho người
+            # mua biết đây là sách cho trẻ ngay từ thumbnail.
+            "title_shape": audience_of(cfg).get("title_shape", "")}
 
 
 def cover_safe_pct(cfg: dict) -> int:

@@ -1,10 +1,9 @@
 book:
-  title: Polar Bear Holiday Coloring Book – Icebergs, Cozy Sweaters & Snowflakes –
-    Print + Digital Editions – For Children
+  title: Halloween Horro
   subtitle: ''
-  audience: adults
+  audience: kids
   cover_style: glossy
-  num_images: 4
+  num_images: 30
   blank_verso: true
   matter_pages: true
 print:
@@ -43,6 +42,7 @@ print:
 process:
   pure_bw: false
 prompts:
+  cover_audience: adults
   page: 'A black and white line-art coloring page illustration for {audience_desc}.
 
     Subject: {subject}.
@@ -74,8 +74,8 @@ prompts:
         gradients. Glossy finish with shiny highlights, candy-like sheen and a little
         3D pop. Professional, polished and eye-catching, never muddy or washed out.
         NO photorealism.'
-      title: bright high-contrast fill with glossy 3D shine, highlights and a subtle
-        drop shadow so it lifts off the scene.
+      title: bright high-contrast fill with glossy 3D shine, highlights and a crisp
+        contact shadow tight against the letters.
       grain: 0.35
     watercolor:
       art: 'ART STYLE - SOFT WATERCOLOR: delicate hand-painted look. Translucent washes,
@@ -83,7 +83,7 @@ prompts:
         texture. Light, airy and dreamy with soft edges. Fine loose ink outlines,
         not heavy. NO gloss, NO plastic sheen, NO 3D pop, NO airbrush. Real watercolour
         on paper. NO photorealism.'
-      title: gentle watercolour-textured matte fill with a soft shadow for readability.
+      title: gentle watercolour-textured matte fill with a soft shadow.
       grain: 0.1
     flat_vector:
       art: 'ART STYLE - FLAT VECTOR: clean modern flat-design cartoon. Solid flat
@@ -96,23 +96,23 @@ prompts:
     gouache:
       art: 'ART STYLE - GOUACHE POSTER: rich opaque gouache painting. Dense flat-but-painterly
         colour, smooth matte coverage, visible brush strokes, bold poster-like shapes.
-        Warm and premium. Matte finish, NO gloss, NO plastic sheen, NO 3D pop. NO
-        photorealism.'
+        Rich, vibrant and premium. Matte finish, NO gloss, NO plastic sheen, NO 3D
+        pop. NO photorealism.'
       title: bold painted matte fill with a strong outline and a soft shadow.
       grain: 0.1
     vintage:
       art: 'ART STYLE - VINTAGE STORYBOOK: retro 1950s-60s storybook illustration.
-        Warm nostalgic muted palette, slightly aged paper texture, screen-print /
-        halftone feel, charming hand-drawn lines. Cozy classic mood. Matte, NO gloss,
+        Nostalgic muted palette, slightly aged paper texture, screen-print / halftone
+        feel, charming hand-drawn lines. Classic storybook mood. Matte, NO gloss,
         NO 3D, NO photorealism.'
       title: retro hand-lettered matte fill with a warm outline and a gentle vintage
         shadow.
       grain: 0.1
     colored_pencil:
       art: 'ART STYLE - COLORED PENCIL: detailed hand-drawn coloured-pencil illustration.
-        Fine layered pencil strokes, soft realistic shading, gentle paper grain, warm
-        natural colours. Semi-realistic but still friendly. Matte, NO gloss, NO plastic
-        3D, NO digital airbrush.'
+        Fine layered pencil strokes, soft realistic shading, gentle paper grain, rich
+        natural colours fitting the subject. Semi-realistic but still friendly. Matte,
+        NO gloss, NO plastic 3D, NO digital airbrush.'
       title: soft pencil-shaded matte fill with a hand-drawn outline and a light shadow.
       grain: 0.1
     papercut:
@@ -142,16 +142,66 @@ prompts:
 
 
     TITLE "{title}": spell it EXACTLY, letter for letter. {title_shape} {title_style}
-    It does NOT need to blend into the scenery; it can sit boldly in front as eye-catching
-    cover typography. Place it anywhere that looks best (2-3 centred lines if long),
-    but keep every letter at least 8% of the cover width in from all four edges. Keep
-    the lettering fully readable, with nothing covering the letters.
+    It stays a distinct graphic element sitting boldly in front as eye-catching cover
+    typography - never painted onto a surface inside the scene, never following the
+    perspective of an object. Place it anywhere that looks best (2-3 centred lines
+    if long), but keep every letter at least 8% of the cover width in from all four
+    edges.
 
 
-    FULL BLEED: the illustration and its coloured background fill the ENTIRE cover
-    to all four edges - no border, frame, keyline, empty margin or blank unpainted
-    strip anywhere; colour reaches every corner. Only the characters'' faces stay
-    comfortably in from the edges.
+    TITLE COLOUR - MUST CONTRAST WITH WHAT IS BEHIND IT: first look at the part of
+    the illustration the letters will sit over, then choose letter colours that read
+    strongly against it. If that area is dark, the letters are light; if it is light,
+    the letters are dark. NEVER put the letters in a colour close to the background
+    directly behind them - no red lettering over a red scene, no green over green,
+    no white over pale snow or sky. If the background behind the title is busy or
+    multi-coloured, give every letter a thick unbroken outline in a strongly contrasting
+    tone so the shapes stay crisp against it.
+
+
+    TITLE MUST BELONG TO THIS BOOK: the lettering''s colours, material and mood come
+    from this book''s own theme and palette - it should look designed for THIS cover,
+    not a generic caption dropped on top. Echo the scene''s own materials and season
+    in the letterforms where it helps, but keep the words perfectly legible and do
+    not let decoration eat into the shapes of the letters.
+
+
+    The title sits ON TOP OF the illustration: the artwork continues behind the letters
+    without interruption. Do NOT clear, flatten, empty or fade the area behind the
+    title, and do NOT reserve a plain colour panel, banner or block for it - that
+    region must stay as fully illustrated as everywhere else. Readability comes from
+    the lettering''s own outline, fill and shadow, NOT from emptying the scene behind
+    it. Keep every letter fully legible, with no object drawn over the front of the
+    letterforms.
+
+
+    COMPLETE FULL-BLEED ARTWORK WITH CLEAN COMPOSITION: the illustration must fill
+    the ENTIRE cover edge-to-edge, corner to corner, as a rich, fully realized environment
+    (room, wall, floor, sky, or natural scenery). However, maintain clear VISUAL HIERARCHY
+    and natural breathing room - do NOT overcrowd or clutter the scene with excessive
+    tiny objects. Use clean, restful space (such as a smooth wall, sky, flooring or
+    gentle environmental textures) to give the composition balance and let the main
+    subject stand out clearly.
+
+
+    DEPTH OF FIELD & LIGHTING HIERARCHY: establish a strong, unambiguous focal point.
+    The primary subject should be the sharpest, most vibrant, and visually dominant
+    element. The background environment should feature natural atmospheric depth and
+    softer contrast so it naturally supports the main subject without competing for
+    attention. Use expressive natural lighting and a harmonious color palette chosen
+    specifically to fit THIS book''s subject and mood (such as cool moonlit hues for
+    night or spooky themes, crisp vibrant sunlight for daytime nature, or warm tones
+    only when the setting specifically calls for it) to guide the viewer''s eye smoothly
+    to the focal character.
+
+
+    STRICTLY FORBIDDEN: NO border or frame around the image, NO unpainted blank white
+    margins, NO sticker cutout look where the subject floats isolated on a plain solid
+    colour sheet, NO washed-out overexposed bleached patches, NO artificial blank
+    text banners or placeholder blocks.
+
+
+    Only the characters'' faces stay comfortably in from the edges.
 
 
     {cover_detail}
@@ -206,44 +256,29 @@ prompts:
     flower meadow unless that is truly this book''s setting.
 
 
-    COMPLETE EDGE-TO-EDGE ARTWORK - THIS IS THE MOST IMPORTANT RULE: The illustration
-    must
+    COMPLETE FULL-BLEED ARTWORK WITH BALANCED COMPOSITION: The illustration must fill
+    the ENTIRE canvas edge-to-edge, corner to corner, as a fully rendered scene. Maintain
+    comfortable breathing room and clear visual balance - do NOT overcrowd the image
+    with clutter or excessive objects. Allow calm background areas (such as sky, landscape,
+    flooring or wall) to give the scene harmony.
 
-    fill the ENTIRE canvas completely, corner to corner, with an even level of finish
 
-    everywhere. Every square inch must be fully drawn and fully coloured.
+    DEPTH & LIGHTING: Create natural atmospheric depth and pleasant lighting that
+    complements the front cover. The primary elements should be sharp and clear, while
+    background scenery has gentle depth and softer contrast to create dimension.
 
 
-    STRICTLY FORBIDDEN - do NOT produce any of the following: NO white glow, NO bright
-
-    haze, NO blank white patch, NO empty unpainted area, NO washed-out region, NO
-    faded or
-
-    blurred zone, NO soft spotlight, NO vignette, NO radial gradient burst, NO reserved
-
-    blank space of any kind, NO guide lines, NO dashed lines, NO crop marks, NO coloured
-
-    bands or strips along any edge, NO rectangles outlining regions of the page. There
-    must
-
-    be NO area that looks unfinished, overexposed, or deliberately left empty. If
-    a region
-
-    has few objects, it must still be fully illustrated with background detail such
-    as
-
-    wallpaper pattern, sky, foliage or floor, drawn and coloured at the same quality
-    as the
-
-    rest.
+    STRICTLY FORBIDDEN: NO white borders or blank margins, NO unpainted blank paper
+    patches, NO guide lines, crop marks, or dividing boxes, NO sticker cut-out look
+    where objects float isolated on a plain solid backdrop.
 
 
     COMPOSITION: Create a complementary scene that feels distinct from the front cover
     - a
 
-    charming continuation of the story. Good options: the characters resting at sunset,
-
-    waving goodbye, sleeping cosily under stars, or playing with secondary theme elements.
+    charming continuation of the story. Good options: the characters engaged in an
+    activity that complements the theme, exploring their environment, waving goodbye,
+    or interacting with secondary elements.
 
     Spread interest evenly across the whole image rather than concentrating everything
     in
@@ -320,11 +355,7 @@ prompts:
       100% exact visual fidelity. Do NOT generate or modify any artwork or text on
       the book cover. Keep the cover design identical to the attached image. Square
       1:1 aspect ratio.'
-subjects:
-- A happy polar bear wearing a winter scarf while catching snowflakes on its tongue.
-- A small polar bear cub sliding down a snowy hill on a candy cane sled.
-- A friendly polar bear decorating a small pine tree with round ornaments.
-- Two polar bears sharing a mug of hot cocoa with marshmallows under a starry sky.
+subjects: []
 cover_text:
   back_blurb: '
 
@@ -363,4 +394,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: polar-bear-holiday-coloring-book-icebergs-cozy-sweaters-snow
+_book: halloween-horro
