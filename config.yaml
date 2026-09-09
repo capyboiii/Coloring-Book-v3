@@ -1,10 +1,9 @@
 book:
-  title: Legends of the Dragon Mandalas Coloring Pages – 48 Pages – Mythical, Fiery,
-    Eastern-Inspired Designs – For Adults
+  title: Default Book
   subtitle: ''
-  audience: adults
+  audience: kids
   cover_style: gouache
-  num_images: 5
+  num_images: 4
   blank_verso: true
   matter_pages: true
 print:
@@ -320,17 +319,7 @@ prompts:
       100% exact visual fidelity. Do NOT generate or modify any artwork or text on
       the book cover. Keep the cover design identical to the attached image. Square
       1:1 aspect ratio.'
-subjects:
-- A coiled celestial dragon clutching a glowing flaming pearl within a symmetrical
-  lotus mandala border.
-- An Eastern horned dragon gliding through circular swirling smoke clouds and stylized
-  cresting waves.
-- A fierce dragon head centered inside a geometric ring of blazing solar flares and
-  ornamental scales.
-- Two intertwining serpentine dragons forming a balanced Yin-Yang emblem surrounded
-  by blossom petals.
-- A majestic dragon perched on a mountain peak framed by radiant sunbeams and concentric
-  circular patterns.
+subjects: []
 cover_text:
   back_blurb: '
 
@@ -369,4 +358,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: legends-of-the-dragon-mandalas-coloring-pages-48-pages-mythi
+_book: default-book

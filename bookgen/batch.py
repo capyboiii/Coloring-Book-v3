@@ -171,6 +171,8 @@ class BatchRunner:
         self._stop = threading.Event()
         self._cpu_q: queue.Queue = queue.Queue()
         self._base_cfg: dict = {}
+        # Config đọc lại lúc bấm "chạy tiếp", dùng cho các cuốn CHƯA có ảnh nào.
+        self._fresh_cfg: dict = {}
         self._started_at: float | None = None
         self._installed = False
 
@@ -185,6 +187,7 @@ class BatchRunner:
                 "started_at": self._started_at,
                 "paused_reason": self._paused_reason,
                 "config": self._base_cfg,   # để bấm "chạy tiếp" dùng đúng config cũ
+                "fresh_config": self._fresh_cfg,
                 "books": self._books,
             }, indent=2, ensure_ascii=False), encoding="utf-8")
         except Exception as e:
@@ -233,6 +236,7 @@ class BatchRunner:
             self._started_at = data.get("started_at")
             self._paused_reason = data.get("paused_reason")
             self._base_cfg = data.get("config") or {}
+            self._fresh_cfg = data.get("fresh_config") or {}
             # Batch cũ chắc chắn không còn chạy: server đã restart. Cuốn đang dở
             # để là STOPPED - vẫn bấm "chạy tiếp" được, ảnh cũ giữ nguyên.
             for b in self._books:
@@ -318,9 +322,54 @@ class BatchRunner:
                 b["status"] = QUEUED
                 b["error"] = None
             self._paused_reason = None
+            fresh_n = self._apply_fresh_cfg(todo)
 
-        log.info("[BATCH] Chạy tiếp %d cuốn còn dở.", len(todo))
+        log.info("[BATCH] Chạy tiếp %d cuốn còn dở (%d cuốn dùng config.yaml mới).",
+                 len(todo), fresh_n)
         return self._launch()
+
+    def _apply_fresh_cfg(self, todo: list[dict]) -> int:
+        """Cuốn CHƯA vẽ được ảnh nào thì dùng config.yaml hiện tại.
+
+        Batch chụp config một lần lúc bấm chạy, nên đổi style bìa giữa chừng
+        không ăn vào các cuốn còn lại. Ở đây đọc lại config.yaml khi bấm "chạy
+        tiếp" và áp cho những cuốn còn trắng.
+
+        Cuốn đã vẽ dở thì GIỮ config cũ - đổi style giữa chừng sẽ cho ra một
+        cuốn nửa style này nửa style kia.
+
+        num_images vẫn lấy từ snapshot batch: đó là con số người dùng nhập
+        riêng cho lượt chạy này, và cột "expected" trên UI đang dựa vào nó.
+
+        Gọi trong lock. Trả về số cuốn được áp config mới.
+        """
+        try:
+            fresh = self.bm.load_cfg(self.root / "config.yaml")
+        except Exception as e:  # noqa: BLE001
+            log.warning("[BATCH] Không đọc lại được config.yaml: %s", e)
+            return 0
+        if self._base_cfg:
+            old_n = self._base_cfg.get("book", {}).get("num_images")
+            if old_n:
+                fresh.setdefault("book", {})["num_images"] = old_n
+        self._fresh_cfg = fresh
+
+        n = 0
+        for b in todo:
+            slug = b["slug"]
+            cfg_old = self._cfg_for(self._base_cfg, slug, b["title"],
+                                    b.get("cover_title", ""), b.get("seo_description", ""))
+            raw = self.bm.paths_of(cfg_old)["raw_dir"]
+            if raw.exists() and any(raw.glob("*.png")):
+                b.pop("fresh_cfg", None)     # đã vẽ dở -> giữ config cũ
+                continue
+            b["fresh_cfg"] = True
+            # state.json của cuốn cũng phải mang config mới, vì cmd_generate
+            # đọc state["book"] chứ không đọc lại config.yaml.
+            self._prepare_book(fresh, slug, b["title"],
+                               b.get("cover_title", ""), b.get("seo_description", ""))
+            n += 1
+        return n
 
     def _launch(self) -> dict:
         with self._lock:
@@ -572,7 +621,9 @@ class BatchRunner:
                     continue
 
                 slug, title = book["slug"], book["title"]
-                cfg = self._cfg_for(self._base_cfg, slug, title,
+                use_fresh = bool(book.get("fresh_cfg") and self._fresh_cfg)
+                base = self._fresh_cfg if use_fresh else self._base_cfg
+                cfg = self._cfg_for(base, slug, title,
                                     book.get("cover_title", ""),
                                     book.get("seo_description", ""))
                 logp = self.bm.BOOKS_DIR / slug / "run.log"
