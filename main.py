@@ -235,6 +235,14 @@ AUDIENCE_PROFILES = {
 
 
 def audience_key(cfg: dict) -> str:
+    try:
+        state = load_state(paths_of(cfg)["state_file"])
+        k = (state.get("audience")
+             or (state.get("book") or {}).get("audience") or "").strip()
+        if k:
+            return k.lower()
+    except Exception as e:  # noqa: BLE001
+        log.debug("Không đọc được audience từ state (%s).", e)
     return (cfg.get("book", {}).get("audience") or "kids").strip().lower()
 
 
@@ -722,6 +730,10 @@ def subjects_prompt(cfg: dict, subjects: list[str], need: int) -> str:
         f"different from these: {subjects}. "
         "Each idea must be one short English sentence describing a single simple "
         "scene suitable for a bold-outline coloring page. "
+        "IMPORTANT: All scenes must feature 100% original, generic subjects only. "
+        "Do NOT include, reference, or borrow distinctive visual features from any copyrighted "
+        "characters, franchises, movies, TV shows, anime, or video games "
+        "(e.g., no Disney, Pokemon, Sanrio, Marvel, Barbie, etc.). "
         "Respond ONLY with a JSON array of strings, nothing else."
     )
 

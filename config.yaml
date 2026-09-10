@@ -1,9 +1,10 @@
 book:
-  title: Halloween Horro
+  title: Woodland Forest Xmas Coloring Book – Deer, Pine Cones, Owls & Snow – Print
+    + Digital Editions – For Budding Artists
   subtitle: ''
   audience: kids
-  cover_style: glossy
-  num_images: 30
+  cover_style: gouache
+  num_images: 4
   blank_verso: true
   matter_pages: true
 print:
@@ -53,6 +54,9 @@ prompts:
 
     NO TEXT of any kind: no title, no caption, no letters, numbers, page number, signature,
     watermark or logo.
+
+    100% original artwork with generic subjects only. NO copyrighted or trademarked
+    character designs, logos, or recognizable media franchise elements.
 
     Line work: pure black outlines on a pure white background, {page_line_style}
 
@@ -210,9 +214,10 @@ prompts:
     ART STYLE: {style}
 
 
-    Draw ONLY the illustration and the title - no border or frame, no guide/crop marks,
-    no barcode, ISBN, price, logo, author name, watermark, or any words other than
-    "{title}".
+    Draw ONLY the illustration and the title - 100% original artwork with generic
+    characters only, no copyrighted or trademarked franchise designs. No border or
+    frame, no guide/crop marks, no barcode, ISBN, price, logo, author name, watermark,
+    or any words other than "{title}".
 
 
     Vertical portrait orientation, aspect ratio 8.625:11.25, maximum resolution.'
@@ -232,7 +237,8 @@ prompts:
     barcode, an ISBN, a price box, a publisher logo, an author name, a watermark,
     a label
 
-    or any annotation. Pure illustration artwork only, nothing else.
+    or any annotation. 100% original artwork only, no copyrighted or trademarked characters,
+    nothing else.
 
 
     MATCHING ART STYLE & COLOUR: MUST use EXACTLY the same art style, colour palette
@@ -355,7 +361,15 @@ prompts:
       100% exact visual fidelity. Do NOT generate or modify any artwork or text on
       the book cover. Keep the cover design identical to the attached image. Square
       1:1 aspect ratio.'
-subjects: []
+subjects:
+- A fluffy owl wearing a tiny knitted scarf perches on a snowy pine branch beside
+  two large pine cones.
+- A young spotted deer gently nudges a wrapped Christmas present sitting in a drift
+  of fresh snow.
+- A baby fawn curls up asleep under an evergreen bough decorated with hanging wooden
+  star ornaments.
+- A round little owl watches from a tree hollow as large snowflakes gently fall around
+  a standing deer.
 cover_text:
   back_blurb: '
 
@@ -394,4 +408,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: halloween-horro
+_book: woodland-forest-xmas-coloring-book-deer-pine-cones-owls-snow

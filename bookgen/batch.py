@@ -246,7 +246,8 @@ class BatchRunner:
 
     # ---------------------------------------------------------- khởi động
 
-    def start(self, titles: list, num_images: int | None = None) -> dict:
+    def start(self, titles: list, num_images: int | None = None,
+              ranges: list[dict] | None = None) -> dict:
         with self._lock:
             if self._running:
                 raise RuntimeError("Đang có batch chạy dở. Dừng nó trước đã.")
@@ -255,16 +256,39 @@ class BatchRunner:
         # title dùng để dựng sách + nghĩ scene (chính là seo_title); cover_title
         # (nếu có) là tên ngắn hiện trên bìa.
         items: list[dict] = []
-        for t in titles:
+        for idx, t in enumerate(titles, start=1):
             if isinstance(t, dict):
                 seo = str(t.get("seo_title") or t.get("title") or "").strip()
                 cover = str(t.get("cover_title") or "").strip()
                 desc = str(t.get("seo_description") or "").strip()
+                aud = t.get("audience")
+                cstyle = t.get("cover_style")
             else:
                 seo, cover, desc = str(t).strip(), "", ""
+                aud, cstyle = None, None
+
+            if ranges:
+                for r in ranges:
+                    try:
+                        r_from = int(r.get("from", 1))
+                        r_to = int(r.get("to", 999999))
+                        if r_from <= idx <= r_to:
+                            if not aud and r.get("audience"):
+                                aud = str(r["audience"]).strip().lower()
+                            if not cstyle and r.get("cover_style"):
+                                cstyle = str(r["cover_style"]).strip().lower()
+                            break
+                    except (ValueError, TypeError):
+                        continue
+
             if seo:
-                items.append({"title": seo, "cover_title": cover,
-                              "seo_description": desc})
+                items.append({
+                    "title": seo,
+                    "cover_title": cover,
+                    "seo_description": desc,
+                    "audience": aud,
+                    "cover_style": cstyle,
+                })
         if not items:
             raise ValueError("Danh sách chủ đề rỗng.")
 
@@ -277,12 +301,17 @@ class BatchRunner:
         used: set[str] = set()
         for it in items:
             title, cover, desc = it["title"], it["cover_title"], it["seo_description"]
+            aud = it.get("audience") or base_cfg.get("book", {}).get("audience", "kids")
+            cstyle = it.get("cover_style") or base_cfg.get("book", {}).get("cover_style", "glossy")
             slug = self._unique_slug(title, used)
             used.add(slug)
-            self._prepare_book(base_cfg, slug, title, cover, desc)
+            self._prepare_book(base_cfg, slug, title, cover, desc, aud, cstyle)
             books.append({
                 "slug": slug, "title": title, "cover_title": cover,
-                "seo_description": desc, "status": QUEUED,
+                "seo_description": desc,
+                "audience": aud,
+                "cover_style": cstyle,
+                "status": QUEUED,
                 "error": None, "started_at": None, "finished_at": None,
                 "images": 0, "expected": base_cfg["book"]["num_images"] + 2,
             })
@@ -358,7 +387,8 @@ class BatchRunner:
         for b in todo:
             slug = b["slug"]
             cfg_old = self._cfg_for(self._base_cfg, slug, b["title"],
-                                    b.get("cover_title", ""), b.get("seo_description", ""))
+                                    b.get("cover_title", ""), b.get("seo_description", ""),
+                                    b.get("audience"), b.get("cover_style"))
             raw = self.bm.paths_of(cfg_old)["raw_dir"]
             if raw.exists() and any(raw.glob("*.png")):
                 b.pop("fresh_cfg", None)     # đã vẽ dở -> giữ config cũ
@@ -367,7 +397,8 @@ class BatchRunner:
             # state.json của cuốn cũng phải mang config mới, vì cmd_generate
             # đọc state["book"] chứ không đọc lại config.yaml.
             self._prepare_book(fresh, slug, b["title"],
-                               b.get("cover_title", ""), b.get("seo_description", ""))
+                               b.get("cover_title", ""), b.get("seo_description", ""),
+                               b.get("audience"), b.get("cover_style"))
             n += 1
         return n
 
@@ -416,9 +447,10 @@ class BatchRunner:
         return slug
 
     def _prepare_book(self, base_cfg: dict, slug: str, title: str,
-                      cover_title: str = "", seo_description: str = "") -> None:
+                      cover_title: str = "", seo_description: str = "",
+                      audience: str | None = None, cover_style: str | None = None) -> None:
         """Tạo thư mục + state.json cho một cuốn. Không đụng config.yaml."""
-        cfg = self._cfg_for(base_cfg, slug, title, cover_title, seo_description)
+        cfg = self._cfg_for(base_cfg, slug, title, cover_title, seo_description, audience, cover_style)
         P = self.bm.paths_of(cfg)
         P["raw_dir"].mkdir(parents=True, exist_ok=True)
 
@@ -427,6 +459,10 @@ class BatchRunner:
         state["subtitle"] = ""
         state["num_images"] = cfg["book"]["num_images"]
         state["blank_verso"] = cfg["book"].get("blank_verso", True)
+        if audience:
+            state["audience"] = audience
+        if cover_style:
+            state["cover_style"] = cover_style
         state["book"] = cfg["book"]
         # Chủ đề để rỗng: cmd_generate sẽ tự nhờ Gemini nghĩ ra cho đúng title này.
         state.setdefault("subjects", [])
@@ -434,7 +470,8 @@ class BatchRunner:
         self.bm.save_state(P["state_file"], state)
 
     def _cfg_for(self, base_cfg: dict, slug: str, title: str,
-                 cover_title: str = "", seo_description: str = "") -> dict:
+                 cover_title: str = "", seo_description: str = "",
+                 audience: str | None = None, cover_style: str | None = None) -> dict:
         cfg = copy.deepcopy(base_cfg)
         cfg["_book"] = slug
         cfg.setdefault("book", {})
@@ -452,6 +489,10 @@ class BatchRunner:
             cfg["book"]["seo_description"] = seo_description
         else:
             cfg["book"].pop("seo_description", None)
+        if audience:
+            cfg["book"]["audience"] = audience
+        if cover_style:
+            cfg["book"]["cover_style"] = cover_style
         # QUAN TRỌNG: config.yaml còn giữ subjects của cuốn làm gần nhất. Không
         # xoá thì cmd_generate sẽ lấy lại đúng list đó cho MỌI cuốn trong batch.
         cfg["subjects"] = []
@@ -625,7 +666,9 @@ class BatchRunner:
                 base = self._fresh_cfg if use_fresh else self._base_cfg
                 cfg = self._cfg_for(base, slug, title,
                                     book.get("cover_title", ""),
-                                    book.get("seo_description", ""))
+                                    book.get("seo_description", ""),
+                                    book.get("audience"),
+                                    book.get("cover_style"))
                 logp = self.bm.BOOKS_DIR / slug / "run.log"
 
                 self._set(slug, status=GENERATING, started_at=time.time())

@@ -630,15 +630,52 @@ async function generateIdeas() {
   }
 }
 
+function copyIdeasToBatch() {
+  const ideas = collectIdeas();
+  if (!ideas.length) {
+    alert("Chưa có chủ đề nào để chép. Hãy bấm '✨ Gợi Ý Chủ Đề' hoặc '➕ Thêm Dòng' trước.");
+    return;
+  }
+  const titles = ideas.map(it => it.seo_title || it.cover_title).filter(Boolean);
+  const textarea = document.getElementById('batch-titles');
+  if (textarea) {
+    textarea.value = titles.join('\n');
+    updateBatchRangePreview();
+    const card = document.getElementById('card-batch-runner');
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth' });
+    }
+    logToTerminal(`[IDEAS] Đã chép ${titles.length} chủ đề sang Batch Runner.`);
+  }
+}
+
 async function startBatchFromIdeas() {
   const ideas = collectIdeas();
   if (!ideas.length) { alert("Chưa có chủ đề nào (cần seo_title)."); return; }
 
   const numRaw = document.getElementById('batch-num-images').value.trim();
-  const body = { titles: ideas };
+  const ranges = collectBatchRanges();
+  const defaultAud = document.getElementById('book-audience')?.value || "kids";
+  const defaultStyle = document.getElementById('book-cover-style')?.value || "glossy";
+
+  const mappedIdeas = ideas.map((it, idx) => {
+    const bookIdx = idx + 1;
+    const matched = ranges.find(r => bookIdx >= r.from && bookIdx <= r.to);
+    return {
+      ...it,
+      audience: it.audience || (matched ? matched.audience : defaultAud),
+      cover_style: it.cover_style || (matched ? matched.cover_style : defaultStyle),
+    };
+  });
+
+  const body = { titles: mappedIdeas, ranges: ranges };
   if (numRaw) body.num_images = parseInt(numRaw, 10);
 
-  if (!confirm(`Gen ${ideas.length} cuốn từ danh sách ý tưởng?\n\nMỗi cuốn: gen ảnh AI -> 300 DPI -> PDF. Có thể mất nhiều giờ.`)) return;
+  const confirmMsg = ranges.length
+    ? `Gen ${ideas.length} cuốn từ danh sách ý tưởng theo cấu hình phân bổ (${ranges.length} khoảng)?\n\nMỗi cuốn: gen ảnh AI -> 300 DPI -> PDF. Có thể mất nhiều giờ.`
+    : `Gen ${ideas.length} cuốn từ danh sách ý tưởng?\n\nMỗi cuốn: gen ảnh AI -> 300 DPI -> PDF. Có thể mất nhiều giờ.`;
+
+  if (!confirm(confirmMsg)) return;
 
   const btn = document.getElementById('btn-ideas-batch');
   btn.disabled = true;
@@ -766,16 +803,156 @@ async function uploadThenCsvAll() {
   if (ok) await exportCsv(true);
 }
 
+// ---------------- BATCH RANGE RULES ----------------
+function addBatchRangeRow(fromVal = '', toVal = '', audience = 'kids', coverStyle = 'glossy') {
+  const list = document.getElementById('batch-range-list');
+  if (!list) return;
+
+  if (!fromVal || !toVal) {
+    const existing = collectBatchRanges();
+    if (existing.length > 0) {
+      const last = existing[existing.length - 1];
+      fromVal = (last.to || 0) + 1;
+      toVal = fromVal + 4;
+    } else {
+      fromVal = 1;
+      toVal = 5;
+    }
+  }
+
+  const row = document.createElement('div');
+  row.className = 'batch-range-row';
+  row.innerHTML = `
+    <span class="range-label">Từ sách:</span>
+    <input type="number" class="range-num range-from" min="1" value="${fromVal}" placeholder="1" oninput="updateBatchRangePreview()">
+    <span class="range-label">đến sách:</span>
+    <input type="number" class="range-num range-to" min="1" value="${toVal}" placeholder="5" oninput="updateBatchRangePreview()">
+    
+    <span class="range-label" style="margin-left: 4px;">Audience:</span>
+    <select class="range-select range-audience" onchange="updateBatchRangePreview()">
+      <option value="kids" ${audience === 'kids' ? 'selected' : ''}>Trẻ em 4-8 tuổi (kids)</option>
+      <option value="adults" ${audience === 'adults' ? 'selected' : ''}>Người lớn (adults)</option>
+    </select>
+
+    <span class="range-label" style="margin-left: 4px;">Style:</span>
+    <select class="range-select range-cover-style" onchange="updateBatchRangePreview()">
+      <option value="glossy" ${coverStyle === 'glossy' ? 'selected' : ''}>Glossy (bóng loáng)</option>
+      <option value="watercolor" ${coverStyle === 'watercolor' ? 'selected' : ''}>Watercolor (màu nước)</option>
+      <option value="flat_vector" ${coverStyle === 'flat_vector' ? 'selected' : ''}>Flat vector (phẳng)</option>
+      <option value="gouache" ${coverStyle === 'gouache' ? 'selected' : ''}>Gouache (màu đặc)</option>
+      <option value="vintage" ${coverStyle === 'vintage' ? 'selected' : ''}>Vintage (cổ điển)</option>
+      <option value="colored_pencil" ${coverStyle === 'colored_pencil' ? 'selected' : ''}>Colored pencil (chì màu)</option>
+      <option value="papercut" ${coverStyle === 'papercut' ? 'selected' : ''}>Papercut (cắt giấy)</option>
+    </select>
+
+    <button type="button" class="btn-del-range" title="Xóa khoảng này" onclick="removeBatchRangeRow(this)">✕</button>
+  `;
+  list.appendChild(row);
+  updateBatchRangePreview();
+}
+
+function removeBatchRangeRow(btn) {
+  const row = btn.closest('.batch-range-row');
+  if (row) {
+    row.remove();
+    updateBatchRangePreview();
+  }
+}
+
+function collectBatchRanges() {
+  const rows = document.querySelectorAll('#batch-range-list .batch-range-row');
+  const ranges = [];
+  rows.forEach(r => {
+    const fromEl = r.querySelector('.range-from');
+    const toEl = r.querySelector('.range-to');
+    const audEl = r.querySelector('.range-audience');
+    const styleEl = r.querySelector('.range-cover-style');
+    const f = parseInt(fromEl?.value, 10);
+    const t = parseInt(toEl?.value, 10);
+    if (!isNaN(f) && !isNaN(t) && f > 0 && t >= f) {
+      ranges.push({
+        from: f,
+        to: t,
+        audience: audEl?.value || 'kids',
+        cover_style: styleEl?.value || 'glossy',
+      });
+    }
+  });
+  return ranges;
+}
+
+function updateBatchRangePreview() {
+  const previewBox = document.getElementById('batch-range-preview');
+  if (!previewBox) return;
+
+  const rawTitles = document.getElementById('batch-titles')?.value || '';
+  const titles = rawTitles.split('\n').map(s => s.trim()).filter(Boolean);
+  const totalBooks = titles.length;
+
+  const ranges = collectBatchRanges();
+  if (!ranges.length && totalBooks === 0) {
+    previewBox.style.display = 'none';
+    previewBox.innerHTML = '';
+    return;
+  }
+
+  const defaultAud = document.getElementById('book-audience')?.value || 'kids';
+  const defaultStyle = document.getElementById('book-cover-style')?.value || 'glossy';
+
+  let html = `<div style="font-weight: 600; margin-bottom: 6px; color: var(--primary);">📊 Phân bổ phong cách sách dự kiến (${totalBooks} cuốn):</div>`;
+
+  if (ranges.length === 0) {
+    html += `<div style="color: var(--text-muted);">Mọi cuốn sẽ dùng cấu hình mặc định: <span class="preview-tag">👶 ${defaultAud === 'adults' ? 'Người lớn' : 'Trẻ em'}</span> <span class="preview-tag">🎨 ${defaultStyle}</span></div>`;
+  } else {
+    html += `<div style="display: flex; flex-wrap: wrap; gap: 6px;">`;
+    ranges.forEach((r, idx) => {
+      const audLabel = r.audience === 'adults' ? '🧑 Người lớn' : '👶 Trẻ em';
+      const count = Math.max(0, r.to - r.from + 1);
+      html += `<div class="preview-tag" style="background: rgba(0,0,0,0.3); border-color: var(--border-color);">
+        <b>Khoảng ${idx + 1}:</b> Cuốn ${r.from} - ${r.to} (${count} cuốn) ➔ <span>${audLabel}</span> • <span style="text-transform: capitalize;">${r.cover_style}</span>
+      </div>`;
+    });
+    html += `</div>`;
+    html += `<div style="margin-top: 6px; font-size: 0.73rem; color: var(--text-dim);">💡 Các cuốn ngoài khoảng (nếu có) sẽ tự động áp dụng cấu hình mặc định: <b>${defaultAud === 'adults' ? 'Người lớn' : 'Trẻ em'}</b> + <b>${defaultStyle}</b>.</div>`;
+  }
+
+  previewBox.style.display = 'block';
+  previewBox.innerHTML = html;
+}
+
 async function startBatch() {
   const titles = document.getElementById('batch-titles').value
     .split('\n').map(s => s.trim()).filter(Boolean);
   if (!titles.length) { alert("Nhập ít nhất một chủ đề (mỗi dòng một cuốn)."); return; }
 
   const numRaw = document.getElementById('batch-num-images').value.trim();
-  const body = { titles: titles };
+  const ranges = collectBatchRanges();
+
+  const defaultAud = document.getElementById('book-audience')?.value || "kids";
+  const defaultStyle = document.getElementById('book-cover-style')?.value || "glossy";
+
+  // Map từng cuốn với cấu hình tương ứng
+  const booksPayload = titles.map((title, idx) => {
+    const bookIdx = idx + 1;
+    const matched = ranges.find(r => bookIdx >= r.from && bookIdx <= r.to);
+    return {
+      title: title,
+      audience: matched ? matched.audience : defaultAud,
+      cover_style: matched ? matched.cover_style : defaultStyle,
+    };
+  });
+
+  const body = {
+    titles: booksPayload,
+    ranges: ranges,
+  };
   if (numRaw) body.num_images = parseInt(numRaw, 10);
 
-  if (!confirm(`Chạy ${titles.length} cuốn với cấu hình hiện tại?\n\nMỗi cuốn sẽ gen ảnh AI -> xử lý 300 DPI -> dựng PDF. Việc này có thể mất nhiều giờ.`)) return;
+  const confirmMsg = ranges.length
+    ? `Chạy ${titles.length} cuốn với cấu hình phân bổ (${ranges.length} khoảng)?\n\nMỗi cuốn sẽ gen ảnh AI theo Audience và Cover Style tương ứng. Việc này có thể mất nhiều giờ.`
+    : `Chạy ${titles.length} cuốn với cấu hình hiện tại?\n\nMỗi cuốn sẽ gen ảnh AI -> xử lý 300 DPI -> dựng PDF. Việc này có thể mất nhiều giờ.`;
+
+  if (!confirm(confirmMsg)) return;
 
   const btn = document.getElementById('btn-batch-start');
   btn.disabled = true;
@@ -856,9 +1033,24 @@ function renderBatch(data) {
     const [icon, label, color] = BATCH_LABELS[b.status] || ['•', b.status, 'var(--text-muted)'];
     const dur = (b.started_at && b.finished_at)
       ? `${Math.round((b.finished_at - b.started_at) / 60)} phút` : '';
+
+    const audBadge = b.audience ? `
+      <span style="display:inline-block; font-size:0.68rem; padding: 1px 6px; border-radius: 4px; margin-left: 6px; font-weight: 600; background: ${b.audience === 'adults' ? 'rgba(142,104,204,0.18)' : 'rgba(78,168,133,0.18)'}; color: ${b.audience === 'adults' ? '#bca5f5' : '#7fe4ba'}; border: 1px solid ${b.audience === 'adults' ? 'rgba(142,104,204,0.35)' : 'rgba(78,168,133,0.35)'};">
+        ${b.audience === 'adults' ? 'Adults' : 'Kids'}
+      </span>` : '';
+
+    const styleBadge = b.cover_style ? `
+      <span style="display:inline-block; font-size:0.68rem; padding: 1px 6px; border-radius: 4px; margin-left: 4px; font-weight: 500; background: rgba(217,119,87,0.15); color: var(--primary); border: 1px solid rgba(217,119,87,0.3); text-transform: capitalize;">
+        ${b.cover_style.replace(/_/g, ' ')}
+      </span>` : '';
+
     return `<tr>
       <td style="padding: 5px 8px;">${icon}</td>
-      <td style="padding: 5px 8px;">${b.title}</td>
+      <td style="padding: 5px 8px;">
+        <span style="font-weight: 500;">${b.title}</span>
+        ${audBadge}
+        ${styleBadge}
+      </td>
       <td style="padding: 5px 8px; color: ${color}; white-space: nowrap;">${label}</td>
       <td style="padding: 5px 8px; color: var(--text-muted); font-size: 0.78rem;">${dur}</td>
       <td style="padding: 5px 8px; color: var(--error, #f43f5e); font-size: 0.75rem;">${b.error || ''}</td>

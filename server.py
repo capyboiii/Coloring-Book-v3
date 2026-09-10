@@ -1574,8 +1574,9 @@ def batch_start(payload: dict):
     """
     raw = payload.get("titles") or ""
     titles = raw if isinstance(raw, list) else raw.splitlines()
+    ranges = payload.get("ranges") or []
     try:
-        return batch_runner.start(titles, payload.get("num_images"))
+        return batch_runner.start(titles, payload.get("num_images"), ranges=ranges)
     except (RuntimeError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
 

@@ -500,14 +500,15 @@
 
         <div id="ideas-list" style="margin-top: 14px;"></div>
 
-        <div id="ideas-actions" style="display:none; grid-template-columns: 2fr 1fr; gap:10px; margin-top:10px;">
+        <div id="ideas-actions" style="display:none; grid-template-columns: 2fr 1.2fr 1fr; gap:10px; margin-top:10px;">
           <button class="btn btn-success" id="btn-ideas-batch" onclick="startBatchFromIdeas()">🚀 Gen Cả Loạt (dùng batch)</button>
+          <button class="btn btn-secondary" onclick="copyIdeasToBatch()">📋 Chép sang Batch</button>
           <button class="btn btn-secondary" onclick="addIdeaRow()">➕ Thêm Dòng</button>
         </div>
       </div>
 
       <!-- Batch: nhiều cuốn từ một danh sách chủ đề -->
-      <div class="card" style="margin-top: 1.5rem;">
+      <div class="card" style="margin-top: 1.5rem;" id="card-batch-runner">
         <div class="card-title">
           <span>📚 Chạy Hàng Loạt Nhiều Cuốn</span>
           <span class="badge">BATCH RUNNER</span>
@@ -515,18 +516,37 @@
 
         <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.55; margin-bottom: 10px;">
           Mỗi dòng là một cuốn sách. Tool tự nghĩ chủ đề từng trang, gen ảnh, xử lý 300 DPI
-          rồi dựng PDF. <b>Cấu hình hiện tại được dùng chung cho toàn bộ batch</b> — chụp lại
-          lúc bấm chạy, sửa config giữa chừng không ảnh hưởng.
+          rồi dựng PDF. Bạn có thể quy định <b>Audience</b> và <b>Style Cover</b> riêng cho từng khoảng cuốn bên dưới để sinh nhiều phong cách sách trong cùng 1 batch.
         </div>
 
         <div class="form-group">
           <label>Danh Sách Chủ Đề (mỗi dòng một cuốn)</label>
-          <textarea id="batch-titles" rows="7" placeholder="Cute Dragons&#10;Ocean Animals&#10;Space Adventure&#10;Dinosaurs For Kids"></textarea>
+          <textarea id="batch-titles" rows="7" placeholder="Cute Dragons&#10;Ocean Animals&#10;Space Adventure&#10;Dinosaurs For Kids" oninput="updateBatchRangePreview()"></textarea>
         </div>
 
         <div class="form-group">
           <label>Số Ảnh Mỗi Cuốn (bỏ trống = lấy theo cấu hình)</label>
           <input type="number" id="batch-num-images" min="1" max="200" placeholder="24">
+        </div>
+
+        <!-- Cấu hình kiểu sách theo khoảng (Range Rules) -->
+        <div class="batch-range-section">
+          <div class="batch-range-header">
+            <div class="batch-range-title">
+              <span>🎨 Cấu hình Audience &amp; Style Cover theo khoảng sách</span>
+              <span class="badge-accent">TÙY CHỌN</span>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="addBatchRangeRow()">➕ Thêm Khoảng</button>
+          </div>
+          <div class="batch-range-desc">
+            Quy định kiểu sách cho từng khoảng thứ tự (VD: từ sách 1 đến 5 chọn trẻ em bìa glossy, từ sách 6 đến 10 chọn người lớn bìa vintage). Cuốn ngoài khoảng sẽ lấy theo cấu hình hiện tại bên trên.
+          </div>
+
+          <div id="batch-range-list">
+            <!-- Dynamic range rows -->
+          </div>
+
+          <div id="batch-range-preview" style="display: none;"></div>
         </div>
 
         <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px;">
