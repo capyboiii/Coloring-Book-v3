@@ -1,10 +1,10 @@
 book:
-  title: Woodland Forest Xmas Coloring Book – Deer, Pine Cones, Owls & Snow – Print
-    + Digital Editions – For Budding Artists
+  title: Cute Halloween Coloring Book – Friendly ghosts, smiling pumpkins & cute witches
+    – Print & Digital Editions – For Children
   subtitle: ''
   audience: kids
-  cover_style: gouache
-  num_images: 4
+  cover_style: cinematic_3d
+  num_images: 48
   blank_verso: true
   matter_pages: true
 print:
@@ -126,6 +126,37 @@ prompts:
         airbrush. NO photorealism.'
       title: cut-paper style letters with soft layer shadows and a matte finish.
       grain: 0.1
+    chunky_marker:
+      art: 'ART STYLE - COZY CHUNKY MARKER: adorable Bobbie Goods inspired aesthetic.
+        Extra-thick, smooth rounded black ink outlines, delightfully chubby and cute
+        proportions. Soft warm pastel and butter-cream color palette, gentle flat
+        shading with minimal subtle gradients. Cozy, heartwarming, peaceful and clean
+        aesthetic. Charming storybook simplicity, completely stress-free vibe. NO
+        thin scratchy lines, NO complex hyper-detail, NO harsh neon, NO photorealism.'
+      title: chubby rounded bubble lettering with a thick bold dark outline, warm
+        creamy pastel fill, and a soft subtle drop shadow.
+      grain: 0.15
+    claymation:
+      art: 'ART STYLE - 3D CLAYMATION: whimsical handcrafted plasticine clay animation
+        style, tactile clay texture with subtle finger-molded softness, smooth rounded
+        volumetric shapes, adorable miniature toy scale. Cheerful vibrant primary
+        and pastel colors, soft studio rim lighting, gentle ambient occlusion shadows.
+        Delightful tactile 3D depth and playful charm. NO flat 2D lines, NO sharp
+        digital CGI edges, NO photorealistic live action.'
+      title: playful 3D molded clay typography with rounded squishy edges, soft bevel,
+        and gentle contact shadows as if sculpted by hand.
+      grain: 0.15
+    cinematic_3d:
+      art: 'ART STYLE - CINEMATIC ANIMATION CONCEPT ART: premium 3D animated feature
+        film visual development art (Pixar and DreamWorks style). Rich volumetric
+        lighting, golden-hour sunbeams, atmospheric glow and gentle bokeh. Highly
+        expressive character design with heartwarming emotions, beautifully textured
+        surfaces, painterly depth with soft cinematic shadows. Grand storytelling
+        composition, cozy and enchanting. NO flat 2D cartoons, NO harsh raw CGI, NO
+        uncanny photorealism.'
+      title: polished movie-title typography with cinematic lighting, gentle metallic
+        or embossed bevel, and soft cast shadows matching the scene light source.
+      grain: 0.15
   front_cover: 'A premium, full-colour FRONT COVER illustration for {audience_article}
     {audience_adj} coloring book.
 
@@ -362,14 +393,54 @@ prompts:
       the book cover. Keep the cover design identical to the attached image. Square
       1:1 aspect ratio.'
 subjects:
-- A fluffy owl wearing a tiny knitted scarf perches on a snowy pine branch beside
-  two large pine cones.
-- A young spotted deer gently nudges a wrapped Christmas present sitting in a drift
-  of fresh snow.
-- A baby fawn curls up asleep under an evergreen bough decorated with hanging wooden
-  star ornaments.
-- A round little owl watches from a tree hollow as large snowflakes gently fall around
-  a standing deer.
+- A friendly ghost wearing a oversized party hat holds a single balloon.
+- A smiling pumpkin sits happily next to a patch of tall daisies.
+- A cute little witch flies slowly on a broomstick past a crescent moon.
+- A tiny ghost peeks out from behind a large, friendly toadstool.
+- A cheerful cat wearing a wizard hat sits inside a hollow log.
+- A happy ghost holds a glowing lantern while walking on a path.
+- A smiling pumpkin wears a crown made of autumn leaves.
+- A little witch stirs a bubbling cauldron filled with giant star shapes.
+- A ghost happily floating above a stack of three wrapped presents.
+- A round pumpkin with a big toothy grin rests on a checkered blanket.
+- A cute witch reading a bedtime story to a small stuffed bear.
+- A playful ghost blows a single round soap bubble into the air.
+- A smiling pumpkin wears a pair of oversized round glasses.
+- A little witch waters a glowing flower pot with a tiny watering can.
+- A friendly ghost hugs a fluffy stuffed animal tightly.
+- A cheerful pumpkin sits next to a pile of crunchy fallen leaves.
+- A tiny witch wearing striped socks balances a book on her head.
+- A happy ghost sleeps peacefully inside a soft sleeping bag.
+- A smiling pumpkin wears a knitted winter scarf around its stem.
+- A cute witch bakes a batch of star-shaped cookies on a tray.
+- A friendly ghost flies gently over a calm, rippling pond.
+- A cheerful pumpkin rests beneath a canopy of twinkling fairy lights.
+- A little witch carries a basket overflowing with plump apples.
+- A playful ghost plays a tune on a small toy xylophone.
+- A smiling pumpkin wears a striped baker hat while holding a whisk.
+- A cute witch naps soundly inside a hammock hung between two trees.
+- A happy ghost waves hello from inside a giant coffee mug.
+- A cheerful pumpkin sits beside a tall stack of picture books.
+- A tiny witch holds a magnifying glass to inspect a friendly ladybug.
+- A friendly ghost flies past a window with raindrops trickling down.
+- A smiling pumpkin wears a pair of fluffy earmuffs on its stem.
+- A cute witch paints a picture of a rainbow on an easel.
+- A playful ghost balances a spinning top on its finger.
+- A cheerful pumpkin rests on top of a cozy knitted rug.
+- A little witch wears a large sunhat while holding a garden spade.
+- A happy ghost toasts a single marshmallow over a campfire.
+- A smiling pumpkin wears a tiny bowtie beneath its friendly face.
+- A cute witch measures ingredients with a tiny wooden spoon.
+- A friendly ghost floats gently above a sleepy little owl.
+- A cheerful pumpkin sits beside a woven basket of pinecones.
+- A tiny witch wears a pair of fuzzy slippers shaped like paws.
+- A playful ghost pops a confetti popper filled with tiny stars.
+- A smiling pumpkin wears a graduation cap with a golden tassel.
+- A cute witch holds a glowing sparkler in her outstretched hand.
+- A happy ghost sits comfortably inside a rocking chair.
+- A cheerful pumpkin rests next to a cluster of friendly caterpillars.
+- A little witch wraps a colorful ribbon around a large gift box.
+- A friendly ghost catches a single falling autumn leaf in its hands.
 cover_text:
   back_blurb: '
 
@@ -384,7 +455,7 @@ api:
   - 2
   - 5
 browser:
-  headless: false
+  headless: true
   gemini_url: https://gemini.google.com/app
   generation_timeout: 120
   recycle_tab_every: 1
@@ -408,4 +479,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: woodland-forest-xmas-coloring-book-deer-pine-cones-owls-snow
+_book: cute-halloween-coloring-book-friendly-ghosts-smiling-pumpkin

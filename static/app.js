@@ -843,6 +843,9 @@ function addBatchRangeRow(fromVal = '', toVal = '', audience = 'kids', coverStyl
       <option value="vintage" ${coverStyle === 'vintage' ? 'selected' : ''}>Vintage (cổ điển)</option>
       <option value="colored_pencil" ${coverStyle === 'colored_pencil' ? 'selected' : ''}>Colored pencil (chì màu)</option>
       <option value="papercut" ${coverStyle === 'papercut' ? 'selected' : ''}>Papercut (cắt giấy)</option>
+      <option value="chunky_marker" ${coverStyle === 'chunky_marker' ? 'selected' : ''}>Chunky marker (Bobbie Goods)</option>
+      <option value="claymation" ${coverStyle === 'claymation' ? 'selected' : ''}>3D Claymation (đất nặn)</option>
+      <option value="cinematic_3d" ${coverStyle === 'cinematic_3d' ? 'selected' : ''}>Cinematic 3D (điện ảnh)</option>
     </select>
 
     <button type="button" class="btn-del-range" title="Xóa khoảng này" onclick="removeBatchRangeRow(this)">✕</button>

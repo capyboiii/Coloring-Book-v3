@@ -832,9 +832,9 @@ async def generate_subjects(payload: dict):
         "Respond ONLY with a JSON array of strings, nothing else."
     )
     
-    driver = book_main.make_driver(cfg)
     try:
-        raw_resp = driver.ask_text(prompt)
+        with book_main.make_driver(cfg) as driver:
+            raw_resp = driver.ask_text(prompt)
         from bookgen.gemini_driver import parse_subject_list
         subjects = parse_subject_list(raw_resp, count)
         
