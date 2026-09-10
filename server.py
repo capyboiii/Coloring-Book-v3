@@ -691,17 +691,27 @@ def upload_to_r2(payload: dict):
 
 @app.post("/api/export/csv")
 def export_shopify_csv(payload: dict):
-    """Xuất CSV nhập sản phẩm. payload: {slugs:[...]} hoặc {slug:"..."},
-    kèm shop: "crayonahub" (mặc định) hoặc "shopify".
+    """Xuất CSV nhập sản phẩm hoặc manifest master. payload: {slugs:[...]} hoặc {slug:"..."},
+    kèm shop: "crayonahub" (mặc định) hoặc "shopify",
+    kind: "products" (mặc định) hoặc "manifest",
+    batch_id: "batch_YYYYMMDD_HHMMSS" (tuỳ chọn).
     Không có slug -> export mọi cuốn đã có PDF/bìa."""
+    from datetime import datetime
     from bookgen import crayonahub_export, shopify_export, storage
 
     # shop="crayonahub" (mặc định): schema 25 cột, hybrid in + digital, URL lấy
     # từ manifest. shop="shopify": template Shopify 43 cột cũ, chỉ bản in.
     shop = (payload.get("shop") or "crayonahub").lower()
+    kind = (payload.get("kind") or "products").lower()
     exporter = crayonahub_export if shop == "crayonahub" else shopify_export
-    fname = ("crayonahub-products.csv" if shop == "crayonahub"
-             else "shopify-products.csv")
+
+    batch_id = payload.get("batch_id") or payload.get("batch") or f"batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    if kind == "manifest" and hasattr(exporter, "export_manifest_csv"):
+        fname = f"{batch_id}_manifest.csv"
+    elif shop == "crayonahub":
+        fname = f"{batch_id}_products.csv"
+    else:
+        fname = "shopify-products.csv"
 
     slugs = payload.get("slugs")
     if not slugs and payload.get("slug"):
@@ -728,12 +738,21 @@ def export_shopify_csv(payload: dict):
         logger.warning("Export CSV bỏ qua %d cuốn chưa xong: %s",
                        len(skipped), "; ".join(skipped))
 
-    csv_text = exporter.export_csv(list(ready), book_main, storage)
+    if kind == "manifest" and hasattr(exporter, "export_manifest_csv"):
+        csv_text = exporter.export_manifest_csv(list(ready), book_main, storage)
+    else:
+        csv_text = exporter.export_csv(list(ready), book_main, storage)
+
     # BOM để Excel nhận đúng UTF-8 (không có BOM Excel đọc theo ANSI -> lỗi font).
     return StreamingResponse(
         iter([("\ufeff" + csv_text).encode("utf-8")]),
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+        headers={
+            "Content-Disposition": f'attachment; filename="{fname}"',
+            "X-Filename": fname,
+            "Access-Control-Expose-Headers": "Content-Disposition, X-Filename",
+        })
+
 
 
 @app.post("/api/printsyde/convert")

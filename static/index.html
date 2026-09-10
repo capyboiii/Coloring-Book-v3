@@ -475,31 +475,51 @@
           <span class="badge">AI IDEAS</span>
         </div>
 
-        <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.55; margin-bottom: 10px;">
-          Nhập 1 keyword + đối tượng → Gemini nghĩ ra 10 chủ đề (tên bìa + tiêu đề SEO).
-          Sửa/xóa tuỳ ý rồi bấm gen cả loạt. <b>seo_title</b> là thứ tool dùng để nghĩ scene,
-          <b>cover_title</b> là tên ngắn hiện trên bìa.
+        <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.55; margin-bottom: 12px;">
+          Tạo danh sách cuốn sách để chạy batch. Bạn có thể nhờ Gemini nghĩ từ Keyword, hoặc <b>dán mảng JSON</b> tạo từ Claude / ChatGPT / model khác.
         </div>
 
-        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px;">
-          <div class="form-group" style="margin:0;">
-            <label>Keyword</label>
-            <input type="text" id="ideas-keyword" placeholder="hawaii, dinosaurs, mandala flowers...">
-          </div>
-          <div class="form-group" style="margin:0;">
-            <label>Đối Tượng</label>
-            <select id="ideas-audience">
-              <option value="kids">Kids</option>
-              <option value="adults">Adults</option>
-            </select>
-          </div>
-          <div class="form-group" style="margin:0;">
-            <label>Số Chủ Đề</label>
-            <input type="number" id="ideas-count" min="1" max="30" value="10">
-          </div>
+        <div style="display: flex; gap: 8px; margin-bottom: 14px; background: rgba(0,0,0,0.25); padding: 4px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); width: fit-content;">
+          <button type="button" class="btn btn-sm" id="btn-tab-ideas-ai" style="background: var(--primary); color: white; padding: 6px 14px; font-size: 0.82rem;" onclick="switchIdeasInputTab('ai')">✨ Gemini Tự Nghĩ</button>
+          <button type="button" class="btn btn-sm btn-secondary" id="btn-tab-ideas-json" style="padding: 6px 14px; font-size: 0.82rem;" onclick="switchIdeasInputTab('json')">📋 Dán JSON (Claude / ChatGPT...)</button>
         </div>
 
-        <button class="btn btn-primary" id="btn-ideas-gen" onclick="generateIdeas()" style="margin-top:10px;">✨ Gợi Ý Chủ Đề</button>
+        <!-- TAB 1: GEMINI -->
+        <div id="ideas-tab-ai">
+          <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px;">
+            <div class="form-group" style="margin:0;">
+              <label>Keyword</label>
+              <input type="text" id="ideas-keyword" placeholder="hawaii, dinosaurs, mandala flowers...">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label>Đối Tượng</label>
+              <select id="ideas-audience">
+                <option value="kids">Kids</option>
+                <option value="adults">Adults</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label>Số Chủ Đề</label>
+              <input type="number" id="ideas-count" min="1" max="30" value="10">
+            </div>
+          </div>
+          <button class="btn btn-primary" id="btn-ideas-gen" onclick="generateIdeas()" style="margin-top:10px;">✨ Gợi Ý Chủ Đề</button>
+        </div>
+
+        <!-- TAB 2: PASTE JSON -->
+        <div id="ideas-tab-json" style="display: none;">
+          <div class="form-group" style="margin-bottom: 10px;">
+            <label style="display: flex; justify-content: space-between; align-items: center;">
+              <span>Dán mảng JSON chủ đề sách (mỗi phần tử gồm <code>cover_title</code> và <code>seo_title</code>)</span>
+              <span style="font-size: 0.75rem; color: var(--accent-emerald);">Đã bỏ seo_description</span>
+            </label>
+            <textarea id="ideas-json-input" rows="7" placeholder='[&#10;  {&#10;    "cover_title": "Sunny Beach Day Coloring Book",&#10;    "seo_title": "Sunny Beach Day Coloring Book – Tropical Palms, Sea Turtles &amp; Ocean Waves – Print &amp; Digital Editions – For Kids"&#10;  },&#10;  {&#10;    "cover_title": "Cozy Winter Animals Coloring Book",&#10;    "seo_title": "Cozy Winter Animals Coloring Book – Woodland Critters, Scarves &amp; Pine Trees – Print &amp; Digital Editions – For Kids"&#10;  }&#10;]' style="font-family: var(--font-mono); font-size: 0.82rem;"></textarea>
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <button type="button" class="btn btn-primary" onclick="loadPastedJsonToIdeas()">📥 Nạp Vào Danh Sách Để Xem &amp; Sửa</button>
+            <button type="button" class="btn btn-success" onclick="loadPastedJsonAndStartBatch()">🚀 Nạp &amp; Chạy Batch Luôn</button>
+          </div>
+        </div>
 
         <div id="ideas-list" style="margin-top: 14px;"></div>
 
@@ -518,13 +538,13 @@
         </div>
 
         <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.55; margin-bottom: 10px;">
-          Mỗi dòng là một cuốn sách. Tool tự nghĩ chủ đề từng trang, gen ảnh, xử lý 300 DPI
+          Mỗi dòng là một cuốn sách (hoặc dán mảng JSON). Tool tự nghĩ chủ đề từng trang, gen ảnh, xử lý 300 DPI
           rồi dựng PDF. Bạn có thể quy định <b>Audience</b> và <b>Style Cover</b> riêng cho từng khoảng cuốn bên dưới để sinh nhiều phong cách sách trong cùng 1 batch.
         </div>
 
         <div class="form-group">
-          <label>Danh Sách Chủ Đề (mỗi dòng một cuốn)</label>
-          <textarea id="batch-titles" rows="7" placeholder="Cute Dragons&#10;Ocean Animals&#10;Space Adventure&#10;Dinosaurs For Kids" oninput="updateBatchRangePreview()"></textarea>
+          <label>Danh Sách Chủ Đề (mỗi dòng một cuốn HOẶC dán mảng JSON <code>[{"cover_title": "...", "seo_title": "..."}]</code>)</label>
+          <textarea id="batch-titles" rows="7" placeholder="Cute Dragons&#10;Ocean Animals&#10;&#10;Hoặc dán JSON:&#10;[&#10;  {&#10;    &quot;cover_title&quot;: &quot;Sunny Beach Day Coloring Book&quot;,&#10;    &quot;seo_title&quot;: &quot;Sunny Beach Day Coloring Book – Tropical Palms, Sea Turtles &amp; Ocean Waves – Print &amp; Digital Editions – For Kids&quot;&#10;  }&#10;]" oninput="updateBatchRangePreview()"></textarea>
         </div>
 
         <div class="form-group">
@@ -567,9 +587,9 @@
           <span class="badge">PUBLISH</span>
         </div>
         <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.55; margin-bottom: 10px;">
-          Đẩy <b>PDF (in Lulu) + ảnh bìa + 5 preview</b> lên Cloudflare R2, rồi xuất
-          <b>CSV Shopify</b> (dùng 5 preview làm ảnh sản phẩm). URL PDF nằm trong manifest
-          cục bộ mỗi cuốn để sau này hệ thống đơn hàng đưa Lulu fulfill.
+          Đẩy <b>PDF (In Lulu + Digital) + ảnh bìa + 5 preview</b> lên Cloudflare R2, rồi tự động tải về bộ đôi <b>2 file CSV liên kết</b> theo cùng mã batch:
+          <br>• 🛒 <code>batch_..._products.csv</code>: 25 cột chuẩn Crayonahub (nộp thẳng lên web bán).
+          <br>• 📦 <code>batch_..._manifest.csv</code>: Master xưởng in Lulu POD (gáy, khổ in, link PDF, tra cứu SKU).
         </div>
         <div class="form-group">
           <label>Slug sách (mỗi dòng một slug — bỏ trống = mọi cuốn đã có PDF)</label>
@@ -577,11 +597,11 @@
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
           <button class="btn btn-primary" id="btn-r2-upload" onclick="uploadToR2()">☁️ Đẩy Lên R2</button>
-          <button class="btn btn-secondary" onclick="exportCsv()">📄 Xuất CSV</button>
-          <button class="btn btn-success" id="btn-publish-all" onclick="uploadThenCsv()">🚀 R2 + CSV</button>
+          <button class="btn btn-secondary" onclick="exportCsv()">📄 Xuất 2 CSV</button>
+          <button class="btn btn-success" id="btn-publish-all" onclick="uploadThenCsv()">🚀 R2 + 2 CSV</button>
         </div>
         <div style="margin-top: 10px;">
-          <button class="btn btn-success" style="width:100%;" id="btn-publish-all-folder" onclick="uploadThenCsvAll()">📦 R2 + CSV — TẤT CẢ sách trong folder books</button>
+          <button class="btn btn-success" style="width:100%; font-weight:600;" id="btn-publish-all-folder" onclick="uploadThenCsvAll()">📦 R2 + CSV (Bộ Đôi) — TẤT CẢ sách trong folder books</button>
         </div>
         <div id="publish-result" style="margin-top: 14px; font-size: 0.82rem;"></div>
       </div>
@@ -702,6 +722,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=13"></script>
+  <script src="app.js?v=14"></script>
 </body>
 </html>

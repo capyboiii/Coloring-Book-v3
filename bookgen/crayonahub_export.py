@@ -75,6 +75,18 @@ PRICES = {
 VARIANT_ORDER = ["24p", "full"]
 
 
+# Bảng cột Master Manifest (quản trị nội bộ / thông số in ấn Lulu POD).
+# Liên kết 1-1 với products.csv qua "Handle" và "Variant SKU".
+MANIFEST_COLUMNS = [
+    "Handle", "Slug", "Variant SKU", "Title", "Cover Title",
+    "Option1 Value", "Option2 Value",
+    "Cover PDF URL", "Interior PDF URL", "Digital PDF URL",
+    "Trim Size", "Spine (in)", "Cover Width (in)", "Cover Height (in)",
+    "Total PDF Pages", "Lulu Package ID", "Audience", "Cover Style",
+    "Cover Front Image", "Preview 1", "Preview 2", "Preview 3", "Preview 4", "Preview 5",
+]
+
+
 def _pages_label(vid: str, page_count: int | None, num_images: int | None) -> str:
     """Nhãn Option1: số TRANG TÔ MÀU, không phải số trang PDF (PDF còn trang
     trắng mặt sau nên gấp đôi)."""
@@ -107,9 +119,11 @@ def _book_data(slug: str, book_main, storage) -> dict:
         "seo_title": seo_title,
         "cover_title": book_main.cover_title(cfg).title(),
         "audience": state.get("audience") or book.get("audience") or "kids",
+        "cover_style": state.get("cover_style") or book.get("cover_style") or cfg.get("cover", {}).get("style") or "glossy",
         "num_images": book.get("num_images") or state.get("num_images"),
         "tags": book.get("tags") or "",
     }
+
 
 
 def _rows_for(d: dict) -> list[dict]:
@@ -202,3 +216,74 @@ def export_csv(slugs: list[str], book_main, storage) -> str:
         except Exception as e:  # noqa: BLE001 - 1 cuốn lỗi không chặn cả file
             log.warning("Bỏ qua %s khi export CSV crayonahub: %s", slug, e)
     return buf.getvalue()
+
+
+def _manifest_rows_for(d: dict) -> list[dict]:
+    """Tạo các dòng Master Manifest cho 1 cuốn sách.
+    Khớp 1-1 với products.csv qua Handle và Variant SKU."""
+    man = d["manifest"]
+    handle = slugify(d["seo_title"]) or d["slug"]
+    base_sku = gen_sku(d["cover_title"], d["audience"], d["slug"])
+    previews = (man.get("images") or {}).get("previews") or []
+    cover_front = (man.get("images") or {}).get("cover_front") or ""
+    trim = f"{man.get('trim_width', 8.5)}x{man.get('trim_height', 11)} in"
+    pkg_id = man.get("pod_package_id") or ""
+
+    by_id = {v["id"]: v for v in man.get("variants", [])}
+    ordered = [by_id[v] for v in VARIANT_ORDER if v in by_id]
+    if not ordered:
+        raise ValueError(f"{d['slug']}: manifest không có biến thể nào.")
+
+    rows: list[dict] = []
+    for v in ordered:
+        vid = v["id"]
+        for fmt in (FMT_PRINT, FMT_DIGITAL):
+            if fmt == FMT_DIGITAL and not v.get("digital_url"):
+                continue
+            spec = PRICES[vid][fmt]
+            sku = f"{base_sku}{spec['sku']}"
+            opt1 = _pages_label(vid, v.get("page_count"), d["num_images"])
+            is_print = (fmt == FMT_PRINT)
+
+            rows.append({
+                "Handle": handle,
+                "Slug": d["slug"],
+                "Variant SKU": sku,
+                "Title": d["seo_title"],
+                "Cover Title": d["cover_title"],
+                "Option1 Value": opt1,
+                "Option2 Value": fmt,
+                "Cover PDF URL": v.get("cover_url", "") if is_print else "",
+                "Interior PDF URL": v.get("interior_url", "") if is_print else "",
+                "Digital PDF URL": v.get("digital_url", "") if not is_print else "",
+                "Trim Size": trim,
+                "Spine (in)": str(v.get("spine_in", "")) if is_print else "",
+                "Cover Width (in)": str(v.get("cover_width_in", "")) if is_print else "",
+                "Cover Height (in)": str(v.get("cover_height_in", "")) if is_print else "",
+                "Total PDF Pages": str(v.get("page_count", "")) if is_print else str(v.get("digital_pages", "")),
+                "Lulu Package ID": pkg_id if is_print else "",
+                "Audience": d["audience"],
+                "Cover Style": d.get("cover_style", "glossy"),
+                "Cover Front Image": cover_front,
+                "Preview 1": previews[0] if len(previews) > 0 else "",
+                "Preview 2": previews[1] if len(previews) > 1 else "",
+                "Preview 3": previews[2] if len(previews) > 2 else "",
+                "Preview 4": previews[3] if len(previews) > 3 else "",
+                "Preview 5": previews[4] if len(previews) > 4 else "",
+            })
+    return rows
+
+
+def export_manifest_csv(slugs: list[str], book_main, storage) -> str:
+    """Trả về nội dung CSV Master Manifest (string) cho danh sách slug."""
+    buf = io.StringIO()
+    w = csv.DictWriter(buf, fieldnames=MANIFEST_COLUMNS, extrasaction="ignore")
+    w.writeheader()
+    for slug in slugs:
+        try:
+            for row in _manifest_rows_for(_book_data(slug, book_main, storage)):
+                w.writerow(row)
+        except Exception as e:  # noqa: BLE001 - 1 cuốn lỗi không chặn cả file
+            log.warning("Bỏ qua %s khi export manifest CSV: %s", slug, e)
+    return buf.getvalue()
+

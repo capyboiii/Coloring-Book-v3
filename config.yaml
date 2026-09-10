@@ -1,6 +1,6 @@
 book:
-  title: Cute Halloween Coloring Book – Friendly ghosts, smiling pumpkins & cute witches
-    – Print & Digital Editions – For Children
+  title: Cute Halloween Monsters Coloring Book – Friendly Monsters, Candy Bags & Starry
+    Nights – Available in Print & Digital – For Young Children
   subtitle: ''
   audience: kids
   cover_style: cinematic_3d
@@ -393,54 +393,87 @@ prompts:
       the book cover. Keep the cover design identical to the attached image. Square
       1:1 aspect ratio.'
 subjects:
-- A friendly ghost wearing a oversized party hat holds a single balloon.
-- A smiling pumpkin sits happily next to a patch of tall daisies.
-- A cute little witch flies slowly on a broomstick past a crescent moon.
-- A tiny ghost peeks out from behind a large, friendly toadstool.
-- A cheerful cat wearing a wizard hat sits inside a hollow log.
-- A happy ghost holds a glowing lantern while walking on a path.
-- A smiling pumpkin wears a crown made of autumn leaves.
-- A little witch stirs a bubbling cauldron filled with giant star shapes.
-- A ghost happily floating above a stack of three wrapped presents.
-- A round pumpkin with a big toothy grin rests on a checkered blanket.
-- A cute witch reading a bedtime story to a small stuffed bear.
-- A playful ghost blows a single round soap bubble into the air.
-- A smiling pumpkin wears a pair of oversized round glasses.
-- A little witch waters a glowing flower pot with a tiny watering can.
-- A friendly ghost hugs a fluffy stuffed animal tightly.
-- A cheerful pumpkin sits next to a pile of crunchy fallen leaves.
-- A tiny witch wearing striped socks balances a book on her head.
-- A happy ghost sleeps peacefully inside a soft sleeping bag.
-- A smiling pumpkin wears a knitted winter scarf around its stem.
-- A cute witch bakes a batch of star-shaped cookies on a tray.
-- A friendly ghost flies gently over a calm, rippling pond.
-- A cheerful pumpkin rests beneath a canopy of twinkling fairy lights.
-- A little witch carries a basket overflowing with plump apples.
-- A playful ghost plays a tune on a small toy xylophone.
-- A smiling pumpkin wears a striped baker hat while holding a whisk.
-- A cute witch naps soundly inside a hammock hung between two trees.
-- A happy ghost waves hello from inside a giant coffee mug.
-- A cheerful pumpkin sits beside a tall stack of picture books.
-- A tiny witch holds a magnifying glass to inspect a friendly ladybug.
-- A friendly ghost flies past a window with raindrops trickling down.
-- A smiling pumpkin wears a pair of fluffy earmuffs on its stem.
-- A cute witch paints a picture of a rainbow on an easel.
-- A playful ghost balances a spinning top on its finger.
-- A cheerful pumpkin rests on top of a cozy knitted rug.
-- A little witch wears a large sunhat while holding a garden spade.
-- A happy ghost toasts a single marshmallow over a campfire.
-- A smiling pumpkin wears a tiny bowtie beneath its friendly face.
-- A cute witch measures ingredients with a tiny wooden spoon.
-- A friendly ghost floats gently above a sleepy little owl.
-- A cheerful pumpkin sits beside a woven basket of pinecones.
-- A tiny witch wears a pair of fuzzy slippers shaped like paws.
-- A playful ghost pops a confetti popper filled with tiny stars.
-- A smiling pumpkin wears a graduation cap with a golden tassel.
-- A cute witch holds a glowing sparkler in her outstretched hand.
-- A happy ghost sits comfortably inside a rocking chair.
-- A cheerful pumpkin rests next to a cluster of friendly caterpillars.
-- A little witch wraps a colorful ribbon around a large gift box.
-- A friendly ghost catches a single falling autumn leaf in its hands.
+- A fluffy one-eyed monster wearing a striped party hat and holding a lollipop under
+  a crescent moon.
+- A chubby little monster sitting inside a carved smiling pumpkin surrounded by floating
+  stars.
+- A horned baby monster happily carrying an overflowing pumpkin candy bucket on a
+  cobblestone path.
+- Two round furry monsters sharing a giant striped candy corn beneath twinkling night
+  stars.
+- A smiling bat-winged monster hanging upside down from a tree branch with tiny stars
+  around it.
+- A friendly blob monster with tiny antennae holding three helium balloons shaped
+  like wrapped candies.
+- A fuzzy three-eyed monster sitting in a pile of autumn leaves holding a chocolate
+  bar.
+- A cute spotted monster wearing oversized witch boots and holding a broomstick under
+  the stars.
+- A tiny scaled monster peeking out of a big trick-or-treat bag filled with wrapped
+  sweets.
+- A smiling ghost-like monster with round horns roasting a marshmallow over a tiny
+  glowing pumpkin.
+- A round polka-dotted monster balancing a stack of wrapped candies on its head beneath
+  a full moon.
+- A furry monster wearing a cozy scarf eating a jellybean next to a small friendly
+  scarecrow.
+- A happy two-headed baby monster holding hands and swinging a candy pail between
+  them.
+- A soft cloud-shaped monster sprinkling star-shaped sprinkles onto a pumpkin muffin.
+- A cheerful monster with curly horns carrying a lantern that shines a star pattern
+  on the ground.
+- A little winged monster catching falling star-shaped candies with a butterfly net.
+- A round monster with bunny-like ears sitting in a wagon full of pumpkins under the
+  night sky.
+- A smiling fuzzy monster hugging a giant candy cane decorated with Halloween bows.
+- A small monster with dragon wings resting peacefully on a crescent moon holding
+  a star.
+- A friendly multi-armed monster juggling five different wrapped Halloween treats.
+- A cute furry monster wearing a paper crown and waving from a doorway decorated with
+  paper bats.
+- A chubby horned monster dipping an apple into caramel next to a bowl of candy corn.
+- A smiling monster with snail-like eyestalks sitting among smiling jack-o'-lanterns.
+- A sweet little monster in a striped cape posing proudly next to a tall bag of candies.
+- A fuzzy monster cub lying on its belly watching fireflies that look like glowing
+  stars.
+- A round horned monster riding a friendly giant snail through a pumpkin patch under
+  the stars.
+- A gentle monster with leafy horns watering a garden of candy-sprouting flowers.
+- A happy monster with a spiral tail playing peek-a-boo from behind a giant wrapped
+  candy.
+- A tiny monster with round spectacles reading a spooky storybook to three smiling
+  mini pumpkins.
+- A fluffy baby monster wearing an acorn hat and carrying a sack bursting with sweets.
+- A smiling one-eyed monster sitting on a tree stump blowing bubbles shaped like stars
+  and candies.
+- A cute blob monster wearing a tiny top hat and holding a sparkling wand under the
+  moonlight.
+- A pair of twin fuzzy monsters building a small pyramid out of square candy boxes.
+- A cheerful monster with soft spikes pushing a wheelbarrow loaded with smiling gourds.
+- A friendly monster with floppy ears sitting on a blanket having a picnic of candy
+  corn.
+- A little horned monster reaching up toward a big glowing star in a midnight sky.
+- A round monster with mitten-like paws unwrapping a giant piece of bubblegum.
+- A cute monster wearing a pointed wizard hat stirring a cauldron full of wrapped
+  sweet treats.
+- A friendly hairy monster brushing its single tooth with a toothbrush shaped like
+  a star wand.
+- A smiling monster floating gently with a cluster of star-shaped balloons over a
+  sleepy village.
+- A chubby baby monster sitting inside a candy bag and waving with both paws.
+- A gentle horned monster resting its chin on a friendly smiling pumpkin beneath a
+  starry sky.
+- A happy striped monster playing a tiny banjo to a group of listening night owls.
+- A cute monster with little butterfly wings sipping hot cocoa from a mug shaped like
+  a jack-o'-lantern.
+- A round fuzzy monster rolling a giant spherical hard candy like a ball through autumn
+  leaves.
+- A smiling monster family with soft horns gathering candy bags under a sky filled
+  with twinkling stars.
+- A playful monster hanging by its tail from a starry crescent moon and dropping treats
+  into a bag.
+- A sleepy little monster curled up inside an open candy sack fast asleep under glowing
+  stars.
 cover_text:
   back_blurb: '
 
@@ -479,4 +512,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: cute-halloween-coloring-book-friendly-ghosts-smiling-pumpkin
+_book: cute-halloween-monsters-coloring-book-friendly-monsters-cand
