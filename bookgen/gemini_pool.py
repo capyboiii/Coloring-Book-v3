@@ -261,6 +261,49 @@ async def is_user_signed_in_async(page: Page) -> bool:
     return True
 
 
+def _clear_profile_cache(profile_dir: Path) -> None:
+    """Xoa cache Chrome cua profile truoc khi mo (GIU nguyen dang nhap).
+
+    Cache trinh duyet phinh khong gioi han qua cac luot chay - do thuc te co
+    profile len toi 4.7GB. Cache KHONG chua phien dang nhap (cai do o
+    Network/Cookies + Login Data), nen xoa thoai mai, Chrome tu dung lai.
+
+    Chi xoa cac thu muc cache thuan tuy. Goi luc mo profile (Chrome chua chay
+    tren no) nen an toan.
+    """
+    default = profile_dir / "Default"
+    if not default.exists():
+        return
+    targets = [
+        default / "Cache",
+        default / "Code Cache",
+        default / "GPUCache",
+        default / "Service Worker" / "CacheStorage",
+        default / "Service Worker" / "ScriptCache",
+        profile_dir / "GrShaderCache",
+        profile_dir / "ShaderCache",
+        # Model AI on-device Chrome tu tai (~4GB!) - bot khong dung, xoa duoc.
+        profile_dir / "OptGuideOnDeviceModel",
+        profile_dir / "optimization_guide_model_store",
+    ]
+    freed = 0
+    for t in targets:
+        if not t.exists():
+            continue
+        try:
+            size = sum(f.stat().st_size for f in t.rglob("*") if f.is_file())
+        except Exception:
+            size = 0
+        try:
+            shutil.rmtree(t, ignore_errors=True)
+            freed += size
+        except Exception as e:  # noqa: BLE001
+            log.debug("Khong xoa duoc cache %s: %s", t, e)
+    if freed > 50 * 1024 * 1024:   # chi bao khi dang ke (>50MB)
+        log.info("Da don %d MB cache cua %s (giu dang nhap).",
+                 freed // (1024 * 1024), profile_dir.name)
+
+
 def _clear_download_state(profile_dir: Path) -> None:
     """Xoá lịch sử TẢI XUỐNG của profile trước khi mở Chrome (giữ lịch sử duyệt web).
 
@@ -303,6 +346,44 @@ def _clear_download_state(profile_dir: Path) -> None:
         # đây: profile này người dùng còn dùng việc khác, mất lịch sử là mất
         # thật. Cứ chạy tiếp, cùng lắm là lượt tải hỏng như cũ.
         log.warning("Không dọn được lịch sử tải xuống của %s: %s", profile_dir.name, e)
+
+
+def _chrome_pids_for(profile_dir: Path) -> set[int]:
+    """PID cua cac tien trinh chrome.exe dang chay TREN profile nay.
+
+    Loc theo --user-data-dir trong command line: chi trung profile cua pool,
+    KHONG dung vao Chrome ca nhan cua nguoi dung (no dung user-data-dir khac).
+    """
+    import subprocess
+
+    target = str(profile_dir.resolve()).lower()
+    try:
+        out = subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             "Get-CimInstance Win32_Process -Filter \"name='chrome.exe'\" | "
+             "ForEach-Object { \"$($_.ProcessId)`t$($_.CommandLine)\" }"],
+            capture_output=True, text=True, timeout=15).stdout
+    except Exception:
+        return set()
+    pids = set()
+    for line in out.splitlines():
+        pid, _, cmd = line.partition("\t")
+        if not pid.strip().isdigit():
+            continue
+        if target in (cmd or "").lower():
+            pids.add(int(pid.strip()))
+    return pids
+
+
+def _kill_pid_tree(pid: int) -> None:
+    """Giet mot tien trinh va toan bo con chau (renderer/gpu/utility)."""
+    import subprocess
+
+    try:
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)],
+                       capture_output=True, timeout=15)
+    except Exception:
+        pass
 
 
 class GeminiPool:
@@ -370,12 +451,18 @@ class GeminiPool:
                                 "with no explanation and no text in your reply.")
         self._pw = None
         self.contexts = []
+        self._browser_pids: set[int] = set()  # PID chrome pool tu mo -> ep giet khi thoat
         self.pages: list[Page] = []
         self.catchers: dict[Page, ImageCatcher] = {}
         self.throttle = Throttle(self.workers)
         self.exhausted_contexts = set()
         self.quota_hit = False
         self._download_lock = asyncio.Lock()
+        # Prompt cac trang RUOT cua luot chay hien tai. Khi mot trang bi tra
+        # chu (vd tu choi ban quyen), nudge bang prompt scene KHAC thay vi cau
+        # chung chung -> ra mot trang to mau hop le (chap nhan trung nhe) thay
+        # vi mot anh ngau nhien lac de. run_jobs nap danh sach nay.
+        self._scene_prompts: list[str] = []
 
     # ---------- lifecycle ----------
 
@@ -403,12 +490,18 @@ class GeminiPool:
                 log.info("Profile dùng cho phiên này: %s", actual_dir.name)
 
             _clear_download_state(actual_dir)
+            _clear_profile_cache(actual_dir)
 
             launch_args = [
                 "--disable-blink-features=AutomationControlled",
                 "--no-default-browser-check",
                 "--no-first-run",
                 "--disable-dev-shm-usage",
+                # Chan Chrome tu tai model AI on-device (~4GB) va cac component
+                # nen khong can cho bot. Ten feature sai thi Chrome lang le bo
+                # qua -> vo hai.
+                "--disable-features=OptimizationGuideOnDeviceModel,"
+                "OptimizationGuideModelDownloading,OptimizationHintsFetching",
             ]
             # BO "--js-flags=--max-old-space-size=512": tran heap V8 512MB sinh ra
             # de chan da leo RAM, nhung recycle_tab_every=1 xu ly viec do triet de
@@ -461,6 +554,13 @@ class GeminiPool:
                         raise
 
             self.contexts.append(ctx)
+            # Chup PID top-level cua Chrome vua mo TREN CHINH profile nay (loc
+            # theo --user-data-dir). Chrome ca nhan cua nguoi dung mang path
+            # khac nen khong bao gio lot vao day -> giet an toan luc thoat.
+            try:
+                self._browser_pids |= _chrome_pids_for(actual_dir)
+            except Exception:
+                pass
             first = ctx.pages[0] if ctx.pages else await ctx.new_page()
             self.pages.append(first)
             for _ in range(self.workers_per_profile - 1):
@@ -477,12 +577,31 @@ class GeminiPool:
         return self
 
     async def __aexit__(self, *exc):
-        try:
-            for ctx in self.contexts:
+        # 1) Dong tu te: cho Playwright tu tat Chrome.
+        for ctx in self.contexts:
+            try:
                 await ctx.close()
-        finally:
-            if self._pw:
+            except Exception as e:  # noqa: BLE001
+                log.debug("Dong context loi (se ep giet PID): %s", e)
+
+        # 2) Dung driver Playwright.
+        if self._pw:
+            try:
                 await self._pw.stop()
+            except Exception as e:  # noqa: BLE001
+                log.debug("Stop Playwright loi: %s", e)
+
+        # 3) LUOI AN TOAN: Chrome hay song sot sau ctx.close() (nhieu tab, tien
+        #    trinh GPU/utility mo coi, headless treo...) -> RAM khong nha. Giet
+        #    dut khoat cac PID pool da mo, kem con chau. Chi dung vao profile
+        #    cua pool, khong dung Chrome ca nhan.
+        killed = 0
+        for pid in self._browser_pids:
+            _kill_pid_tree(pid)
+            killed += 1
+        self._browser_pids.clear()
+        if killed:
+            log.info("Da nha %d tien trinh Chrome cua pool.", killed)
 
     async def _ensure_logged_in(self, page: Page) -> None:
         try:
@@ -1671,12 +1790,32 @@ class GeminiPool:
                                     raise
                                 # Nó chỉ nói mà không vẽ -> nhắc thẳng, ngay
                                 # trong chat đó, giữ nguyên ngữ cảnh bìa trước.
-                                log.warning(
-                                    "[tab %d] %s: chỉ trả lời bằng chữ, "
-                                    "nhắc lại (%d/%d).",
-                                    idx, dest.stem, nudge + 1, self.max_nudges)
+                                # Trang RUOT bi tra chu (hay gap: tu choi ban
+                                # quyen) -> nudge bang cau chung chung se khien
+                                # model ve mot anh NGAU NHIEN lac de roi pass.
+                                # Thay bang prompt scene KHAC cua chinh cuon:
+                                # ra mot trang to mau hop le (trung nhe, chap
+                                # nhan duoc) thay vi anh rac. Bia thi khong the
+                                # thay chu de -> giu cau chung chung.
+                                nudge_msg = self.nudge_prompt
+                                if dest.stem.startswith("page_"):
+                                    alts = [q for q in self._scene_prompts
+                                            if q != prompt]
+                                    if alts:
+                                        nudge_msg = random.choice(alts)
+                                if nudge_msg is self.nudge_prompt:
+                                    log.warning(
+                                        "[tab %d] %s: chỉ trả lời bằng chữ, "
+                                        "nhắc lại (%d/%d).",
+                                        idx, dest.stem, nudge + 1, self.max_nudges)
+                                else:
+                                    log.warning(
+                                        "[tab %d] %s: bị trả chữ -> vẽ lại bằng "
+                                        "scene khác của cuốn (%d/%d), chấp nhận "
+                                        "trùng nhẹ.",
+                                        idx, dest.stem, nudge + 1, self.max_nudges)
                                 catcher.arm()
-                                await self._send_prompt(page, self.nudge_prompt)
+                                await self._send_prompt(page, nudge_msg)
                         if got and is_real_art(dest):
                             # Bản bắt ở mạng là ảnh xem trước nhỏ -> thử nâng lên
                             # bản gốc (2K+) trước khi chốt.
@@ -1784,6 +1923,14 @@ class GeminiPool:
         # ĐÁNH ĐỔI phải biết: không còn "tab rảnh làm hộ" nữa. Tab chậm giữ nguyên
         # phần của nó, các tab khác xong sớm sẽ ngồi không chờ. Tổng thời gian
         # chạy bằng thời gian của tab CHẬM NHẤT.
+        # Gom prompt cac trang RUOT (key page_*) de dung lam nudke thay the.
+        # Bia (chuoi/list) khong tinh: khong the thay chu de cho bia.
+        scene_prompts: list[str] = []
+        for j in jobs:
+            if isinstance(j, tuple) and len(j) >= 3 and str(j[0]).startswith("page_"):
+                scene_prompts.append(j[1])
+        self._scene_prompts = scene_prompts
+
         n_workers = len(self.pages)
         queues: list[asyncio.Queue] = [asyncio.Queue() for _ in range(n_workers)]
         for i, j in enumerate(jobs):

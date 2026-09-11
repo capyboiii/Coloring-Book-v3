@@ -381,6 +381,20 @@ class BatchRunner:
             old_n = self._base_cfg.get("book", {}).get("num_images")
             if old_n:
                 fresh.setdefault("book", {})["num_images"] = old_n
+
+            # CAP NHAT DANH SACH TAI KHOAN tu config.yaml hien tai. Batch chup
+            # cung browser.profiles luc bat dau, nen them tai khoan giua chung
+            # (vd them .chrome-acc4) khong toi duoc batch dang chay. Doc lai o
+            # day de "chay tiep" dung du so tab. browser la ha tang, khong phai
+            # noi dung sach -> ap cho CA cuon dang do lan cuon moi.
+            fresh_browser = fresh.get("browser")
+            if fresh_browser:
+                old_profiles = (self._base_cfg.get("browser") or {}).get("profiles")
+                self._base_cfg["browser"] = fresh_browser
+                new_profiles = fresh_browser.get("profiles")
+                if old_profiles != new_profiles:
+                    log.info("[BATCH] Cap nhat tai khoan tu config: %s -> %s",
+                             old_profiles, new_profiles)
         self._fresh_cfg = fresh
 
         n = 0
@@ -505,6 +519,45 @@ class BatchRunner:
             [b["user_data_dir"]] if "user_data_dir" in b else [])
         return [Path(p).resolve() for p in profiles]
 
+    def _kill_project_chrome(self) -> int:
+        """Giet moi tien trinh Chrome dang chay tren profile CUA DU AN.
+
+        Loc theo duong dan goc du an trong command line (--user-data-dir tro
+        vao <root>/.chrome-*), nen bat het ca profile goc lan ban sao -p*,
+        NHUNG khong bao gio dung vao Chrome ca nhan cua nguoi dung (path khac).
+
+        Goi o dau moi luot gen, khi CHUA co pool nao cua luot nay chay -> moi
+        chrome tren profile du an luc nay deu la zombie cua luot truoc.
+        """
+        import subprocess
+
+        tag = str(self.root.resolve()).lower()
+        try:
+            out = subprocess.run(
+                ["powershell", "-NoProfile", "-Command",
+                 "Get-CimInstance Win32_Process -Filter \"name='chrome.exe'\" | "
+                 "ForEach-Object { \"$($_.ProcessId)`t$($_.CommandLine)\" }"],
+                capture_output=True, text=True, timeout=15).stdout
+        except Exception:
+            return 0
+        pids = []
+        for line in out.splitlines():
+            pid, _, cmd = line.partition("\t")
+            if not pid.strip().isdigit():
+                continue
+            c = (cmd or "").lower()
+            if tag in c and ".chrome-" in c:
+                pids.append(pid.strip())
+        for pid in pids:
+            try:
+                subprocess.run(["taskkill", "/F", "/T", "/PID", pid],
+                               capture_output=True, timeout=15)
+            except Exception:
+                pass
+        if pids:
+            log.info("[BATCH] Da don %d tien trinh Chrome zombie cua du an.", len(pids))
+        return len(pids)
+
     def _wait_profiles_free(self, timeout: float = 90.0) -> None:
         """Đợi Chrome của cuốn trước nhả khoá profile trước khi phóng cuốn sau.
 
@@ -521,6 +574,16 @@ class BatchRunner:
         dirs = self._profile_dirs()
         if not dirs:
             return
+
+        # Don zombie cua luot truoc TRUOC khi cho. Truoc day vong cho doi
+        # profile duoc nha, nhung thu giu khoa lai chinh la Chrome zombie cua
+        # pool luot truoc - no khong tu chet, nen vong cho khong bao gio thang
+        # va ket 90s roi nhan ban -p1 (mat dang nhap). Giet truoc thi khoa nha
+        # ngay, cuon sau chay thang tren profile da dang nhap.
+        killed = self._kill_project_chrome()
+        if killed:
+            time.sleep(2.0)  # cho Windows nha lockfile
+
         deadline = time.time() + timeout
         while time.time() < deadline:
             locked = [d for d in dirs if d.exists() and is_profile_locked(d)]

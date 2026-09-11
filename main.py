@@ -1455,19 +1455,28 @@ def get_preview_attachments_map(cfg: dict) -> dict[str, list[Path]]:
         finalize_cover(cfg, raw_dir / _cov)
 
     cover_front_titled = proc_dir / "cover_front_titled.png"
-    if cover_front_titled.exists():
+    cover_front_raw = (proc_dir / "cover_front.png") if (proc_dir / "cover_front.png").exists() else (raw_dir / "cover_front.png")
+
+    # Dung lai ban titled da cache CHI KHI no con moi hon bia raw. Truoc day
+    # chi kiem tra 'exists()', nen gen lai bia xong (ghi 01_raw/cover_front.png
+    # moi) ma ban titled cu van con -> preview dinh kem bia CU. So mtime: bia
+    # raw moi hon -> dung lai titled.
+    titled_fresh = (
+        cover_front_titled.exists()
+        and cover_front_raw.exists()
+        and cover_front_titled.stat().st_mtime >= cover_front_raw.stat().st_mtime
+    )
+    if titled_fresh:
         cover_front = cover_front_titled
+    elif cover_front_raw.exists():
+        try:
+            cover_front = imaging.render_titled_cover(
+                cover_front_raw, cover_front_titled, title, subtitle)
+            log.info("Dung lai bia co tieu de (bia raw moi hon ban cu).")
+        except Exception:
+            cover_front = cover_front_raw
     else:
-        cover_front_raw = (proc_dir / "cover_front.png") if (proc_dir / "cover_front.png").exists() else (raw_dir / "cover_front.png")
         cover_front = cover_front_raw
-        if cover_front_raw.exists():
-            try:
-                cover_front = imaging.render_titled_cover(
-                    cover_front_raw, cover_front_titled,
-                    title, subtitle
-                )
-            except Exception:
-                cover_front = cover_front_raw
 
     # Đảm bảo các trang ruột trong 01_raw được làm sạch nét và đóng khung viền đen vào 02_processed trước khi đính kèm vào preview
     raw_pages = sorted(list(raw_dir.glob("page_*.png"))) + sorted(list(raw_dir.glob("page_*.jpg")))
