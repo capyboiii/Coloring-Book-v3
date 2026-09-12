@@ -261,10 +261,14 @@ class BatchRunner:
                 seo = str(t.get("seo_title") or t.get("title") or "").strip()
                 cover = str(t.get("cover_title") or "").strip()
                 desc = str(t.get("seo_description") or "").strip()
+                tags = t.get("tags")
+                if isinstance(tags, list):
+                    tags = ", ".join(str(x).strip() for x in tags if str(x).strip())
+                tags = str(tags or "").strip()
                 aud = t.get("audience")
                 cstyle = t.get("cover_style")
             else:
-                seo, cover, desc = str(t).strip(), "", ""
+                seo, cover, desc, tags = str(t).strip(), "", "", ""
                 aud, cstyle = None, None
 
             if ranges:
@@ -286,6 +290,7 @@ class BatchRunner:
                     "title": seo,
                     "cover_title": cover,
                     "seo_description": desc,
+                    "tags": tags,
                     "audience": aud,
                     "cover_style": cstyle,
                 })
@@ -301,14 +306,16 @@ class BatchRunner:
         used: set[str] = set()
         for it in items:
             title, cover, desc = it["title"], it["cover_title"], it["seo_description"]
+            tags = it.get("tags") or ""
             aud = it.get("audience") or base_cfg.get("book", {}).get("audience", "kids")
             cstyle = it.get("cover_style") or base_cfg.get("book", {}).get("cover_style", "glossy")
             slug = self._unique_slug(title, used)
             used.add(slug)
-            self._prepare_book(base_cfg, slug, title, cover, desc, aud, cstyle)
+            self._prepare_book(base_cfg, slug, title, cover, desc, aud, cstyle, tags)
             books.append({
                 "slug": slug, "title": title, "cover_title": cover,
                 "seo_description": desc,
+                "tags": tags,
                 "audience": aud,
                 "cover_style": cstyle,
                 "status": QUEUED,
@@ -462,9 +469,11 @@ class BatchRunner:
 
     def _prepare_book(self, base_cfg: dict, slug: str, title: str,
                       cover_title: str = "", seo_description: str = "",
-                      audience: str | None = None, cover_style: str | None = None) -> None:
+                      audience: str | None = None, cover_style: str | None = None,
+                      tags: str = "") -> None:
         """Tạo thư mục + state.json cho một cuốn. Không đụng config.yaml."""
-        cfg = self._cfg_for(base_cfg, slug, title, cover_title, seo_description, audience, cover_style)
+        cfg = self._cfg_for(base_cfg, slug, title, cover_title, seo_description,
+                            audience, cover_style, tags)
         P = self.bm.paths_of(cfg)
         P["raw_dir"].mkdir(parents=True, exist_ok=True)
 
@@ -485,7 +494,8 @@ class BatchRunner:
 
     def _cfg_for(self, base_cfg: dict, slug: str, title: str,
                  cover_title: str = "", seo_description: str = "",
-                 audience: str | None = None, cover_style: str | None = None) -> dict:
+                 audience: str | None = None, cover_style: str | None = None,
+                 tags: str = "") -> dict:
         cfg = copy.deepcopy(base_cfg)
         cfg["_book"] = slug
         cfg.setdefault("book", {})
@@ -503,6 +513,11 @@ class BatchRunner:
             cfg["book"]["seo_description"] = seo_description
         else:
             cfg["book"].pop("seo_description", None)
+        # tags: 10 tag Gemini đẻ từ keyword -> lưu để export CSV điền cột Tags.
+        if tags:
+            cfg["book"]["tags"] = tags
+        else:
+            cfg["book"].pop("tags", None)
         if audience:
             cfg["book"]["audience"] = audience
         if cover_style:

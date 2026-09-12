@@ -23,6 +23,7 @@ Dùng nhanh:
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import logging
@@ -380,6 +381,208 @@ def manifest_path(slug: str) -> Path:
     """Nơi lưu manifest CỤC BỘ (không đẩy lên R2 - xem upload_book)."""
     import main as book_main
     return book_main.BOOKS_DIR / slug / "manifest.json"
+
+
+# Donor MAC DINH cho che do "list": bo bien the that (link PDF + so trang +
+# gay + kich thuoc) cua mot cuon DA UPLOAD len R2 that. Dung lam link PDF dung
+# chung khi chua co/khong quet thay manifest.json nao tren dia. Sinh bang cach
+# upload that cuon nay 1 lan roi lay manifest ve. Cap nhat khi can doi cuon muon.
+_FALLBACK_DONOR = {
+    "slug": "autumn-apple-orchard-coloring-book-apple-trees-pumpkins-bask",
+    "variants": [
+        {
+            "id": "full",
+            "page_count": 102,
+            "cover_width_in": 17.54,
+            "cover_height_in": 11.25,
+            "spine_in": 0.29,
+            "interior_key": "books/autumn-apple-orchard-coloring-book-apple-trees-pumpkins-bask/6127c72fab5a6d9a038fd719262716c241024124a61a59961edec80333011077/interior.pdf",
+            "cover_key": "books/autumn-apple-orchard-coloring-book-apple-trees-pumpkins-bask/60aed016aaaab082e5bb15577c54ce349dcb9c9cef5ed669de5fd71ab134a449/cover.pdf",
+            "interior_url": "https://cdn.crayonahub.com/books/autumn-apple-orchard-coloring-book-apple-trees-pumpkins-bask/6127c72fab5a6d9a038fd719262716c241024124a61a59961edec80333011077/interior.pdf",
+            "cover_url": "https://cdn.crayonahub.com/books/autumn-apple-orchard-coloring-book-apple-trees-pumpkins-bask/60aed016aaaab082e5bb15577c54ce349dcb9c9cef5ed669de5fd71ab134a449/cover.pdf",
+            "interior_sha256": "6127c72fab5a6d9a038fd719262716c241024124a61a59961edec80333011077",
+            "cover_sha256": "60aed016aaaab082e5bb15577c54ce349dcb9c9cef5ed669de5fd71ab134a449",
+            "interior_bytes": 32621492,
+            "digital_key": "books/autumn-apple-orchard-coloring-book-apple-trees-pumpkins-bask/7160e88a9fece44e1db2fe023601383ed8603af3d377b57330587f67f2a7d6b3/digital.pdf",
+            "digital_url": "https://cdn.crayonahub.com/books/autumn-apple-orchard-coloring-book-apple-trees-pumpkins-bask/7160e88a9fece44e1db2fe023601383ed8603af3d377b57330587f67f2a7d6b3/digital.pdf",
+            "digital_sha256": "7160e88a9fece44e1db2fe023601383ed8603af3d377b57330587f67f2a7d6b3",
+            "digital_bytes": 35662325,
+            "digital_pages": 50
+        },
+        {
+            "id": "24p",
+            "page_count": 54,
+            "cover_width_in": 17.432,
+            "cover_height_in": 11.25,
+            "spine_in": 0.182,
+            "interior_key": "books/autumn-apple-orchard-coloring-book-apple-trees-pumpkins-bask/0cc1068b10129efc77af446ca71cdbbb17a141feb433ffc6ed23b19a41e8959c/interior.pdf",
+            "cover_key": "books/autumn-apple-orchard-coloring-book-apple-trees-pumpkins-bask/68a0a26be0e88d2030a70e2e7b8d11f99e07585f5f5e94e3849527c6991d98cd/cover.pdf",
+            "interior_url": "https://cdn.crayonahub.com/books/autumn-apple-orchard-coloring-book-apple-trees-pumpkins-bask/0cc1068b10129efc77af446ca71cdbbb17a141feb433ffc6ed23b19a41e8959c/interior.pdf",
+            "cover_url": "https://cdn.crayonahub.com/books/autumn-apple-orchard-coloring-book-apple-trees-pumpkins-bask/68a0a26be0e88d2030a70e2e7b8d11f99e07585f5f5e94e3849527c6991d98cd/cover.pdf",
+            "interior_sha256": "0cc1068b10129efc77af446ca71cdbbb17a141feb433ffc6ed23b19a41e8959c",
+            "cover_sha256": "68a0a26be0e88d2030a70e2e7b8d11f99e07585f5f5e94e3849527c6991d98cd",
+            "interior_bytes": 18027162,
+            "digital_key": "books/autumn-apple-orchard-coloring-book-apple-trees-pumpkins-bask/927db8483bc8e211598a8aeed6f6adebbc34f5b0d266c7ddee7d08e8386fd844/digital.pdf",
+            "digital_url": "https://cdn.crayonahub.com/books/autumn-apple-orchard-coloring-book-apple-trees-pumpkins-bask/927db8483bc8e211598a8aeed6f6adebbc34f5b0d266c7ddee7d08e8386fd844/digital.pdf",
+            "digital_sha256": "927db8483bc8e211598a8aeed6f6adebbc34f5b0d266c7ddee7d08e8386fd844",
+            "digital_bytes": 21077831,
+            "digital_pages": 26
+        }
+    ]
+}
+
+
+def _variant_has_pdf(v: dict) -> bool:
+    return bool(v.get("interior_url") and v.get("cover_url"))
+
+
+def pick_donor_manifest(prefer: str | None = None) -> tuple[str, dict] | None:
+    """Tim mot cuon DA UPLOAD that de MUON link PDF dung chung cho luot "list".
+
+    Che do "list" chi day preview len R2, khong co PDF. Nhung CSV/manifest van
+    can URL PDF o moi bien the. Ta muon nguyen bo bien the (link + so trang +
+    gay + kich thuoc) cua mot cuon that da len R2 -> lam placeholder.
+
+    prefer: slug muon uu tien. Khong co/khong hop le thi tu quet, lay cuon dau
+    tien co manifest.json day du (moi bien the co interior_url + cover_url).
+    """
+    import main as book_main
+
+    def _ok(man: dict) -> bool:
+        vs = man.get("variants") or []
+        return bool(vs) and all(_variant_has_pdf(v) for v in vs)
+
+    if prefer:
+        mp = manifest_path(prefer)
+        if mp.exists():
+            try:
+                man = json.loads(mp.read_text(encoding="utf-8"))
+                if _ok(man):
+                    return prefer, man
+            except Exception:
+                pass
+
+    for d in sorted(book_main.BOOKS_DIR.iterdir()):
+        if not d.is_dir():
+            continue
+        mp = manifest_path(d.name)
+        if not mp.exists():
+            continue
+        try:
+            man = json.loads(mp.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if _ok(man):
+            return d.name, man
+
+    # Khong quet thay manifest that nao -> dung donor nhung san trong code.
+    if _ok(_FALLBACK_DONOR):
+        return _FALLBACK_DONOR["slug"], _FALLBACK_DONOR
+    return None
+
+
+def build_manifest_previews(slug: str, donor: dict) -> dict:
+    """Manifest che do "list": anh THAT cua cuon nay, link PDF MUON cua donor.
+
+    Khac build_manifest o cho: khong doc PDF cua cuon nay (co the chua co).
+    Bien the lay nguyen tu donor (link + so trang + gay), chi thay phan ANH
+    (cover_front + previews) bang cua chinh cuon nay. Tieu de/kho... lay tu
+    config that cua cuon nay.
+    """
+    import main as book_main
+
+    c = _book_cfg(slug)
+    P = book_main.paths_of(c)
+    pfx_img = cfg()["prefix_img"]
+    base = cfg()["public_base"]
+
+    # Muon nguyen bo bien the cua donor (link PDF dung chung, chap nhan tam).
+    variants = copy.deepcopy(donor.get("variants") or [])
+    if not variants:
+        raise ValueError("Donor khong co bien the nao de muon link PDF.")
+
+    images: dict[str, Any] = {}
+    raw = P["raw_dir"]
+    prev = P.get("preview_dir") or (P["pdf_dir"].parent / "04_previews")
+    if (raw / "cover_front.png").exists() and base:
+        images["cover_front"] = f"{base}/{pfx_img}/{slug}/cover_front.png"
+    if base:
+        pv = [f"{base}/{pfx_img}/{slug}/{p.stem}.webp"
+              for p in sorted(prev.glob("preview_*.png"))]
+        if pv:
+            images["previews"] = pv
+
+    bk = c["book"]
+    return {
+        "schema": 1,
+        "slug": slug,
+        "title": bk.get("title", slug),
+        "trim_width": c["print"]["trim_width"],
+        "trim_height": c["print"]["trim_height"],
+        "bleed": c["print"]["bleed"],
+        "binding": c["print"].get("binding", "perfect"),
+        "interior_color": "bw" if not c.get("process", {}).get("color") else "color",
+        "pod_package_id": c["print"].get("pod_package_id"),
+        "variants": variants,
+        "images": images,
+        "placeholder_pdf_from": donor.get("slug"),   # danh dau la link muon
+        "source": {
+            "num_images": bk.get("num_images"),
+            "blank_verso": bk.get("blank_verso", True),
+            "backend": c.get("backend", "web"),
+        },
+    }
+
+
+def check_ready_previews(slug: str) -> list[str]:
+    """Che do "list": chi doi anh bia + preview, KHONG doi PDF."""
+    import main as book_main
+
+    try:
+        c = _book_cfg(slug)
+        P = book_main.paths_of(c)
+    except Exception as e:  # noqa: BLE001
+        return [f"khong doc duoc cau hinh sach ({e})"]
+    missing = []
+    if not (P["raw_dir"] / "cover_front.png").exists():
+        missing.append("anh bia (cover_front.png)")
+    prev = P.get("preview_dir") or (P["pdf_dir"].parent / "04_previews")
+    n_prev = len(list(prev.glob("preview_*.png"))) if prev.exists() else 0
+    if n_prev == 0:
+        missing.append("anh preview")
+    return missing
+
+
+def upload_previews_only(slug: str, donor: dict) -> dict:
+    """Che do "list": day CHI anh (bia + preview) len R2, ghi manifest muon PDF.
+
+    KHONG day PDF. Link PDF trong manifest la cua `donor` (dung chung tam thoi).
+    """
+    import main as book_main
+
+    c = _book_cfg(slug)
+    P = book_main.paths_of(c)
+    pdf_dir = P["pdf_dir"]
+    pfx_img = cfg()["prefix_img"]
+
+    raw = P["raw_dir"]
+    prev = P.get("preview_dir") or (pdf_dir.parent / "04_previews")
+    cf = raw / "cover_front.png"
+    if cf.exists():
+        upload(cf, f"{pfx_img}/{slug}/cover_front.png", skip_if_exists=False)
+    for pv in sorted(prev.glob("preview_*.png")):
+        wp = to_webp(pv)
+        upload(wp, f"{pfx_img}/{slug}/{wp.name}", skip_if_exists=False)
+
+    manifest = build_manifest_previews(slug, donor)
+    mp = manifest_path(slug)
+    mp.parent.mkdir(parents=True, exist_ok=True)
+    mp.write_text(json.dumps(manifest, ensure_ascii=False, indent=2),
+                  encoding="utf-8")
+    manifest["manifest_path"] = str(mp)
+    log.info("[R2] (list) Xong '%s': chi day anh, link PDF muon tu '%s'.",
+             slug, donor.get("slug"))
+    return manifest
 
 
 def check_ready(slug: str, need_uploaded: bool = False) -> list[str]:

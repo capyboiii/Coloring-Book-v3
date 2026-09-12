@@ -389,6 +389,13 @@ def _kill_pid_tree(pid: int) -> None:
 class GeminiPool:
     """N tab Gemini cùng rút việc từ một hàng đợi."""
 
+    # Bộ xoay vòng DÙNG CHUNG GIỮA CÁC CUỐN (batch mở pool mới mỗi cuốn nhưng
+    # cùng một tiến trình -> biến lớp giữ nguyên). Nhờ đó việc "một lần mỗi cuốn"
+    # - nghĩ scene (ask_text) và chuỗi bìa - không dồn mãi vào cùng một tài
+    # khoản, mà lần lượt xoay qua các account cho đều token.
+    _ask_rotor = 0
+    _job_rotor = 0
+
     def __init__(self, cfg: dict):
         b = cfg["browser"]
         self.url = b["gemini_url"]
@@ -1619,8 +1626,15 @@ class GeminiPool:
     # ---------- API công khai ----------
 
     async def ask_text(self, prompt: str) -> str:
-        """Hỏi text bằng tab đầu tiên (dùng để nhờ Gemini nghĩ chủ đề)."""
-        page = self.pages[0]
+        """Hỏi text để nhờ Gemini nghĩ chủ đề.
+
+        XOAY VÒNG tài khoản thay vì luôn dùng tab 0: mỗi cuốn nghĩ scene một
+        lần, nếu cứ dồn vào một account thì account đó cháy token trước. Xoay
+        đều thì mỗi tài khoản gánh một phần.
+        """
+        i = GeminiPool._ask_rotor % len(self.pages)
+        GeminiPool._ask_rotor += 1
+        page = self.pages[i]
         await self._new_chat(page)
         await self._send_prompt(page, prompt)
         await self._wait_for_generation(page)
@@ -1933,8 +1947,13 @@ class GeminiPool:
 
         n_workers = len(self.pages)
         queues: list[asyncio.Queue] = [asyncio.Queue() for _ in range(n_workers)]
+        # XOAY điểm bắt đầu chia việc theo từng cuốn. Không xoay thì chuỗi bìa
+        # (job cuối) với số trang cố định luôn rơi vào cùng một tab -> một tài
+        # khoản gánh HẾT bìa cả batch. Xoay thì bìa lần lượt qua các account.
+        start = GeminiPool._job_rotor % n_workers
+        GeminiPool._job_rotor += 1
         for i, j in enumerate(jobs):
-            queues[i % n_workers].put_nowait((j, 0))   # (việc, số lần đã xếp lại)
+            queues[(i + start) % n_workers].put_nowait((j, 0))   # (việc, số lần đã xếp lại)
         results: dict[str, bool] = {}
         done_by_tab: dict[int, int] = {i: 0 for i in range(1, n_workers + 1)}
 
@@ -1966,9 +1985,11 @@ class GeminiPool:
                 else:
                     key, prompt, dest = step
                     attach = None
-                # Bước đầu mở chat mới, các bước sau nối tiếp trong đó.
+                # MỖI bước một CHAT RIÊNG (kể cả bước sau). Chuỗi giờ chỉ để
+                # TUẦN TỰ trên cùng một tab - bìa sau chạy sau bìa trước và đính
+                # kèm ảnh bìa trước, thay vì vẽ chung một chat (hay bị hiểu nhầm).
                 ok = await self._one_job(page, idx, prompt, dest,
-                                         same_chat=(n > 0), attach_files=attach)
+                                         same_chat=False, attach_files=attach)
                 results[key] = ok
                 if on_done:
                     on_done(key, ok)

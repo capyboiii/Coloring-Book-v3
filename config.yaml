@@ -1,9 +1,9 @@
 book:
-  title: Trick or Treat Night Coloring Book – Costumed Kids, Candy Buckets & Decorated
-    Doorsteps – Print and Digital Versions – For Little Artists
+  title: Spooky School Night Coloring Book – Classrooms, Costumes, Pumpkin Crafts
+    – Available as Print & Digital – For Kids
   subtitle: ''
   audience: kids
-  cover_style: cinematic_3d
+  cover_style: colored_pencil
   num_images: 48
   blank_verso: true
   matter_pages: true
@@ -257,6 +257,11 @@ prompts:
   back_cover: 'THIS IS THE BACK COVER (REAR COVER OF THE BOOK).
 
 
+    The FRONT COVER image is ATTACHED to this message. Study the attached front cover
+    carefully and produce a BACK COVER that is a seamless matching pair to it - same
+    world, same characters, same art style and colour palette.
+
+
     Generate the matching BACK COVER for the {audience_adj} coloring book.
 
 
@@ -274,7 +279,8 @@ prompts:
 
     MATCHING ART STYLE & COLOUR: MUST use EXACTLY the same art style, colour palette
 
-    ({style}), line weight, and character design as the front cover to form a seamless
+    ({style}), line weight, and character design as the ATTACHED front cover to form
+    a seamless
 
     matching set.
 
@@ -393,101 +399,54 @@ prompts:
       the book cover. Keep the cover design identical to the attached image. Square
       1:1 aspect ratio.'
 subjects:
-- A little child dressed as a friendly ghost holds a smiling pumpkin candy bucket
-  on a decorated porch.
-- A toddler in a fluffy dinosaur costume stomps up the front steps toward a welcoming
-  door.
-- A young witch with a pointy hat and star-patterned dress rings a doorbell framed
-  with paper bats.
-- A boy wearing a homemade cardboard robot costume reaches into a wooden bowl filled
-  with wrapped candies.
-- A girl dressed as a fairy with sparkly wings inspects a row of carved jack-o'-lanterns
-  on a porch.
-- A child dressed as an astronaut holds a crescent-moon-shaped treat pail under an
-  autumn tree.
-- A friendly pirate kid with an eye patch and a toy parrot knocks on a front door
-  covered in faux cobwebs.
-- A little kid in a fuzzy teddy bear costume sits on a doorstep admiring a giant swirl
-  lollipop.
-- A child dressed as a cute mummy with loose cloth wraps drops a wrapped candy bar
-  into their tote bag.
-- A young knight in a shiny foil helmet proudly stands beside a tall stack of pumpkins.
-- A smiling girl dressed as a black cat with painted whiskers tiptoes along a leaf-covered
-  sidewalk.
-- A boy in a simple cape and superhero eye-mask holds his pumpkin bucket high in the
-  air.
-- A toddler wearing an acorn cap and squirrel tail gathers treats from a wicker porch
-  basket.
-- A child dressed as a bumblebee with antenna headbands walks toward a door adorned
-  with autumn leaves.
-- A young vampire kid in a collared cape giggles while picking out a treat from a
-  candy bowl.
-- A girl dressed as a mermaid with a scaly skirt holds a seashell-shaped trick-or-treat
-  basket.
-- A friendly skeleton kid with painted white bones sits on the porch step tying their
-  sneaker lace.
-- A boy in a firefighter jacket and yellow plastic helmet rings a doorbell beneath
-  hanging paper lanterns.
-- A child dressed as a green garden alien with three soft antennae stands beside a
-  grinning jack-o'-lantern.
-- A little baker wearing a chef hat and apron happily shows off a pumpkin-shaped cookie
-  bucket.
-- A girl dressed as a scarecrow with patched overalls waves in front of a cornstalk-lined
-  doorway.
-- A child wearing a cardboard race car costume rolls down the neighborhood sidewalk
-  with a candy pail.
-- A young wizard waving a star-tipped wand stands on a doorstep decorated with paper
-  spiderwebs.
-- A toddler in a fluffy sheep costume peers curiously into a bowl overflowing with
-  round hard candies.
-- A child dressed as a winged dragon with soft felt spikes holds a cauldron bucket
-  full of sweets.
-- A little girl in a ruffled ballerina tutu and cat ears skips along a pumpkin-lined
-  garden path.
-- A boy wearing a deep-sea diver costume with a cardboard oxygen tank inspects a striped
-  peppermint stick.
-- A child dressed as a woodland owl with patterned wing-capes perches on a low porch
-  railing near a glowing lantern.
-- A friendly young doctor in a white coat and toy stethoscope drops wrapped mints
-  into a treat bag.
-- A toddler dressed as a red strawberry with green leaf collars smiles happily on
-  a front stoop.
-- A kid in a cozy lion onesie with a bushy mane sits among scattered leaves holding
-  a candy bag.
-- A child dressed as a colorful painter with a beret and palette knocks on a bright
-  wooden door.
-- A young detective in a trench coat uses a toy magnifying glass to examine a carved
-  pumpkin face.
-- A little girl dressed as a bright sunflower holds a basket full of chocolates beside
-  a porch bench.
-- A boy wearing a puppy costume with floppy ears wags his tail at a bowl of wrapped
-  treats.
-- A child dressed as a toy soldier with a drum marches up a stone pathway toward a
-  lit porch.
-- A girl wearing a simple tiara and sparkly gown drops a giant candy into her glittery
-  pail.
-- A toddler in a green frog costume hops playfully beside a porch decorated with mini
-  gourds.
-- A child dressed as an aviator with vintage goggles checks the treats inside a canvas
-  trick-or-treat sack.
-- A young gardener with a tiny watering can and straw hat stands beside a porch display
-  of pumpkins.
-- A child dressed as a colorful pinwheel stands at the bottom of a decorated front
-  porch stairway.
-- A boy dressed as a friendly fuzzy monster with two soft horns holds out an extra-wide
-  treat bucket.
-- A little girl dressed as a magical butterfly spreads her large patterned wings near
-  a doorstep lantern.
-- A child wearing striped pajamas and a nightcap carries a pumpkin bucket under a
-  smiling crescent moon.
-- A toddler dressed as a cozy snowman with a carrot nose smiles while holding a felt
-  candy bag.
-- A boy in a homemade cardboard rocket costume counts his wrapped candies while sitting
-  on a welcome mat.
-- A girl dressed as an autumn tree with felt leaf patches smiles beside a leafy wreath
-  on a front door.
-- Two costumed friends, a little ghost and a little pumpkin, hold hands and share
-  candies on a front stoop.
+- A friendly ghost sits at a wooden school desk holding a pencil.
+- A cheerful little skeleton raises its hand to answer a question.
+- A small vampire bat wearing glasses reads an open textbook.
+- A grinning Jack-o'-lantern rests on top of a stack of school books.
+- A cute black cat wearing a witch hat sits on a teacher's desk.
+- A friendly monster paints a picture on an easel in art class.
+- A school locker is decorated with dangling paper bats and cobwebs.
+- A smiling scarecrow sits on a bench in the school playground.
+- A tiny ghost carries a miniature backpack filled with notebooks.
+- A friendly mummy and a small goblin share a box of crayons.
+- A smiling witch's hat rests on a wooden school chair.
+- A plump pumpkin wears a pair of round student glasses.
+- Two little ghosts play with building blocks on the classroom floor.
+- A friendly spider hangs from a classroom ceiling light by a thick thread.
+- A small alien wearing a party hat sits at a science lab desk.
+- A cute dragon uses its tail to hold a paint brush.
+- A friendly skeleton puts its books inside a school locker.
+- A spooky school bus with bat-wing windows drives down the road.
+- A fluffy owl wearing a graduation cap sits on a chalkboard ledge.
+- A little pumpkin character glues googly eyes onto a craft project.
+- A friendly ghost paints a smiling face on a round pumpkin.
+- A small monster holds an apple out for its teacher.
+- A smiling crescent moon looks down through a classroom window.
+- A jar of glowing fireflies sits next to a stack of lined paper.
+- A friendly mummy student raises both hands in excitement.
+- A cute little scarecrow holds a sign that says welcome.
+- A chalkboard features a large, friendly drawing of a smiling ghost.
+- A witch's broom leans neatly against a classroom bookshelf.
+- A pair of rubber boots splashed with orange paint sit by the door.
+- A friendly green goblin organizes colored pencils in a cup.
+- A little ghost wearing a backpack walks down a hallway.
+- A pumpkin wearing a bow tie sits proudly on a desk.
+- A friendly skeleton draws a star on a chalkboard.
+- A small bat hangs upside down from a tree branch outside the window.
+- A cute dragon roasts a marshmallow over a small classroom candle.
+- A friendly monster reads a storybook to three tiny ghosts.
+- A school lunch tray holds a sandwich cut like a bat and an orange.
+- A cheerful scarecrow waves hello next to a patch of pumpkins.
+- A friendly ghost holds a magnifying glass over a science book.
+- A small spider spins a web in the corner of a chalkboard.
+- A cute robot wears a spooky paper mask on its head.
+- A friendly witch stirs a cauldron filled with colorful school glue.
+- A little pumpkin character wears a tiny backpack to school.
+- A friendly skeleton points to a map of the world with a ruler.
+- A cute black cat sleeps peacefully on a pile of homework.
+- A friendly monster cuts shapes out of orange construction paper.
+- A tall stack of spooky storybooks rests on a reading rug.
+- A friendly ghost holds a glowing star-shaped lantern in the dark.
 cover_text:
   back_blurb: '
 
@@ -502,7 +461,7 @@ api:
   - 2
   - 5
 browser:
-  headless: false
+  headless: true
   gemini_url: https://gemini.google.com/app
   generation_timeout: 120
   recycle_tab_every: 1
@@ -527,4 +486,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: trick-or-treat-night-coloring-book-costumed-kids-candy-bucke
+_book: spooky-school-night-coloring-book-classrooms-costumes-pumpki

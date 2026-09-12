@@ -689,6 +689,50 @@ def upload_to_r2(payload: dict):
             "results": results}
 
 
+@app.post("/api/r2/upload-previews")
+def upload_previews_to_r2(payload: dict):
+    """Che do "list": day CHI anh preview (+ bia) len R2, KHONG day PDF.
+
+    Link PDF trong manifest muon tu MOT cuon da upload that (dung chung tam).
+    payload: {slugs:[...]} / bo trong = moi cuon co bia trong folder;
+             {donor:"slug"} tuy chon de chi dinh cuon cho muon link.
+    """
+    from bookgen import storage
+
+    donor = storage.pick_donor_manifest(payload.get("donor"))
+    if not donor:
+        raise HTTPException(
+            status_code=400,
+            detail="Chua co cuon nao da upload that de muon link PDF. Hay day "
+                   "day du (R2+CSV Bo Doi) it nhat MOT cuon truoc.")
+    donor_slug, donor_man = donor
+
+    slugs = payload.get("slugs") or ([payload["slug"]] if payload.get("slug") else None)
+    if not slugs:
+        slugs = sorted(
+            d.name for d in book_main.BOOKS_DIR.iterdir()
+            if d.is_dir() and (d / "01_raw" / "cover_front.png").exists())
+
+    results = []
+    for slug in slugs:
+        try:
+            miss = storage.check_ready_previews(slug)
+            if miss:
+                results.append({"slug": slug, "ok": False,
+                                "error": "chua co: " + ", ".join(miss)})
+                continue
+            mani = storage.upload_previews_only(slug, donor_man)
+            results.append({"slug": slug, "ok": True,
+                            "variants": len(mani.get("variants", [])),
+                            "images": mani.get("images", {})})
+        except Exception as e:  # noqa: BLE001
+            logger.error(f"R2 upload-previews loi {slug}: {e}")
+            results.append({"slug": slug, "ok": False, "error": str(e)})
+    ok = sum(1 for r in results if r["ok"])
+    return {"status": "success", "uploaded": ok, "total": len(results),
+            "donor": donor_slug, "results": results}
+
+
 @app.post("/api/export/csv")
 def export_shopify_csv(payload: dict):
     """Xuất CSV nhập sản phẩm hoặc manifest master. payload: {slugs:[...]} hoặc {slug:"..."},
@@ -725,9 +769,17 @@ def export_shopify_csv(payload: dict):
 
     # Chỉ export cuốn ĐÃ lên R2: URL ảnh trong CSV trỏ thẳng vào bucket, cuốn
     # chưa upload sẽ tạo listing toàn ảnh 404 trên sàn.
+    allow_placeholder = bool(payload.get("placeholder") or payload.get("allow_placeholder"))
     ready, skipped = [], []
     for slug in slugs:
-        miss = storage.check_ready(slug, need_uploaded=True)
+        if allow_placeholder:
+            # Che do "list": chi doi manifest da ghi (co the la ban muon link
+            # PDF) + du anh preview. KHONG doi PDF that.
+            miss = storage.check_ready_previews(slug)
+            if not storage.manifest_path(slug).exists():
+                miss = miss + ["chua day len R2 (thieu manifest.json)"]
+        else:
+            miss = storage.check_ready(slug, need_uploaded=True)
         (skipped.append(f"{slug} ({', '.join(miss)})") if miss
          else ready.append(slug))
     if not ready:

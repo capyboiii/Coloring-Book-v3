@@ -555,6 +555,21 @@ function escHtml(s) {
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// Tags: nhận mảng (["a","b"]) hoặc chuỗi phẩy -> chuỗi "a, b" (tối đa 10, bỏ trùng).
+function normalizeTags(t) {
+  let arr;
+  if (Array.isArray(t)) arr = t;
+  else if (typeof t === 'string') arr = t.split(',');
+  else return '';
+  const seen = new Set();
+  const out = [];
+  for (let x of arr) {
+    x = String(x).trim().toLowerCase().replace(/\s+/g, ' ');
+    if (x && !seen.has(x)) { seen.add(x); out.push(x); }
+  }
+  return out.slice(0, 10).join(', ');
+}
+
 function switchIdeasInputTab(tab) {
   const tabAi = document.getElementById('ideas-tab-ai');
   const tabJson = document.getElementById('ideas-tab-json');
@@ -618,12 +633,13 @@ function parsePastedJson(rawStr) {
 
   const ideas = data.map(it => {
     if (typeof it === 'string') {
-      return { cover_title: '', seo_title: it.trim(), seo_description: '' };
+      return { cover_title: '', seo_title: it.trim(), seo_description: '', tags: '' };
     }
     return {
       cover_title: (it.cover_title || '').trim(),
       seo_title: (it.seo_title || it.title || '').trim(),
       seo_description: (it.seo_description || '').trim(),
+      tags: normalizeTags(it.tags),
     };
   }).filter(it => it.seo_title || it.cover_title);
 
@@ -655,7 +671,7 @@ async function loadPastedJsonAndStartBatch() {
   }
 }
 
-function ideaRowHtml(cover, seo, desc, num) {
+function ideaRowHtml(cover, seo, desc, tags, num) {
   const badge = num ? `<span class="idea-num">${num}</span>` : '';
   const descField = desc ? `
     <div class="idea-field">
@@ -676,13 +692,17 @@ function ideaRowHtml(cover, seo, desc, num) {
       <input class="idea-seo" value="${escHtml(seo)}" placeholder="Hook – 48 Pages – Chi tiết – For Kids">
     </div>
     ${descField}
+    <div class="idea-field">
+      <label>Tags (10 tag, ngăn bằng dấu phẩy → cột Tags CSV)</label>
+      <input class="idea-tags" value="${escHtml(tags || '')}" placeholder="halloween, pumpkins, ..., coloring book, kids coloring book">
+    </div>
   </div>`;
 }
 
 function renderIdeas(ideas) {
   const box = document.getElementById('ideas-list');
   box.innerHTML = ideas.map((it, i) =>
-    ideaRowHtml(it.cover_title || '', it.seo_title || '', it.seo_description || '', i + 1)
+    ideaRowHtml(it.cover_title || '', it.seo_title || '', it.seo_description || '', it.tags || '', i + 1)
   ).join('');
   document.getElementById('ideas-actions').style.display = ideas.length ? 'grid' : 'none';
   renumberIdeas();
@@ -696,7 +716,7 @@ function renumberIdeas() {
 function addIdeaRow() {
   const box = document.getElementById('ideas-list');
   const n = box.querySelectorAll('.idea-row').length + 1;
-  box.insertAdjacentHTML('beforeend', ideaRowHtml('', '', '', n));
+  box.insertAdjacentHTML('beforeend', ideaRowHtml('', '', '', '', n));
   document.getElementById('ideas-actions').style.display = 'grid';
 }
 
@@ -705,6 +725,7 @@ function collectIdeas() {
     cover_title: row.querySelector('.idea-cover')?.value.trim() || '',
     seo_title: row.querySelector('.idea-seo')?.value.trim() || '',
     seo_description: row.querySelector('.idea-desc')?.value.trim() || '',
+    tags: row.querySelector('.idea-tags')?.value.trim() || '',
   })).filter(it => it.seo_title || it.cover_title);
 }
 
@@ -839,7 +860,7 @@ function downloadBlob(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-async function exportCsv(forceAll = false) {
+async function exportCsv(forceAll = false, placeholder = false) {
   const slugs = forceAll ? [] : publishSlugs();
   const box = document.getElementById('publish-result');
   const now = new Date();
@@ -854,7 +875,7 @@ async function exportCsv(forceAll = false) {
     // 1. Xuất file Products (25 cột cho sàn Crayonahub)
     const resProd = await fetch('/api/export/csv', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ shop: 'crayonahub', kind: 'products', batch_id: batchId, ...(slugs.length ? { slugs } : {}) })
+      body: JSON.stringify({ shop: 'crayonahub', kind: 'products', batch_id: batchId, ...(placeholder ? { placeholder: true } : {}), ...(slugs.length ? { slugs } : {}) })
     });
     if (!resProd.ok) {
       const d = await resProd.json().catch(() => ({}));
@@ -872,7 +893,7 @@ async function exportCsv(forceAll = false) {
     // 3. Xuất file Manifest (Master kỹ thuật & thông số xưởng in Lulu POD)
     const resMan = await fetch('/api/export/csv', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ shop: 'crayonahub', kind: 'manifest', batch_id: batchId, ...(slugs.length ? { slugs } : {}) })
+      body: JSON.stringify({ shop: 'crayonahub', kind: 'manifest', batch_id: batchId, ...(placeholder ? { placeholder: true } : {}), ...(slugs.length ? { slugs } : {}) })
     });
     if (!resMan.ok) {
       const d = await resMan.json().catch(() => ({}));
@@ -957,6 +978,37 @@ async function uploadThenCsvAll() {
   const ok = await uploadToR2(true);
   if (ok) await exportCsv(true);
 }
+
+// R2 (CHỈ PREVIEW) + CSV chế độ "list": không đẩy PDF, mượn link PDF sẵn có.
+async function uploadPreviewsToR2(forceAll = false) {
+  const slugs = forceAll ? [] : publishSlugs();
+  const box = document.getElementById('publish-result');
+  const btn = document.getElementById('btn-publish-list-folder');
+  if (btn) btn.disabled = true;
+  if (box) box.innerHTML = '⏳ Đang đẩy CHỈ ảnh preview lên R2 (mượn link PDF)...';
+  try {
+    const res = await fetch('/api/r2/upload-previews', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(slugs.length ? { slugs } : {})
+    });
+    const data = await res.json();
+    if (!res.ok) { if (box) box.innerHTML = '❌ Lỗi: ' + (data.detail || 'không rõ'); return false; }
+    const rows = (data.results || []).map(r =>
+      `<div>${r.ok ? '✅' : '❌'} ${r.slug}${r.ok ? '' : ' — ' + (r.error || '')}</div>`).join('');
+    if (box) box.innerHTML = `<b>Đẩy preview: ${data.uploaded}/${data.total} cuốn</b> (mượn link PDF của <code>${data.donor}</code>)${rows}`;
+    logToTerminal(`[R2-list] Đẩy preview ${data.uploaded}/${data.total} cuốn, mượn link PDF của ${data.donor}.`);
+    return data.uploaded > 0;
+  } catch (err) {
+    if (box) box.innerHTML = '❌ Lỗi kết nối: ' + err.message; return false;
+  } finally { if (btn) btn.disabled = false; }
+}
+
+async function uploadPreviewsThenCsvAll() {
+  if (!confirm('Đẩy CHỈ ảnh preview lên R2 cho TẤT CẢ sách trong folder, mượn link PDF của một cuốn đã upload thật, rồi xuất 2 CSV?\n\nDùng để đẩy tạm danh sách khi PDF chưa sẵn sàng.')) return;
+  const ok = await uploadPreviewsToR2(true);
+  if (ok) await exportCsv(true, true);   // placeholder=true: bỏ đòi PDF khi export
+}
+
 
 
 // ---------------- BATCH RANGE RULES ----------------
@@ -1057,6 +1109,7 @@ function parseBatchTitlesInput(raw) {
             title: (it.seo_title || it.title || '').trim(),
             cover_title: (it.cover_title || '').trim(),
             seo_description: (it.seo_description || '').trim(),
+            tags: normalizeTags(it.tags),
             audience: it.audience || null,
             cover_style: it.cover_style || null,
           };
@@ -1126,6 +1179,7 @@ async function startBatch() {
       title: b.title,
       cover_title: b.cover_title || '',
       seo_description: b.seo_description || '',
+      tags: b.tags || '',
       audience: b.audience || (matched ? matched.audience : defaultAud),
       cover_style: b.cover_style || (matched ? matched.cover_style : defaultStyle),
     };

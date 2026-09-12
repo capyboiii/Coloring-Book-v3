@@ -121,7 +121,7 @@ def _book_data(slug: str, book_main, storage) -> dict:
         "audience": state.get("audience") or book.get("audience") or "kids",
         "cover_style": state.get("cover_style") or book.get("cover_style") or cfg.get("cover", {}).get("style") or "glossy",
         "num_images": book.get("num_images") or state.get("num_images"),
-        "tags": book.get("tags") or "",
+        "tags": book.get("tags") or "coloring book",
     }
 
 
@@ -143,12 +143,9 @@ def _rows_for(d: dict) -> list[dict]:
     rows: list[dict] = []
     for v in ordered:
         vid = v["id"]
-        # Ảnh đại diện biến thể: 24 trang -> preview_2, 48 trang -> preview_1.
-        # Giữ đúng cách đang chạy trên sàn để listing cũ và mới nhất quán.
-        vimg = ""
-        if previews:
-            vimg = previews[1] if (vid == "24p" and len(previews) > 1) \
-                else previews[0]
+        # Ảnh đại diện MỌI biến thể = preview_1 (ảnh bìa): cùng một cuốn, chỉ
+        # khác số trang -> ảnh giống nhau và preview_1 luôn dẫn đầu.
+        vimg = previews[0] if previews else ""
 
         for fmt in (FMT_PRINT, FMT_DIGITAL):
             if fmt == FMT_DIGITAL and not v.get("digital_url"):

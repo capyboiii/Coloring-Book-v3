@@ -395,11 +395,12 @@ f"From keyword: {keyword}\n"
     "[\n"
     "  {\n"
     "    \"cover_title\": \"Title displayed on the book cover\",\n"
-    "    \"seo_title\": \"SEO title for the backend\"\n"
+    "    \"seo_title\": \"SEO title for the backend\",\n"
+    "    \"tags\": [\"tag1\", \"tag2\", \"...\", \"tag10\"]\n"
     "  }\n"
     "]\n"
     f"Return exactly {count} objects.\n"
-    "Every object must contain exactly two fields: cover_title and seo_title.\n"
+    "Every object must contain exactly three fields: cover_title, seo_title and tags.\n"
     "Do not add any other fields.\n"
     "Return only valid JSON. Do not include explanations, markdown, comments, code fences, "
     "headings, or any text before or after the JSON.\n\n"
@@ -584,11 +585,70 @@ f"From keyword: {keyword}\n"
     "locations, activities, celebrations, fantasy concepts, vehicles, food, nature, adventures, "
     "and other audience-appropriate ideas when relevant.\n\n"
 
+    "TAGS RULES:\n"
+"tags MUST be a JSON array containing EXACTLY 10 unique short lowercase keyword tags for this book.\n\n"
+
+"Tags are search/marketplace keywords that a buyer could reasonably use to find this exact book.\n\n"
+
+"Every tag MUST be directly relevant to the specific book concept and supported by the "
+"book's cover_title, seo_title, or described visual content.\n\n"
+
+"Do NOT invent subjects, characters, objects, settings, activities, styles, themes, "
+"occasions, or seasons that are not supported by the book concept.\n\n"
+
+"Each tag MUST:\n"
+"- contain 1 to 3 words\n"
+"- use lowercase letters, numbers, and spaces only\n"
+"- contain no punctuation or special characters\n"
+"- be unique within the same tag array\n\n"
+
+"Generate EXACTLY 10 tags.\n\n"
+
+"Tag composition:\n"
+"- 1 tag for the core subject or main theme\n"
+"- 5 tags for concrete visual content actually represented in the book, such as "
+"characters, animals, objects, locations, activities, or scenes\n"
+"- 2 tags for relevant occasion, season, theme, or activity when applicable\n"
+"- 1 generic product tag: \"coloring book\"\n"
+"- 1 audience-specific tag: \"kids coloring book\" or \"adult coloring book\" "
+"matching the Target audience\n\n"
+
+"If an occasion, season, theme, or activity is not applicable, replace that tag with "
+"another highly relevant concrete visual-content tag instead of inventing one.\n\n"
+
+"Order tags from the most specific and useful search term to the most general search term.\n\n"
+
+"Prefer specific buyer-search phrases over vague descriptive words.\n"
+"Avoid generic filler tags such as \"cute\", \"fun\", \"beautiful\", \"creative\", "
+"\"amazing\", \"art\", or \"design\" unless the word is part of a genuinely useful "
+"and specific search phrase.\n\n"
+
+"Avoid redundant or near-duplicate tags that represent essentially the same search intent.\n"
+"For example, do not unnecessarily use multiple overlapping tags such as "
+"\"cute ghosts\", \"friendly ghosts\", \"halloween ghosts\" unless each phrase provides "
+"a distinct and useful search intent.\n\n"
+
+"Do not add broad niche-related keywords merely because they are associated with the main keyword.\n"
+"Every tag should help identify the actual content or intended audience of THIS specific book.\n\n"
+
+"The final two tags MUST be:\n"
+"\"coloring book\"\n"
+"and either\n"
+"\"kids coloring book\"\n"
+"or\n"
+"\"adult coloring book\"\n"
+"matching the Target audience.\n\n"
+
+"Across multiple books:\n"
+"- Do NOT reuse another book's complete 10-tag set.\n"
+"- Individual tags MAY appear in multiple books when they are genuinely relevant to those books.\n"
+"- Tag combinations should meaningfully reflect each book's specific concept.\n\n"
+
     "FINAL INTERNAL VALIDATION:\n"
     "Before returning the answer, internally verify ALL of the following:\n"
     f"1. The JSON array contains exactly {count} objects.\n"
-    "2. Every object contains exactly two fields: cover_title and seo_title.\n"
-    "3. No object contains seo_description or any other field.\n"
+    "2. Every object contains exactly three fields: cover_title, seo_title and tags.\n"
+    "3. tags is an array of exactly 10 unique lowercase keyword strings; no object contains any other field.\n"
     "4. Every cover_title ends exactly with \"Coloring Book\".\n"
     "5. Every cover_title contains no prohibited punctuation or special characters.\n"
     "6. Every seo_title contains exactly four blocks.\n"
@@ -632,8 +692,20 @@ def parse_ideas(raw: str, want: int = 10) -> list[dict]:
         # cover_title: bỏ ký tự đặc biệt, gộp khoảng trắng
         cover = re.sub(r"[\-–—:,|/\\]+", " ", cover)
         cover = re.sub(r"\s+", " ", cover).strip()
+        # tags: nhận list (chuẩn) hoặc chuỗi phẩy; làm sạch, bỏ trùng, tối đa 10.
+        raw_tags = it.get("tags")
+        if isinstance(raw_tags, str):
+            raw_tags = raw_tags.split(",")
+        tag_list, seen_t = [], set()
+        for t in (raw_tags or []):
+            t = re.sub(r"[#,\"'|/\\]+", " ", str(t)).strip().lower()
+            t = re.sub(r"\s+", " ", t)
+            if t and t not in seen_t:
+                seen_t.add(t)
+                tag_list.append(t)
+        tags = ", ".join(tag_list[:10])
         out.append({"cover_title": cover, "seo_title": seo,
-                    "seo_description": desc})
+                    "seo_description": desc, "tags": tags})
     if not out:
         raise ValueError("Không có ý tưởng hợp lệ nào trong kết quả.")
     return out[:want]
@@ -869,17 +941,28 @@ def build_jobs(cfg: dict, subjects: list[str], raw: Path, state: dict) -> list:
     style = cover_style_of(cfg)
     safe_pct = cover_safe_pct(cfg)
     extras = cover_prompt_extras(cfg)
+    # Hai bìa = HAI PHIÊN RIÊNG (như trang ruột), không còn vẽ chung một chat.
+    # Vẽ chung khiến Gemini hay hiểu nhầm/lẫn hai bìa. Bìa sau ĐÍNH KÈM ảnh bìa
+    # trước để khớp phong cách, nên vẫn phải chạy SAU bìa trước.
+    front_dest = raw / "cover_front.png"
     covers = []
     for key, tpl in [("cover_front", cfg["prompts"]["front_cover"]),
                      ("cover_back", cfg["prompts"]["back_cover"])]:
         dest = raw / f"{key}.png"
         if key in state["done"] and dest.exists():
             continue
-        covers.append((key, tpl.format(title=title, style=style,
-                                       safe_pct=safe_pct, **extras), dest))
+        prompt = tpl.format(title=title, style=style, safe_pct=safe_pct, **extras)
+        if key == "cover_back":
+            # 4-tuple: đính kèm ảnh bìa trước (raw) để bìa sau khớp phong cách.
+            covers.append((key, prompt, dest, [front_dest]))
+        else:
+            covers.append((key, prompt, dest))
 
     if len(covers) == 2:
-        jobs.append(covers)          # chuỗi: cùng chat, cùng tab
+        # Giữ thành CHUỖI chỉ để TUẦN TỰ: bìa trước xong (ghi cover_front.png)
+        # thì bìa sau mới có ảnh để đính kèm. Mỗi bước vẫn mở CHAT RIÊNG
+        # (run_steps dùng same_chat=False), không phải chung một chat như trước.
+        jobs.append(covers)
     else:
         jobs.extend(covers)          # chỉ còn thiếu một bìa -> chạy đơn lẻ
 
@@ -1018,10 +1101,18 @@ def cmd_generate(cfg: dict) -> None:
                 log.info("Bỏ qua (đã có): %s", key)
                 continue
             log.info("Đang tạo %s...", key)
+            # Bìa sau đính kèm bìa trước (raw) để khớp phong cách; bìa trước
+            # luôn được vẽ trước trong vòng lặp này nên file đã sẵn sàng.
+            attach = None
+            if key == "cover_back":
+                fpath = raw / "cover_front.png"
+                if fpath.exists():
+                    attach = [fpath]
             if g.generate_image(tpl.format(title=cover_title(cfg),
                                            style=cover_style_of(cfg),
                                            safe_pct=cover_safe_pct(cfg),
-                                           **cover_prompt_extras(cfg)), dest):
+                                           **cover_prompt_extras(cfg)), dest,
+                                attach_files=attach):
                 state["done"].append(key)
                 save_state(P["state_file"], state)
             g._sleep_jitter()
