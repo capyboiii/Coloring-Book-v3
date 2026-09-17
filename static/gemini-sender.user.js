@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Gemini Sender (Coloring Book)
 // @namespace    coloringbook
-// @version      1.0.0
-// @description  Nhan prompt tu Playwright qua DOM, go vao o nhap Gemini bang duong soan thao that roi bam Send dung MOT lan.
+// @version      1.1.0
+// @description  Nhan prompt tu Playwright qua DOM, go vao o nhap Gemini bang duong soan thao that roi bam Send, co doi chieu o nhap da trong (bam lai toi 3 lan neu Gemini nuot cu bam).
 // @match        https://gemini.google.com/*
 // @run-at       document-idle
 // @noframes
@@ -124,11 +124,31 @@
       throw new Error('insertText khong vao duoc o nhap (con ' + got.length + ' ky tu)');
     }
 
-    const btn = await waitSendEnabled(12000);
-    if (!btn) throw new Error('nut Send khong bat sang trong 12s');
+    // Gemini thinh thoang NUOT cu bam: prompt nam nguyen trong o nhap, khong co
+    // gi duoc gui, nhung ban cu bao 'clicked' ngay sau btn.click() -> Playwright
+    // cho 120s roi bao "khong thay anh". Vi vay phai DOI CHIEU: gui that thi
+    // Gemini xoa sach o nhap. O van con chu = chua gui gi ca, bam lai duoc AN
+    // TOAN (chua co cau tra loi nao de bam trung nut Stop; findSend cung da loc
+    // nhan Stop/Dung).
+    let clicked = false;
+    for (let attempt = 1; attempt <= 3 && !clicked; attempt++) {
+      const btn = await waitSendEnabled(12000);
+      if (!btn) throw new Error('nut Send khong bat sang trong 12s');
+      btn.click();
 
-    // MOT lan. Khong retry, khong vong lap. Cu bam lan hai la trung nut Stop.
-    btn.click();
+      const deadline = Date.now() + 2500;
+      while (Date.now() < deadline) {
+        await sleep(200);
+        const left = (findBox()?.innerText || '').replace(/\s+/g, ' ').trim();
+        if (left.length < Math.min(20, text.length)) { clicked = true; break; }
+      }
+    }
+    if (!clicked) {
+      // Chua gui duoc gi -> bao 'error' de Playwright chay duong du phong. An
+      // toan: o nhap con nguyen chu nghia la khong co cu bam nao an.
+      throw new Error('bam Send 3 lan ma o nhap van con chu -> coi nhu chua gui');
+    }
+
     setStatus('clicked', '');
     // Tu day tro di TUYET DOI khong ghi 'error' nua: Playwright se hieu nham la
     // chua gui va chay duong du phong -> thanh cu bam thu hai.

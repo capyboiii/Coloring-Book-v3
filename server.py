@@ -583,10 +583,14 @@ def launch_chrome(payload: dict = {}):
 
 @app.get("/api/books")
 def list_books():
-    books = book_main.list_books()
     current = book_main.get_current_book()
     details = []
-    
+
+    # Cuốn thuộc batch hiện tại lên đầu, đúng thứ tự gen; còn lại xếp theo tên.
+    order = {bk["slug"]: i for i, bk in enumerate(batch_runner.status().get("books", []))}
+    books = sorted(book_main.list_books(),
+                   key=lambda s: (0, order[s]) if s in order else (1, s))
+
     for b in books:
         base = book_main.BOOKS_DIR / b
         raw_count = len(list((base / "01_raw").glob("page_*.png"))) if (base / "01_raw").exists() else 0
@@ -598,6 +602,7 @@ def list_books():
         details.append({
             "slug": b,
             "is_active": b == current,
+            "batch_index": order[b] + 1 if b in order else None,
             "raw_count": raw_count,
             "proc_count": proc_count,
             "has_covers": has_covers,
@@ -904,10 +909,21 @@ async def generate_subjects(payload: dict):
     )
     
     try:
-        with book_main.make_driver(cfg) as driver:
-            raw_resp = driver.ask_text(prompt)
         from bookgen.gemini_driver import parse_subject_list
-        subjects = parse_subject_list(raw_resp, count)
+        subjects: list[str] = []
+        with book_main.make_driver(cfg) as driver:
+            for _ in range(book_main.SUBJECT_RETRIES):
+                try:
+                    raw_resp = driver.ask_text(prompt)
+                except Exception:  # noqa: BLE001
+                    raw_resp = ""
+                subjects = book_main.clean_subjects(
+                    subjects + parse_subject_list(raw_resp, count))
+                if len(subjects) >= count:
+                    break
+        subjects = subjects[:count]
+        if not subjects:
+            raise RuntimeError("Gemini không trả chủ đề hợp lệ sau nhiều lần hỏi.")
         
         cfg["subjects"] = subjects
         with open(ROOT / "config.yaml", "w", encoding="utf-8") as f:

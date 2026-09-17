@@ -360,13 +360,14 @@ def cover_title(cfg: dict) -> str:
 def ideas_prompt(keyword: str, audience: str, pages: int = 48, count: int = 10) -> str:
     """Prompt bảo Gemini đẻ 10 chủ đề sách tô màu từ 1 keyword.
 
-    Trả JSON [{cover_title, seo_title}]: cover_title = tên ngắn lên bìa,
-    seo_title = tiêu đề dài chuẩn SEO (tool dùng nó để nghĩ scene + đăng listing).
+    Trả JSON [{cover_title, seo_title, tags}]: cover_title = tên ngắn lên bìa
+    (giữ nguyên: sạch, kết thúc "Coloring Book"), seo_title = tiêu đề listing.
 
-    seo_title đúc theo công thức KHỐI ngăn bằng en dash, rút từ các listing đang
-    bán tốt:  HOOK [+ theme] Coloring Pages – <pages> <danh từ> – <chi tiết> –
-    For Kids/Adults. Ép Gemini đổi hình dạng giữa các title (3 hay 4 khối, theme
-    nằm khối 1 hay khối 2) để cả batch không ra 10 câu cùng một khuôn.
+    seo_title đúc theo công thức của tool enrich-daemon: 4 KHỐI ngăn bằng pipe
+    "|", Title Case, 150-200 ký tự, có 1 từ reason-to-buy (Gift/Premium...):
+        [Primary Keyword + Product Type] | [Key Feature / Design Detail] |
+        [Material / Quality Signal] | [Buyer Intent / Who It's For]
+    tags = 5-8 keyword ngắn, chữ thường, không trùng.
     """
     aud = "adults" if str(audience).strip().lower().startswith("adult") else "children"
     return (
@@ -396,7 +397,7 @@ f"From keyword: {keyword}\n"
     "  {\n"
     "    \"cover_title\": \"Title displayed on the book cover\",\n"
     "    \"seo_title\": \"SEO title for the backend\",\n"
-    "    \"tags\": [\"tag1\", \"tag2\", \"...\", \"tag10\"]\n"
+    "    \"tags\": [\"tag1\", \"tag2\", \"...\", \"tag8\"]\n"
     "  }\n"
     "]\n"
     f"Return exactly {count} objects.\n"
@@ -421,15 +422,38 @@ f"From keyword: {keyword}\n"
     "\"Friendly Halloween Ghosts Coloring Book\"\n\n"
 
     "SEO_TITLE RULES:\n"
+    "Write seo_title like a senior Amazon/Etsy listing SEO consultant: every word must earn "
+    "its place by matching real buyer search queries, while instantly telling the buyer WHAT "
+    "it is, WHO it is for, and WHY to buy.\n\n"
+
     "Every seo_title MUST follow EXACTLY this 4-block structure:\n"
-    "[Main Topic] Coloring Book – [Supporting Keywords] – [Edition Format] – [Audience]\n\n"
+    "[Primary Keyword + Product Type] | [Key Feature / Design Detail] | "
+    "[Material / Quality Signal] | [Buyer Intent / Who It's For]\n\n"
 
-    "Use an en dash surrounded by one space on each side (\" – \") ONLY as the separator "
+    "Use a pipe surrounded by one space on each side (\" | \") ONLY as the separator "
     "between the four blocks.\n"
-    "Every seo_title MUST contain exactly 4 blocks and exactly 3 instances of the separator \" – \".\n"
-    "Do not use a plain hyphen, colon, em dash, slash, pipe, or another symbol as a block separator.\n\n"
+    "Every seo_title MUST contain exactly 4 blocks and exactly 3 instances of the separator \" | \".\n"
+    "Do not use an en dash, plain hyphen, colon, em dash, slash, or another symbol as a block separator.\n\n"
 
-    "BLOCK 1 = [Main Topic] Coloring Book\n"
+    "GENERAL TITLE RULES (follow the enrich-daemon title formula):\n"
+    "- Length 150 to 200 characters including spaces (sweet spot for search + readability).\n"
+    "- The first 60 characters are the most critical (they show in mobile search results) - put the "
+    "strongest keywords there.\n"
+    "- Use Title Case with pipe \" | \" separators.\n"
+    "- Never start with an article (A, An, The) or filler word.\n"
+    "- Include exactly ONE long-tail keyword phrase naturally.\n"
+    "- Add exactly ONE reason-to-buy keyword chosen from: Gift, Collector's, Premium, "
+    "Handcrafted, Limited. Do not stack several of them.\n"
+    "- Mention the target audience when it improves searchability.\n"
+    "- NEVER fabricate or invent specifications (paper weight, exact page count, binding, dimensions, "
+    "certifications) that are not explicitly provided; describe the visual/format instead.\n"
+    "- No misleading craft/technique words. These are printed coloring pages, so NEVER use words that "
+    "imply a real craft technique. Banned words: Embroidered, Knitted, Woven, Engraved, Hand-stitched, "
+    "Crocheted, Quilted, Carved. Instead describe the visual appearance (e.g. \"Detailed Line Art\", "
+    "\"Bold Illustrated Designs\", \"Hand-Drawn Style\").\n"
+    "- Do not use promotional superlatives such as Best, Amazing, Ultimate, Number One, Top, Must Have.\n\n"
+
+    "BLOCK 1 = [Primary Keyword + Product Type] (theme + \"Coloring Book\")\n"
     "BLOCK 1 is mandatory.\n"
     "Use a natural, specific topic derived from the input keyword, followed by the exact words "
     "\"Coloring Book\".\n"
@@ -444,7 +468,7 @@ f"From keyword: {keyword}\n"
     "\"Cute Dinosaur Coloring Book\"\n"
     "\"Friendly Halloween Ghosts Coloring Book\"\n\n"
 
-    "BLOCK 2 = [Supporting Keywords]\n"
+    "BLOCK 2 = [Key Feature / Design Detail]\n"
     "BLOCK 2 is mandatory.\n"
     "Describe 2 to 4 concrete, visually recognizable things, characters, objects, environments, "
     "activities, or scenes that buyers can reasonably expect to find inside the book.\n"
@@ -481,77 +505,40 @@ f"From keyword: {keyword}\n"
     "provides that information.\n"
     "Otherwise, do not mention any page count anywhere in the output.\n\n"
 
-    "BLOCK 3 = [Edition Format]\n"
+    "BLOCK 3 = [Material / Quality Signal]\n"
     "BLOCK 3 is mandatory.\n"
-    "Choose exactly ONE phrase from the following allowed list:\n"
-    "\"Printed & Digital Editions\"\n"
-    "\"Print & Digital Editions\"\n"
-    "\"Available in Print & Digital\"\n"
-    "\"Available in Print & Digital Formats\"\n"
-    "\"Print and Digital Versions\"\n"
-    "\"Printed and Digital Versions\"\n"
-    "\"Both Print & Digital\"\n"
-    "\"Print & Digital Versions\"\n"
-    "\"Print & Digital Formats\"\n"
-    "\"Includes Print & Digital Versions\"\n"
-    "\"Includes Printed & Digital Versions\"\n"
-    "\"Available as Print & Digital\"\n"
-    "\"Available in Both Print & Digital\"\n"
-    "\"Color in Print or Digital\"\n"
-    "\"Choose Print or Digital\"\n"
-    "Use exactly one phrase from this list.\n"
-    "Do not modify, shorten, reorder, pluralize, combine, or rewrite any allowed phrase.\n"
-    "Vary the selected phrase naturally across the batch instead of always using the same one.\n\n"
+    "One short phrase describing the FORMAT or visual quality of the pages. Because these are "
+    "printed coloring pages, describe what the buyer actually gets - line style, print size, "
+    "layout - never an invented material or spec.\n"
+    "Choose a natural phrase such as:\n"
+    "\"Bold Easy Outlines\"\n"
+    "\"Large Print Pages\"\n"
+    "\"Single-Sided Pages\"\n"
+    "\"Hand-Drawn Illustrations\"\n"
+    "\"Thick Clean Line Art\"\n"
+    "\"Big & Simple Designs\"\n"
+    "\"Detailed Line Artwork\"\n"
+    "Vary this phrase naturally across the batch.\n"
+    "Do NOT claim paper weight, binding, or a specific page count unless explicitly provided.\n\n"
 
-    "BLOCK 4 = [Audience]\n"
+    "BLOCK 4 = [Buyer Intent / Who It's For]\n"
     "BLOCK 4 is mandatory.\n"
-    "Interpret the provided Target audience and choose exactly ONE allowed phrase from the correct group.\n"
-    "Treat audience words such as kids, children, child, toddlers, preschoolers, young children, "
-    "young learners, boys, girls, or similar child-focused terms as the Kids group.\n"
-    "Treat audience words such as adults, adult, grown-ups, seniors, or similar adult-focused terms "
-    "as the Adults group.\n\n"
-
-    "Kids audience options:\n"
-    "\"For Kids\"\n"
-    "\"For Children\"\n"
-    "\"For Young Children\"\n"
-    "\"For Little Ones\"\n"
-    "\"For Little Artists\"\n"
-    "\"For Young Artists\"\n"
-    "\"For Creative Kids\"\n"
-    "\"For Young Creators\"\n"
-    "\"For Budding Artists\"\n"
-    "\"For Little Creators\"\n"
-    "\"For Preschoolers\"\n"
-    "\"For Early Learners\"\n"
-    "\"For Young Learners\"\n"
-    "\"For Little Learners\"\n"
-    "\"Made for Kids\"\n"
-    "\"Made for Little Artists\"\n"
-    "\"Made for Young Artists\"\n"
-    "\"Designed for Kids\"\n"
-    "\"Perfect for Kids\"\n"
-    "\"Fun for Kids\"\n"
-    "\"Creative Fun for Kids\"\n"
-    "\"A Fun Coloring Adventure\"\n\n"
-
-    "Adults audience options:\n"
-    "\"For Adults\"\n"
-    "\"For Adult Coloring\"\n"
-    "\"For Adult Colorists\"\n"
-    "\"For Grown-Ups\"\n"
-    "\"Made for Adults\"\n"
-    "\"Designed for Adults\"\n"
-    "\"Perfect for Adults\"\n"
-    "\"Creative Fun for Adults\"\n"
-    "\"Relaxing Coloring for Adults\"\n"
+    "One short phrase combining the audience and the reason to buy. Interpret the provided "
+    "Target audience and match the correct group.\n"
+    "Treat words such as kids, children, child, toddlers, preschoolers, boys, girls as the Kids "
+    "group; words such as adults, grown-ups, seniors as the Adults group.\n"
+    "Kids examples:\n"
+    "\"Fun Gift for Kids\"\n"
+    "\"Screen-Free Fun for Kids\"\n"
+    "\"Great Gift for Little Artists\"\n"
+    "\"Perfect for Early Learners\"\n"
+    "\"Creative Fun for Children\"\n"
+    "Adults examples:\n"
+    "\"Relaxing Gift for Adults\"\n"
+    "\"Stress-Relief for Grown-Ups\"\n"
     "\"Mindful Coloring for Adults\"\n"
-    "\"A Coloring Escape for Adults\"\n\n"
-
-    "Use only an audience phrase appropriate for the provided Target audience.\n"
-    "Choose exactly one phrase and reproduce it exactly as written in the allowed list.\n"
-    "Do not combine, modify, shorten, expand, or invent audience phrases.\n"
-    "Vary audience phrases naturally across the batch when multiple phrases fit.\n\n"
+    "\"Great Gift for Adult Colorists\"\n"
+    "This is where the single reason-to-buy word naturally lives. Vary the phrase across the batch.\n\n"
 
     "SEO_TITLE ADDITIONAL RULES:\n"
     "- BLOCK 1 must naturally represent the core subject and search intent of the input keyword.\n"
@@ -568,11 +555,9 @@ f"From keyword: {keyword}\n"
     "- The word \"Perfect\" may appear only when it is part of the exact allowed audience phrases "
     "\"Perfect for Kids\" or \"Perfect for Adults\".\n"
     "- The seo_title must sound like a natural real-world product title while remaining SEO-friendly.\n"
-    "- Keep every seo_title under 140 characters, including spaces and punctuation.\n"
-    "- If a title approaches 140 characters, shorten BLOCK 2 first by using fewer or shorter "
-    "supporting elements.\n"
-    "- Never shorten or modify BLOCK 3 or BLOCK 4 to meet the character limit.\n"
-    "- Every seo_title MUST contain exactly three \" – \" separators.\n\n"
+    "- Keep every seo_title between 150 and 200 characters, including spaces and punctuation.\n"
+    "- If a title exceeds 200 characters, shorten BLOCK 2 first by using fewer or shorter elements.\n"
+    "- Every seo_title MUST contain exactly three \" | \" separators.\n\n"
 
     "TOPIC DIVERSITY RULES:\n"
     f"Generate exactly {count} meaningfully different topics within the niche represented by the keyword.\n"
@@ -586,7 +571,7 @@ f"From keyword: {keyword}\n"
     "and other audience-appropriate ideas when relevant.\n\n"
 
     "TAGS RULES:\n"
-"tags MUST be a JSON array containing EXACTLY 10 unique short lowercase keyword tags for this book.\n\n"
+"tags MUST be a JSON array containing 5 to 8 unique short lowercase keyword tags for this book.\n\n"
 
 "Tags are search/marketplace keywords that a buyer could reasonably use to find this exact book.\n\n"
 
@@ -602,19 +587,15 @@ f"From keyword: {keyword}\n"
 "- contain no punctuation or special characters\n"
 "- be unique within the same tag array\n\n"
 
-"Generate EXACTLY 10 tags.\n\n"
+"Generate between 5 and 8 tags (never fewer than 5, never more than 8).\n\n"
 
 "Tag composition:\n"
-"- 1 tag for the core subject or main theme\n"
-"- 5 tags for concrete visual content actually represented in the book, such as "
+"- 1 to 2 tags for the core subject or main theme\n"
+"- 3 to 5 tags for concrete visual content actually represented in the book, such as "
 "characters, animals, objects, locations, activities, or scenes\n"
-"- 2 tags for relevant occasion, season, theme, or activity when applicable\n"
 "- 1 generic product tag: \"coloring book\"\n"
-"- 1 audience-specific tag: \"kids coloring book\" or \"adult coloring book\" "
-"matching the Target audience\n\n"
-
-"If an occasion, season, theme, or activity is not applicable, replace that tag with "
-"another highly relevant concrete visual-content tag instead of inventing one.\n\n"
+"Keep tags generic enough to group similar products together, but specific enough to match "
+"real buyer searches. Focus on subject, niche, and product-specific modifiers.\n\n"
 
 "Order tags from the most specific and useful search term to the most general search term.\n\n"
 
@@ -631,16 +612,10 @@ f"From keyword: {keyword}\n"
 "Do not add broad niche-related keywords merely because they are associated with the main keyword.\n"
 "Every tag should help identify the actual content or intended audience of THIS specific book.\n\n"
 
-"The final two tags MUST be:\n"
-"\"coloring book\"\n"
-"and either\n"
-"\"kids coloring book\"\n"
-"or\n"
-"\"adult coloring book\"\n"
-"matching the Target audience.\n\n"
+"One of the tags MUST be the product-type tag \"coloring book\".\n\n"
 
 "Across multiple books:\n"
-"- Do NOT reuse another book's complete 10-tag set.\n"
+"- Do NOT reuse another book's complete tag set.\n"
 "- Individual tags MAY appear in multiple books when they are genuinely relevant to those books.\n"
 "- Tag combinations should meaningfully reflect each book's specific concept.\n\n"
 
@@ -648,18 +623,18 @@ f"From keyword: {keyword}\n"
     "Before returning the answer, internally verify ALL of the following:\n"
     f"1. The JSON array contains exactly {count} objects.\n"
     "2. Every object contains exactly three fields: cover_title, seo_title and tags.\n"
-    "3. tags is an array of exactly 10 unique lowercase keyword strings; no object contains any other field.\n"
+    "3. tags is an array of 5 to 8 unique lowercase keyword strings; no object contains any other field.\n"
     "4. Every cover_title ends exactly with \"Coloring Book\".\n"
     "5. Every cover_title contains no prohibited punctuation or special characters.\n"
     "6. Every seo_title contains exactly four blocks.\n"
-    "7. Every seo_title contains exactly three \" – \" separators.\n"
+    "7. Every seo_title contains exactly three \" | \" separators.\n"
     "8. BLOCK 1 ends with \"Coloring Book\" and does not contain awkward phrases such as "
     "\"Coloring Sheets Coloring Book\" or \"Coloring Pages Coloring Book\".\n"
     "9. BLOCK 2 contains topic-specific visual content and is not duplicated elsewhere in the batch.\n"
-    "10. BLOCK 3 exactly matches one allowed Edition Format phrase.\n"
-    "11. BLOCK 4 exactly matches one allowed Audience phrase from the correct audience group.\n"
-    "12. Every seo_title is under 140 characters.\n"
-    "13. No unsupported page count or product claim has been invented.\n"
+    "10. BLOCK 3 is a material/quality or format signal and invents no unstated specification.\n"
+    "11. BLOCK 4 combines audience and reason-to-buy and matches the correct audience group.\n"
+    "12. Every seo_title is between 150 and 200 characters and uses Title Case.\n"
+    "13. Each seo_title contains exactly one reason-to-buy word and no unsupported page count or claim.\n"
     "14. All topics are meaningfully different and appropriate for the target audience.\n"
     "15. The final output is valid JSON with no trailing commas and no text outside the JSON array.\n\n"
 
@@ -692,7 +667,7 @@ def parse_ideas(raw: str, want: int = 10) -> list[dict]:
         # cover_title: bỏ ký tự đặc biệt, gộp khoảng trắng
         cover = re.sub(r"[\-–—:,|/\\]+", " ", cover)
         cover = re.sub(r"\s+", " ", cover).strip()
-        # tags: nhận list (chuẩn) hoặc chuỗi phẩy; làm sạch, bỏ trùng, tối đa 10.
+        # tags: nhận list (chuẩn) hoặc chuỗi phẩy; làm sạch, bỏ trùng, tối đa 8.
         raw_tags = it.get("tags")
         if isinstance(raw_tags, str):
             raw_tags = raw_tags.split(",")
@@ -703,7 +678,7 @@ def parse_ideas(raw: str, want: int = 10) -> list[dict]:
             if t and t not in seen_t:
                 seen_t.add(t)
                 tag_list.append(t)
-        tags = ", ".join(tag_list[:10])
+        tags = ", ".join(tag_list[:8])
         out.append({"cover_title": cover, "seo_title": seo,
                     "seo_description": desc, "tags": tags})
     if not out:
@@ -866,6 +841,24 @@ def finalize_preview(cfg: dict, dest: Path) -> None:
             log.warning("Xoá watermark lỗi (bỏ qua): %s", e)
 
 
+_single_rotor_lock = __import__("threading").Lock()
+_SINGLE_ROTOR_FILE = Path(__file__).with_name(".single_profile_rotor")
+
+
+def _next_single_profile(n: int) -> int:
+    """Trả về chỉ số tài khoản cho lần sinh đơn lẻ tiếp theo (vòng tròn)."""
+    with _single_rotor_lock:
+        try:
+            cur = int(_SINGLE_ROTOR_FILE.read_text().strip())
+        except (OSError, ValueError):
+            cur = 0
+        try:
+            _SINGLE_ROTOR_FILE.write_text(str(cur + 1))
+        except OSError:
+            pass
+        return cur % n
+
+
 def generate_single(cfg: dict, key: str, prompt: str, dest: Path,
                     attach: list[Path] | None = None) -> bool:
     """Sinh MỘT ảnh cho các nút bấm trên UI (Inspector, Preview).
@@ -893,7 +886,10 @@ def generate_single(cfg: dict, key: str, prompt: str, dest: Path,
     b["concurrency_per_profile"] = 1
     profiles = b.get("profiles") or ([b["user_data_dir"]] if "user_data_dir" in b else [])
     if profiles:
-        b["profiles"] = profiles[:1]
+        # XOAY VÒNG tài khoản giữa các lần bấm. Lấy cứng profiles[:1] thì mọi
+        # lần sinh lại đều đổ lên tài khoản đầu tiên, nhanh cạn quota. Lượt được
+        # lưu ra file để khởi động lại server vẫn xoay tiếp, không quay về đầu.
+        b["profiles"] = [profiles[_next_single_profile(len(profiles))]]
 
     async def run() -> bool:
         async with GeminiPool(one) as pool:
@@ -901,6 +897,22 @@ def generate_single(cfg: dict, key: str, prompt: str, dest: Path,
             return bool(res.get(key))
 
     return asyncio.run(run())
+
+
+SUBJECT_RETRIES = 4
+
+
+def clean_subjects(subjects: list) -> list[str]:
+    """Bỏ chủ đề rác (câu lỗi của Gemini, placeholder 'scene number N'), bỏ trùng."""
+    from bookgen.gemini_driver import is_bad_subject
+    out, seen = [], set()
+    for s in subjects or []:
+        s = str(s).strip()
+        if is_bad_subject(s) or s.lower() in seen:
+            continue
+        seen.add(s.lower())
+        out.append(s)
+    return out
 
 
 def subjects_prompt(cfg: dict, subjects: list[str], need: int) -> str:
@@ -983,23 +995,28 @@ def cmd_generate_parallel(cfg: dict) -> None:
 
     # state cua cuon dang chon truoc, config.yaml chi la du phong:
     # config giu subjects cua cuon lam gan nhat.
-    subjects = [s for s in (state.get("subjects") or cfg.get("subjects") or [])
-                if s and s.strip()]
+    subjects = clean_subjects(state.get("subjects") or cfg.get("subjects") or [])
 
     async def run() -> None:
         nonlocal subjects
         async with GeminiPool(cfg) as pool:
             if len(subjects) < n:
-                cached = state.get("subjects", [])
-                if len(cached) >= n:
-                    subjects = cached[:n]
-                else:
+                for attempt in range(1, SUBJECT_RETRIES + 1):
                     need = n - len(subjects)
-                    log.info("Nhờ Gemini nghĩ thêm %d chủ đề...", need)
-                    raw_text = await pool.ask_text(subjects_prompt(cfg, subjects, need))
-                    subjects += parse_subject_list(raw_text, need)
-                    state["subjects"] = subjects
-                    save_state(P["state_file"], state)
+                    log.info("Nhờ Gemini nghĩ thêm %d chủ đề (lần %d/%d)...",
+                             need, attempt, SUBJECT_RETRIES)
+                    try:
+                        raw_text = await pool.ask_text(subjects_prompt(cfg, subjects, need))
+                    except Exception as e:  # noqa: BLE001
+                        log.warning("Hỏi chủ đề lỗi: %s", e)
+                        raw_text = ""
+                    subjects = clean_subjects(subjects + parse_subject_list(raw_text, need))
+                    if len(subjects) >= n:
+                        break
+                    log.warning("Gemini trả sai/thiếu chủ đề (%d/%d) -> hỏi lại.",
+                                len(subjects), n)
+                state["subjects"] = subjects[:n]
+                save_state(P["state_file"], state)
 
             while len(subjects) < n:
                 subjects.append(f"a cute forest animal scene number {len(subjects)+1}")
@@ -1054,23 +1071,27 @@ def cmd_generate(cfg: dict) -> None:
     n = cfg["book"]["num_images"]
 
     # state cua cuon dang chon truoc, config.yaml chi la du phong.
-    subjects = list(state.get("subjects") or cfg.get("subjects") or [])
-    subjects = [s for s in subjects if s and s.strip()]
+    subjects = clean_subjects(state.get("subjects") or cfg.get("subjects") or [])
 
     with make_driver(cfg) as g:
-        # 1) đủ chủ đề chưa? thiếu thì nhờ Gemini nghĩ thêm
+        # 1) đủ chủ đề chưa? thiếu hoặc Gemini trả rác thì hỏi lại
         if len(subjects) < n:
-            cached = state.get("subjects", [])
-            if len(cached) >= n:
-                subjects = cached[:n]
-            else:
+            for attempt in range(1, SUBJECT_RETRIES + 1):
                 need = n - len(subjects)
-                log.info("Nhờ Gemini nghĩ thêm %d chủ đề...", need)
-                subjects += parse_subject_list(
-                    g.ask_text(subjects_prompt(cfg, subjects, need)), need
-                )
-                state["subjects"] = subjects
-                save_state(P["state_file"], state)
+                log.info("Nhờ Gemini nghĩ thêm %d chủ đề (lần %d/%d)...",
+                         need, attempt, SUBJECT_RETRIES)
+                try:
+                    raw_text = g.ask_text(subjects_prompt(cfg, subjects, need))
+                except Exception as e:  # noqa: BLE001
+                    log.warning("Hỏi chủ đề lỗi: %s", e)
+                    raw_text = ""
+                subjects = clean_subjects(subjects + parse_subject_list(raw_text, need))
+                if len(subjects) >= n:
+                    break
+                log.warning("Gemini trả sai/thiếu chủ đề (%d/%d) -> hỏi lại.",
+                            len(subjects), n)
+            state["subjects"] = subjects[:n]
+            save_state(P["state_file"], state)
 
         while len(subjects) < n:  # phòng khi Gemini trả thiếu
             subjects.append(f"a cute forest animal scene number {len(subjects)+1}")
@@ -1480,15 +1501,23 @@ def cmd_ask(cfg: dict) -> None:
     async def run() -> None:
         async with GeminiPool(cfg) as pool:
             # 1) nhờ Gemini nghĩ n cảnh từ chủ đề (lần chạy sau dùng lại cảnh cũ)
-            cached = state.get("subjects", [])
-            if len(cached) >= n:
-                subjects = cached[:n]
+            subjects = clean_subjects(state.get("subjects", []))
+            if len(subjects) >= n:
+                subjects = subjects[:n]
                 log.info("Dùng lại %d cảnh đã lưu.", n)
-            else:
-                log.info("Nhờ Gemini nghĩ %d cảnh cho chủ đề '%s'...", n, theme)
-                subjects = parse_subject_list(
-                    await pool.ask_text(subjects_prompt(cfg, [], n)), n
-                )
+            for attempt in range(1, SUBJECT_RETRIES + 1):
+                if len(subjects) >= n:
+                    break
+                log.info("Nhờ Gemini nghĩ %d cảnh cho chủ đề '%s' (lần %d/%d)...",
+                         n - len(subjects), theme, attempt, SUBJECT_RETRIES)
+                try:
+                    raw_text = await pool.ask_text(
+                        subjects_prompt(cfg, subjects, n - len(subjects)))
+                except Exception as e:  # noqa: BLE001
+                    log.warning("Hỏi chủ đề lỗi: %s", e)
+                    raw_text = ""
+                subjects = clean_subjects(
+                    subjects + parse_subject_list(raw_text, n - len(subjects)))
             while len(subjects) < n:
                 subjects.append(f"a simple {theme} scene number {len(subjects)+1}")
             state["subjects"] = subjects

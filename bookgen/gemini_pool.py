@@ -110,6 +110,29 @@ class Throttle:
 _UA_CACHE: str | None = None
 
 
+# Nhãn menu model theo từng ngôn ngữ giao diện Gemini. Mỗi nhóm là các cách viết
+# của CÙNG một mục; config ghi bản nào cũng được, sẽ thử cả nhóm.
+MODEL_LABEL_ALIASES: list[tuple[str, ...]] = [
+    ("Tư duy mở rộng", "Extended thinking"),
+    ("Suy luận nâng cao", "Advanced reasoning"),
+    ("Câu trả lời nhanh nhất", "Fastest answers"),
+]
+
+
+def _label_variants(label: str) -> list[str]:
+    """Các cách viết của một nhãn: tách theo '/' trong config + bảng dịch."""
+    out: list[str] = []
+    for piece in (p.strip() for p in label.split("/")):
+        if not piece:
+            continue
+        group = next((g for g in MODEL_LABEL_ALIASES
+                      if piece.casefold() in (x.casefold() for x in g)), (piece,))
+        for x in (piece, *group):
+            if x not in out:
+                out.append(x)
+    return out
+
+
 async def real_user_agent(pw) -> str | None:
     """User-Agent của Chrome ở chế độ hiện, dùng để vá cho chế độ ẩn.
 
@@ -437,6 +460,18 @@ class GeminiPool:
             self.extension_dir = None
         
         self.recycle_every = max(0, int(b.get("recycle_tab_every", 5)))
+        # Ép chọn model mỗi tab mới. Google nhớ lựa chọn "Flash Mở rộng" ở PHÍA
+        # SERVER theo từng tài khoản: có account nhớ (acc1/acc2), có account cứ
+        # tab mới lại về mặc định (acc3/acc4). Xoá cache không đổi được điều đó -
+        # lựa chọn model không nằm trong file profile. Nên ta tự bấm chọn.
+        # model_hint là danh sách nhãn ngăn cách bằng dấu phẩy, PHẢI khớp đúng chữ
+        # trên UI Gemini. "Flash Mở rộng" trên UI = model "3.8 Flash" + bật
+        # "Tư duy mở rộng", nên khai báo cả hai, ví dụ:
+        #     model_hint: "3.8 Flash, Tư duy mở rộng"
+        # Để trống -> giữ nguyên hành vi cũ (không đụng vào model).
+        self.model_labels = [s.strip() for s in
+                             str(b.get("model_hint", "") or "").split(",")
+                             if s.strip()]
         # Đồng hồ canh PHẢI rộng hơn thời gian vẽ một ảnh, nếu không nó chém ngang
         # ảnh đang vẽ hoàn toàn bình thường ("đang gen tự nhiên tắt"). Chốt ở đây
         # chứ không ở UI, vì còn đường sửa tay config.yaml và đường chạy CLI.
@@ -691,6 +726,10 @@ class GeminiPool:
             log.warning("Tab mới chưa thấy ô nhập sau 60s (%s) - chạy tiếp, "
                         "_send_prompt sẽ thử lại.", e)
 
+        # Ép model NGAY sau khi tab sẵn sàng, trước khi gửi prompt. Chạy trong
+        # _prepare nên nằm ngoài đồng hồ stall_timeout, không tốn ngân sách việc.
+        await self._ensure_model(page)
+
         # Chờ userscript sẵn sàng NGAY TẠI ĐÂY, không để _send_via_extension gánh.
         # MonkeyX gỡ sạch rồi mới đăng ký lại mỗi lần service worker khởi động
         # (syncAll: unregister -> register), nên có một khoảng trống lúc Chrome
@@ -748,6 +787,108 @@ class GeminiPool:
         if n == 0:
             return
         await self._new_chat(page)
+
+    async def _ensure_model(self, page: Page) -> None:
+        """Bấm chọn đúng model trên UI Gemini theo self.model_labels.
+
+        Vì sao cần: lựa chọn model KHÔNG nằm trong file profile - Google nhớ nó
+        phía server theo tài khoản, và có account cứ mỗi chat mới lại về mặc định.
+        Với recycle_tab_every=1 mọi việc đều bắt đầu trên tab mới, nên nếu không
+        ép thì các account "không nhớ" sẽ gen bằng model mặc định.
+
+        NGUYÊN TẮC AN TOÀN: chỉ bấm một mục khi nó CHƯA được tick. Nút model là
+        radio (bấm lại mục đang chọn thì vô hại) nhưng "Tư duy mở rộng" là công
+        tắc bật/tắt - bấm khi đang bật sẽ TẮT nó đi. Đọc dấu tick trước, chưa tick
+        mới bấm, nên đúng cho cả hai loại.
+
+        Toàn bộ best-effort: mọi lỗi chỉ log rồi chạy tiếp, không làm hỏng việc.
+        """
+        if not self.model_labels:
+            return
+        try:
+            switch = await self._find(page, SELECTORS["model_switch"], timeout=4_000)
+        except Exception as e:  # noqa: BLE001
+            log.warning("Không thấy nút chọn model (%s) - bỏ qua ép model.", e)
+            return
+
+        for label in self.model_labels:
+            try:
+                await self._select_model_item(page, switch, label)
+            except Exception as e:  # noqa: BLE001
+                log.warning("Ép model '%s' không thành (%s) - chạy tiếp.", label, e)
+                # Đóng menu còn mở để không che ô nhập cho bước sau.
+                try:
+                    await page.keyboard.press("Escape")
+                except Exception:
+                    pass
+
+    async def _select_model_item(self, page: Page, switch, label: str) -> None:
+        """Mở menu model, tìm mục theo CHỮ, chỉ bấm nếu mục đó chưa được chọn."""
+        await switch.click()
+        await page.wait_for_timeout(400)
+
+        menu = page.locator(", ".join(SELECTORS["model_menu"]) + " >> visible=true").first
+        try:
+            await menu.wait_for(state="visible", timeout=4_000)
+        except Exception:
+            menu = page  # menu không nhận diện được -> tìm trên cả trang
+
+        # Mục trong menu: radio model hoặc công tắc, đều chứa nhãn dưới dạng chữ.
+        # Chrome tiếng Anh hiện "Extended thinking" thay vì "Tư duy mở rộng" ->
+        # thử mọi bản dịch của nhãn cùng lúc.
+        parts = []
+        for text in _label_variants(label):
+            t = text.replace('"', '\\"')
+            parts += [f'[role="menuitemradio"]:has-text("{t}")',
+                      f'[role="menuitem"]:has-text("{t}")',
+                      f'button:has-text("{t}")',
+                      f'[role="option"]:has-text("{t}")']
+        item = menu.locator(", ".join(parts)).first
+        await item.wait_for(state="visible", timeout=4_000)
+
+        if await self._item_is_checked(item):
+            log.info("Model '%s' đã được chọn sẵn - không bấm lại.", label)
+            await page.keyboard.press("Escape")     # đóng menu, giữ nguyên state
+            await page.wait_for_timeout(200)
+            return
+
+        await item.click()
+        await page.wait_for_timeout(300)
+        log.info("Đã bấm chọn model '%s'.", label)
+        # Nếu menu vẫn mở (mục là công tắc, không tự đóng) thì đóng lại.
+        try:
+            if await menu.is_visible():
+                await page.keyboard.press("Escape")
+                await page.wait_for_timeout(200)
+        except Exception:
+            pass
+
+    @staticmethod
+    async def _item_is_checked(item) -> bool:
+        """Đoán xem một mục menu đang được chọn chưa.
+
+        Ba dấu hiệu, đúng cái nào tính cái đó:
+          - aria-checked="true" (radio / công tắc chuẩn ARIA)
+          - aria-selected="true"
+          - bên trong có icon dấu tick (mat-icon 'check' / fonticon 'check')
+        """
+        try:
+            for attr in ("aria-checked", "aria-selected"):
+                v = (await item.get_attribute(attr)) or ""
+                if v.lower() == "true":
+                    return True
+        except Exception:
+            pass
+        try:
+            check = item.locator(
+                'mat-icon[fonticon="check"], mat-icon[data-mat-icon-name="check"], '
+                'mat-icon:has-text("check"), .mat-mdc-menu-item-checked'
+            )
+            if await check.count() > 0:
+                return True
+        except Exception:
+            pass
+        return False
 
     async def _new_chat(self, page: Page) -> None:
         """Mở hội thoại mới. Ưu tiên bấm nút thay vì goto - goto nạp lại cả SPA,

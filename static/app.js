@@ -417,7 +417,7 @@ async function loadBooksList() {
     const select = document.getElementById('active-book-select');
     select.innerHTML = data.books.map(b => `
       <option value="${b.slug}" ${b.slug === state.current_book ? 'selected' : ''}>
-        ${b.slug} (${b.raw_count} ảnh, ${b.has_interior_pdf ? 'PDF ✓' : 'chưa PDF'})
+        ${b.batch_index ? `#${b.batch_index} ` : ''}${b.slug} (${b.raw_count} ảnh, ${b.has_interior_pdf ? 'PDF ✓' : 'chưa PDF'})
       </option>
     `).join('');
   } catch (err) {
@@ -860,8 +860,8 @@ function downloadBlob(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-async function exportCsv(forceAll = false, placeholder = false) {
-  const slugs = forceAll ? [] : publishSlugs();
+async function exportCsv(forceAll = false, placeholder = false, slugsOverride = null) {
+  const slugs = slugsOverride || (forceAll ? [] : publishSlugs());
   const box = document.getElementById('publish-result');
   const now = new Date();
   const pad = n => String(n).padStart(2, '0');
@@ -980,8 +980,8 @@ async function uploadThenCsvAll() {
 }
 
 // R2 (CHỈ PREVIEW) + CSV chế độ "list": không đẩy PDF, mượn link PDF sẵn có.
-async function uploadPreviewsToR2(forceAll = false) {
-  const slugs = forceAll ? [] : publishSlugs();
+async function uploadPreviewsToR2(forceAll = false, slugsOverride = null) {
+  const slugs = slugsOverride || (forceAll ? [] : publishSlugs());
   const box = document.getElementById('publish-result');
   const btn = document.getElementById('btn-publish-list-folder');
   if (btn) btn.disabled = true;
@@ -1007,6 +1007,21 @@ async function uploadPreviewsThenCsvAll() {
   if (!confirm('Đẩy CHỈ ảnh preview lên R2 cho TẤT CẢ sách trong folder, mượn link PDF của một cuốn đã upload thật, rồi xuất 2 CSV?\n\nDùng để đẩy tạm danh sách khi PDF chưa sẵn sàng.')) return;
   const ok = await uploadPreviewsToR2(true);
   if (ok) await exportCsv(true, true);   // placeholder=true: bỏ đòi PDF khi export
+}
+
+// Y chang nút trên nhưng CHỈ cho các cuốn thuộc batch hiện tại (đúng thứ tự gen).
+async function uploadPreviewsThenCsvBatch() {
+  let slugs = [];
+  try {
+    const data = await (await fetch('/api/batch/status')).json();
+    slugs = (data.books || []).map(b => b.slug);
+  } catch (err) {
+    alert('Không đọc được batch: ' + err.message); return;
+  }
+  if (!slugs.length) { alert('Chưa có batch nào.'); return; }
+  if (!confirm(`Đẩy CHỈ ảnh preview lên R2 cho ${slugs.length} cuốn trong BATCH hiện tại, mượn link PDF của một cuốn đã upload thật, rồi xuất 2 CSV?`)) return;
+  const ok = await uploadPreviewsToR2(false, slugs);
+  if (ok) await exportCsv(false, true, slugs);
 }
 
 

@@ -1,9 +1,10 @@
 book:
-  title: Spooky School Night Coloring Book – Classrooms, Costumes, Pumpkin Crafts
-    – Available as Print & Digital – For Kids
+  title: Autumn River Journey Coloring Book | Canoes, Ducks, Bridges & Riverside Leaves
+    | Bold Illustrated Pages With Large Simple Shapes | Creative Learning Gift for
+    Kids
   subtitle: ''
   audience: kids
-  cover_style: colored_pencil
+  cover_style: watercolor
   num_images: 48
   blank_verso: true
   matter_pages: true
@@ -245,36 +246,33 @@ prompts:
     ART STYLE: {style}
 
 
-    Draw ONLY the illustration and the title - 100% original artwork with generic
-    characters only, no copyrighted or trademarked franchise designs. No border or
-    frame, no guide/crop marks, no barcode, ISBN, price, logo, author name, watermark,
-    or any words other than "{title}".
+    The ONLY text anywhere on this cover is the title "{title}" - every other part
+    of the surface is pure painted illustration. The artwork continues cleanly to
+    all four edges and into every corner, filling the whole cover as one uninterrupted
+    scene. 100% original artwork with generic characters only, no copyrighted or trademarked
+    franchise designs.
 
 
     Vertical portrait orientation, aspect ratio 8.625:11.25, maximum resolution.'
   nudge: 'Generate the image now. Output only the image itself, with no explanation
     and no text in your reply. '
-  back_cover: 'THIS IS THE BACK COVER (REAR COVER OF THE BOOK).
+  back_cover: 'This is a second full-page illustration - a companion scene that pairs
+    with the attached picture.
 
 
-    The FRONT COVER image is ATTACHED to this message. Study the attached front cover
-    carefully and produce a BACK COVER that is a seamless matching pair to it - same
-    world, same characters, same art style and colour palette.
+    The companion image is ATTACHED to this message. Study the attached illustration
+    carefully and produce a matching partner scene - same world, same characters,
+    same art style and colour palette, so the two form a seamless set.
 
 
-    Generate the matching BACK COVER for the {audience_adj} coloring book.
+    Generate the matching companion illustration for the {audience_adj} coloring book.
 
 
-    CRITICAL RULE - ABSOLUTELY NO TEXT: this BACK COVER must contain ZERO words, ZERO
-
-    letters, ZERO numbers and ZERO headings. Do NOT repeat the book title. Do NOT
-    draw a
-
-    barcode, an ISBN, a price box, a publisher logo, an author name, a watermark,
-    a label
-
-    or any annotation. 100% original artwork only, no copyrighted or trademarked characters,
-    nothing else.
+    PURE WORDLESS ILLUSTRATION: this is a picture only, exactly like an interior illustration
+    page in a picture book. The entire surface is painted scenery and characters,
+    edge to edge and corner to corner, continuous artwork everywhere including along
+    the bottom edge and in all four corners. 100% original artwork only, generic characters
+    only, no copyrighted or trademarked characters.
 
 
     MATCHING ART STYLE & COLOUR: MUST use EXACTLY the same art style, colour palette
@@ -389,7 +387,17 @@ prompts:
       Render these 4 ATTACHED black-and-white line-art drawings clearly inside the
       2x2 grid layout, one attached page per grid slot with 100% exact visual fidelity.
       MANDATORY REQUIREMENT: Render the crisp solid black rectangular border frame
-      box enclosing each of the 4 page illustrations. Square 1:1 aspect ratio.'
+      box enclosing EACH of the 4 individual page illustrations (four separate frames,
+      one per page - this frame belongs to each page only, NOT around the whole photo).
+      FILL THE ENTIRE FRAME: the bright wooden surface is the background and it must
+      extend all the way to every edge, corner to corner, bleeding off all four sides
+      of the image. The four pages and the colored pencils sit ON TOP of that wood
+      and reach close to the edges so the composition fills the whole square. STRICTLY
+      NO OUTER WHITE BORDER: do not add any plain white margin, white matte, white
+      padding band, white passe-partout, or any solid border strip around the outside
+      of the photograph - the wooden scene itself is the only thing touching the image
+      edges, with zero blank frame around it. Square 1:1 aspect ratio, full-bleed
+      edge-to-edge photograph.'
     preview_5: 'Generate a warm aesthetic lifestyle photograph featuring a physical
       paperback coloring book on a cozy wooden desk next to green house plants, watercolor
       pencils, and soft sunlight. I have ATTACHED the exact image file of the FRONT
@@ -399,54 +407,66 @@ prompts:
       the book cover. Keep the cover design identical to the attached image. Square
       1:1 aspect ratio.'
 subjects:
-- A friendly ghost sits at a wooden school desk holding a pencil.
-- A cheerful little skeleton raises its hand to answer a question.
-- A small vampire bat wearing glasses reads an open textbook.
-- A grinning Jack-o'-lantern rests on top of a stack of school books.
-- A cute black cat wearing a witch hat sits on a teacher's desk.
-- A friendly monster paints a picture on an easel in art class.
-- A school locker is decorated with dangling paper bats and cobwebs.
-- A smiling scarecrow sits on a bench in the school playground.
-- A tiny ghost carries a miniature backpack filled with notebooks.
-- A friendly mummy and a small goblin share a box of crayons.
-- A smiling witch's hat rests on a wooden school chair.
-- A plump pumpkin wears a pair of round student glasses.
-- Two little ghosts play with building blocks on the classroom floor.
-- A friendly spider hangs from a classroom ceiling light by a thick thread.
-- A small alien wearing a party hat sits at a science lab desk.
-- A cute dragon uses its tail to hold a paint brush.
-- A friendly skeleton puts its books inside a school locker.
-- A spooky school bus with bat-wing windows drives down the road.
-- A fluffy owl wearing a graduation cap sits on a chalkboard ledge.
-- A little pumpkin character glues googly eyes onto a craft project.
-- A friendly ghost paints a smiling face on a round pumpkin.
-- A small monster holds an apple out for its teacher.
-- A smiling crescent moon looks down through a classroom window.
-- A jar of glowing fireflies sits next to a stack of lined paper.
-- A friendly mummy student raises both hands in excitement.
-- A cute little scarecrow holds a sign that says welcome.
-- A chalkboard features a large, friendly drawing of a smiling ghost.
-- A witch's broom leans neatly against a classroom bookshelf.
-- A pair of rubber boots splashed with orange paint sit by the door.
-- A friendly green goblin organizes colored pencils in a cup.
-- A little ghost wearing a backpack walks down a hallway.
-- A pumpkin wearing a bow tie sits proudly on a desk.
-- A friendly skeleton draws a star on a chalkboard.
-- A small bat hangs upside down from a tree branch outside the window.
-- A cute dragon roasts a marshmallow over a small classroom candle.
-- A friendly monster reads a storybook to three tiny ghosts.
-- A school lunch tray holds a sandwich cut like a bat and an orange.
-- A cheerful scarecrow waves hello next to a patch of pumpkins.
-- A friendly ghost holds a magnifying glass over a science book.
-- A small spider spins a web in the corner of a chalkboard.
-- A cute robot wears a spooky paper mask on its head.
-- A friendly witch stirs a cauldron filled with colorful school glue.
-- A little pumpkin character wears a tiny backpack to school.
-- A friendly skeleton points to a map of the world with a ruler.
-- A cute black cat sleeps peacefully on a pile of homework.
-- A friendly monster cuts shapes out of orange construction paper.
-- A tall stack of spooky storybooks rests on a reading rug.
-- A friendly ghost holds a glowing star-shaped lantern in the dark.
+- A friendly beaver builds a stick lodge near a calm riverbank covered in fallen maple
+  leaves.
+- A wooden canoe floats gently beside a tall cattail patch as two mallard ducks swim
+  by.
+- A little red squirrel sits on a mossy riverside rock holding a large smooth acorn.
+- A classic stone arch bridge crosses over clear water dotted with drifting autumn
+  leaves.
+- A mother duck leads five small fluffy ducklings under an overhanging weeping willow
+  tree.
+- A bright red canoe rests half-pulled onto a sandy shore near three round pumpkins.
+- A curious river otter pokes its head out of the gentle ripples near a cluster of
+  reeds.
+- A child wearing a cozy beanie paddles a yellow kayak past floating oak leaves.
+- A wooden paddle leans against a rustic riverside dock where a sleepy frog sits.
+- A family of brown hedgehogs gathers fallen orange leaves beneath a riverside apple
+  tree.
+- A gentle wooden waterwheel turns quietly next to a patch of wild river grasses.
+- Two toy sailboats float down the gentle current surrounded by swirling golden foliage.
+- A friendly black bear cub splashes playfully in the shallow edge of a pebble-lined
+  stream.
+- A pair of warm knitted mittens and a mug rest on a wide riverside tree stump.
+- A small striped chipmunk peeks out from inside a hollow riverside birch log.
+- A blue heron stands peacefully on one leg on a smooth river boulder.
+- A red-and-white striped buoy bobs in the gentle water beside floating yellow leaves.
+- A wooden covered bridge stretches across the river with rolling autumn hills behind
+  it.
+- A curious deer drinks cool water from the riverbank beneath a giant elm tree.
+- A pair of rubber rain boots sits beside a puddle full of floating star-shaped leaves.
+- A happy green turtle sunbathes on a partially submerged river log as leaves drift
+  past.
+- A small camp tent is pitched on the grass near a winding river at sunset.
+- Two floating autumn leaves carry little ladybugs like tiny river rafts.
+- A rustic wooden picnic table beside the river holds a basket of fresh red apples.
+- A gentle raccoon washes an acorn in the shallow river water beside flat stepping
+  stones.
+- A wooden footbridge with low railings leads across a narrow forest brook.
+- A yellow rowboat tied to a sturdy wooden post sways gently in the autumn breeze.
+- A family of Canadian geese glides peacefully in a neat line across the wide river.
+- An owl sits on a wide oak branch overlooking the calm river and floating leaves.
+- A playful red fox pup sits near riverside ferns watching water striders skim the
+  surface.
+- A little boy stands on a wooden pier holding a simple bamboo fishing pole.
+- A wheelbarrow full of round pumpkins sits parked near the riverbank pathway.
+- A stack of flat skipping stones rests on a gravel riverbed beside clear ripples.
+- A gentle mother moose and her calf wade through shallow river reeds bordered by
+  birches.
+- A sturdy rope swing hangs from a giant branch over a calm river swimming hole.
+- A wooden bench overlooks a quiet bend in the river lined with colorful maple trees.
+- A wide flat raft made of lashed wooden logs drifts slowly through floating leaves.
+- A pair of soft wool socks dry on a riverside clothesline strung between two trees.
+- A little girl throws a bright yellow leaf into the river from a low wooden dock.
+- A cozy riverside cabin with a smoking stone chimney sits behind golden foliage.
+- A plump badger waddles across stepping stones to cross a shallow woodland brook.
+- A paper boat sails smoothly down a calm stream bordered by rounded river stones.
+- A wooden rowboat rests upside down on the grassy shore beside scattered pinecones.
+- A dragonfly hovers over a floating water lily pad as autumn leaves drift by.
+- A friendly dog in a life vest sits happily at the front of a green canoe.
+- A small flock of migrating birds flies in a V-shape over a peaceful winding river.
+- A bundle of cinnamon sticks and dry leaves sits on a rustic bench by the water.
+- A lantern glows warmly on a wooden dock post as twilight falls over the autumn river.
 cover_text:
   back_blurb: '
 
@@ -461,7 +481,7 @@ api:
   - 2
   - 5
 browser:
-  headless: true
+  headless: false
   gemini_url: https://gemini.google.com/app
   generation_timeout: 120
   recycle_tab_every: 1
@@ -473,7 +493,7 @@ browser:
   - 7
   typing_delay_ms: 1
   max_retries: 3
-  model_hint: ''
+  model_hint: 3.8 Flash, Tư duy mở rộng
   profiles:
   - ./.chrome-account2
   - ./.chrome-acc3
@@ -486,4 +506,4 @@ paths:
   processed_dir: output/02_processed
   pdf_dir: output/03_pdf
   state_file: output/state.json
-_book: spooky-school-night-coloring-book-classrooms-costumes-pumpki
+_book: autumn-river-journey-coloring-book-canoes-ducks-bridges-rive

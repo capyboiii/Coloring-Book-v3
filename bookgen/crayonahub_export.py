@@ -4,7 +4,7 @@ KHÁC shopify_export.py: đây là schema riêng của crayonahub, 25 cột, và
 cuốn bán DƯỚI DẠNG HYBRID - một sản phẩm gánh cả bản in lẫn bản PDF:
 
     Option1 Pages          : 24 / 48 Coloring Pages
-    Option2 Choose format  : Printed / Digital (PDF)
+    Option2 Choose format  : Printed / Printable
     -> 4 biến thể trên 1 trang bán hàng
 
 Sàn phân biệt in hay digital KHÔNG bằng cột "Is Digital" (đó chỉ là nhãn cấp
@@ -42,7 +42,7 @@ COLUMNS = [
 OPT1_NAME = "Pages"
 OPT2_NAME = "Choose your format"
 FMT_PRINT = "Printed"
-FMT_DIGITAL = "Digital (PDF)"
+FMT_DIGITAL = "Printable"
 
 # Danh mục: chuỗi NÀY đã được sàn chấp nhận thật (import xong sản phẩm trả về
 # category_paths = ["Coloring Books & Pads"]). Đừng đổi sang chuỗi taxonomy

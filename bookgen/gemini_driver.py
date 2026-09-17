@@ -137,6 +137,25 @@ SELECTORS = {
         'button[aria-label*="Cuộc trò chuyện mới" i]',
         'a[aria-label*="New chat" i]',
     ],
+    # Nút mở menu chọn model (hiển thị nhãn model hiện tại, ví dụ "Flash Mở rộng").
+    # Google đổi DOM luôn -> để nhiều ứng viên, cái cuối bắt theo chữ trên nút.
+    "model_switch": [
+        'button[data-test-id="bard-mode-menu-button"]',
+        'button[data-test-id="mode-menu-button"]',
+        'bard-mode-switcher button',
+        'button.gds-mode-switch-button',
+        '.gds-mode-switch button',
+        'button[aria-label*="mô hình" i]',
+        'button[aria-label*="model" i]',
+        'button[mattooltip*="model" i]',
+    ],
+    # Khung menu bật ra sau khi bấm model_switch. Mục bên trong tìm theo CHỮ.
+    "model_menu": [
+        '.cdk-overlay-pane [role="menu"]',
+        '.mat-mdc-menu-panel',
+        '[role="menu"]',
+        '.cdk-overlay-pane',
+    ],
 }
 
 
@@ -1072,20 +1091,45 @@ class GeminiDriver:
         return ""
 
 
+# Câu trả lời rác của Gemini (lỗi, nhãn UI, placeholder) - không phải cảnh vẽ.
+_BAD_SUBJECT = re.compile(
+    r"something went wrong|try your request again|try again|hard time|"
+    r"gemini (?:đã nói|said)|^sorry|i can'?t|i'?m (?:unable|not able)|"
+    r"scene number \d+|^```|^json$|"
+    # Nhãn của model "tư duy": tiêu đề bước suy nghĩ lọt vào response.
+    r"show thinking|hide thinking|hiện (?:quá trình )?suy nghĩ|ẩn suy nghĩ|"
+    r"^(?:considering|analyzing|analysing|brainstorming|refining|finalizing|"
+    r"crafting|generating|developing|defining|formulating|reviewing|drafting)\b",
+    re.I)
+
+
+def is_bad_subject(s: str) -> bool:
+    s = (s or "").strip()
+    # Cảnh vẽ là một câu mô tả; tiêu đề suy nghĩ thường chỉ 2-3 từ.
+    return (len(s) <= 8 or len(s) >= 300 or len(s.split()) < 4
+            or bool(_BAD_SUBJECT.search(s)))
+
+
 def parse_subject_list(raw: str, want: int) -> list[str]:
-    """Bóc danh sách chủ đề từ câu trả lời text của Gemini."""
+    """Bóc danh sách chủ đề từ câu trả lời text của Gemini (đã lọc rác)."""
+    raw = raw or ""
+    items: list[str] = []
     # thử JSON trước
     m = re.search(r"\[.*\]", raw, re.S)
     if m:
         try:
-            items = json.loads(m.group(0))
-            if isinstance(items, list):
-                return [str(x).strip() for x in items][:want]
+            data = json.loads(m.group(0))
+            if isinstance(data, list):
+                items = [str(x).strip() for x in data]
         except Exception:
             pass
-    lines = []
-    for line in raw.splitlines():
-        line = re.sub(r"^\s*(?:\d+[.)]|[-*•])\s*", "", line).strip().strip('"')
-        if 8 < len(line) < 200:
-            lines.append(line)
-    return lines[:want]
+    if not items:
+        for line in raw.splitlines():
+            items.append(re.sub(r"^\s*(?:\d+[.)]|[-*•])\s*", "", line).strip().strip('",'))
+    out, seen = [], set()
+    for s in items:
+        if is_bad_subject(s) or s.lower() in seen:
+            continue
+        seen.add(s.lower())
+        out.append(s)
+    return out[:want]
